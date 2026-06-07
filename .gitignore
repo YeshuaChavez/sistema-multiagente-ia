@@ -1,0 +1,17 @@
+# Ignorar datasets masivos
+Base de Datos/Temporal_extract_V1_3.csv
+
+# Ignorar documentos Word
+*.docx
+
+# Ignorar caches de compilacion y temporales
+__pycache__/
+*.pyc
+temp_skills/
+.gemini/
+.system_generated/
+
+# Ignorar archivos del sistema operativo
+Thumbs.db
+Desktop.ini
+.DS_Store
