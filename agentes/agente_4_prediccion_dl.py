@@ -4,8 +4,8 @@ SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 4: Predicción Deep Learning
 --------------------------------------------------
 Responsabilidad: Modelamiento temporal y espacial mediante una arquitectura
-de Red Neuronal LSTM (Long Short-Term Memory) en PyTorch.
-Procesa secuencias temporales tridimensionales con dependencias de vecindad geográfica.
+de Red Neuronal Multi-Layer Perceptron (MLP) en PyTorch.
+Procesa el vector de características enriquecido en memoria.
 """
 
 import os
@@ -29,65 +29,26 @@ if sys.platform.startswith('win'):
 torch.manual_seed(42)
 np.random.seed(42)
 
-class DengueLSTMModel(nn.Module):
+class DengueMLPModel(nn.Module):
     """
-    Arquitectura de Red Neuronal LSTM + Capas Densas para Regresión.
-    Procesa entradas secuenciales (clima + incidencia) e integra covariables estáticas.
+    Arquitectura de Red Neuronal Multi-Layer Perceptron (MLP) para regresión.
     """
-    def __init__(self, seq_features=6, hidden_dim=32, static_features=5, output_dim=1):
-        super(DengueLSTMModel, self).__init__()
-        self.lstm = nn.LSTM(input_size=seq_features, hidden_size=hidden_dim, num_layers=1, batch_first=True)
+    def __init__(self, input_dim=23, output_dim=1):
+        super(DengueMLPModel, self).__init__()
         self.fc = nn.Sequential(
-            nn.Linear(hidden_dim + static_features, 16),
+            nn.Linear(input_dim, 64),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(32, 16),
             nn.ReLU(),
             nn.Linear(16, output_dim)
         )
         
-    def forward(self, seq_x, static_x):
-        # seq_x: [batch, sequence_length, seq_features]
-        out, (hn, cn) = self.lstm(seq_x)
-        # Tomar la salida del último paso temporal de la secuencia
-        last_hidden = out[:, -1, :]
-        # Concatenar con variables estáticas del mes objetivo
-        x_concat = torch.cat([last_hidden, static_x], dim=1)
-        pred = self.fc(x_concat)
-        return pred
-
-def preparar_secuencias(X_df):
-    """
-    Construye la secuencia tridimensional (N, seq_len=3, seq_features=6)
-    y el vector de variables estáticas actuales (N, static_features=5) a partir de X_df.
-    """
-    N = len(X_df)
-    seq_x = np.zeros((N, 3, 6))
-    
-    # Lag 3 (hace 3 meses)
-    seq_x[:, 0, 0] = X_df['tmax_lag3']
-    seq_x[:, 0, 1] = X_df['tmin_lag3']
-    seq_x[:, 0, 2] = X_df['precipitacion_lag3']
-    seq_x[:, 0, 3] = X_df['humedad_lag3']
-    seq_x[:, 0, 4] = X_df['incidencia_lag3']
-    seq_x[:, 0, 5] = X_df['incidencia_vecinos_lag3']
-    
-    # Lag 2 (hace 2 meses)
-    seq_x[:, 1, 0] = X_df['tmax_lag2']
-    seq_x[:, 1, 1] = X_df['tmin_lag2']
-    seq_x[:, 1, 2] = X_df['precipitacion_lag2']
-    seq_x[:, 1, 3] = X_df['humedad_lag2']
-    seq_x[:, 1, 4] = X_df['incidencia_lag2']
-    seq_x[:, 1, 5] = X_df['incidencia_vecinos_lag2']
-    
-    # Lag 1 (hace 1 mes)
-    seq_x[:, 2, 0] = X_df['tmax_lag1']
-    seq_x[:, 2, 1] = X_df['tmin_lag1']
-    seq_x[:, 2, 2] = X_df['precipitacion_lag1']
-    seq_x[:, 2, 3] = X_df['humedad_lag1']
-    seq_x[:, 2, 4] = X_df['incidencia_lag1']
-    seq_x[:, 2, 5] = X_df['incidencia_vecinos_lag1']
-    
-    # Variables estáticas/actuales del mes objetivo
-    static_x = X_df[['agua_basica', 'tmax_promedio', 'tmin_promedio', 'precipitacion', 'humedad_promedio']].values
-    return torch.tensor(seq_x, dtype=torch.float32), torch.tensor(static_x, dtype=torch.float32)
+    def forward(self, x):
+        return self.fc(x)
 
 class AgentePrediccionDL:
     def __init__(self, base_dir=None):
@@ -207,23 +168,26 @@ class AgentePrediccionDL:
         
         return df
 
-    def entrenar_modelo_completo(self, seq_train, static_train, y_train_t, epochs=100, lr=0.005, batch_size=256):
+    def entrenar_modelo_completo(self, X_train, y_train, epochs=100, lr=0.005, batch_size=256):
         """
-        Entrena el modelo LSTM de PyTorch utilizando mini-batches (DataLoader).
+        Entrena el modelo MLP de PyTorch utilizando mini-batches (DataLoader).
         """
-        model = DengueLSTMModel()
+        X_train_t = torch.tensor(X_train.values, dtype=torch.float32)
+        y_train_t = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
+        
+        model = DengueMLPModel(input_dim=X_train.shape[1])
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
         
-        dataset = TensorDataset(seq_train, static_train, y_train_t)
+        dataset = TensorDataset(X_train_t, y_train_t)
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         
         model.train()
         for epoch in range(epochs):
-            for seq_b, static_b, y_b in loader:
+            for bx, by in loader:
                 optimizer.zero_grad()
-                preds = model(seq_b, static_b)
-                loss = criterion(preds, y_b)
+                preds = model(bx)
+                loss = criterion(preds, by)
                 loss.backward()
                 optimizer.step()
             
@@ -232,7 +196,7 @@ class AgentePrediccionDL:
     def entrenar_modelo(self):
         """
         Carga el dataset mensual, realiza la partición cronológica (2014-2020 / 2021-2022),
-        calcula rezagos dinámicamente y entrena el modelo LSTM en PyTorch.
+        calcula rezagos dinámicamente y entrena el modelo MLP en PyTorch.
         """
         print("[Agente 4] Cargando dataset maestro mensual consolidado...")
         if not os.path.exists(self.dataset_path):
@@ -248,7 +212,7 @@ class AgentePrediccionDL:
         COLS_FEAT = [c for c in df.columns if c not in COLS_EXCLUIR]
         
         # 2. Partición Cronológica
-        print("   [DL/LSTM] Particionando datos: Entrenamiento (2014-2020) | Prueba (2021-2022)")
+        print("   [DL/MLP] Particionando datos: Entrenamiento (2014-2020) | Prueba (2021-2022)")
         df_train_raw = df[df['ano'] <= 2020].copy()
         df_test_raw = df[df['ano'] >= 2021].copy()
         
@@ -266,30 +230,25 @@ class AgentePrediccionDL:
         X_train_esc = pd.DataFrame(escalador.fit_transform(X_train_imp), columns=COLS_FEAT)
         X_test_esc = pd.DataFrame(escalador.transform(X_test_imp), columns=COLS_FEAT)
         
-        # Generar secuencias 3D para la LSTM
-        seq_train, static_train = preparar_secuencias(X_train_esc)
-        seq_test, static_test = preparar_secuencias(X_test_esc)
-        y_train_t = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
-        
         # 4. Validación Cruzada K-Fold (K=5) sobre el bloque de entrenamiento (2014-2020)
-        print("   [DL/LSTM] Iniciando validación cruzada K-Fold (K=5) en PyTorch...")
+        print("   [DL/MLP] Iniciando validación cruzada K-Fold (K=5) en PyTorch...")
         kfold = KFold(n_splits=5, shuffle=True, random_state=self.semilla)
         
         cv_mae_list, cv_rmse_list, cv_r2_list = [], [], []
         
         for fold, (train_idx, val_idx) in enumerate(kfold.split(X_train_esc)):
             # Splits del Fold
-            s_tr, st_tr = seq_train[train_idx], static_train[train_idx]
-            s_val, st_val = seq_train[val_idx], static_train[val_idx]
-            y_tr, y_val = y_train_t[train_idx], y_train.iloc[val_idx]
+            X_tr, X_val = X_train_esc.iloc[train_idx], X_train_esc.iloc[val_idx]
+            y_tr, y_val = y_train.iloc[train_idx], y_train.iloc[val_idx]
             
             # Entrenar modelo en el Fold (25 epochs para CV)
-            m_fold = self.entrenar_modelo_completo(s_tr, st_tr, y_tr, epochs=25, lr=0.005, batch_size=256)
+            m_fold = self.entrenar_modelo_completo(X_tr, y_tr, epochs=25, lr=0.005, batch_size=256)
             
             # Evaluar en Validación
             m_fold.eval()
             with torch.no_grad():
-                preds_val = m_fold(s_val, st_val).numpy().flatten()
+                val_tensor = torch.tensor(X_val.values, dtype=torch.float32)
+                preds_val = m_fold(val_tensor).numpy().flatten()
                 preds_val = np.clip(preds_val, 0.0, None)
                 
             cv_mae_list.append(mean_absolute_error(y_val, preds_val))
@@ -299,29 +258,30 @@ class AgentePrediccionDL:
         cv_mae = np.mean(cv_mae_list)
         cv_rmse = np.mean(cv_rmse_list)
         cv_r2 = np.mean(cv_r2_list)
-        print(f"   [DL/LSTM] Resultados CV (Train): MAE: {cv_mae:.4f} | RMSE: {cv_rmse:.4f} | R²: {cv_r2*100:.2f}%")
+        print(f"   [DL/MLP] Resultados CV (Train): MAE: {cv_mae:.4f} | RMSE: {cv_rmse:.4f} | R²: {cv_r2*100:.2f}%")
         
         # 5. Entrenamiento final sobre el bloque de Entrenamiento completo (2014-2020)
-        print("   [DL/LSTM] Entrenando modelo final LSTM en todo el Train Set...")
-        modelo_lstm = self.entrenar_modelo_completo(seq_train, static_train, y_train_t, epochs=100, lr=0.005, batch_size=256)
+        print("   [DL/MLP] Entrenando modelo final MLP en todo el Train Set...")
+        modelo_mlp = self.entrenar_modelo_completo(X_train_esc, y_train, epochs=100, lr=0.005, batch_size=256)
         
         # 6. Proyección y Evaluación sobre el Conjunto de Prueba Independiente (2021-2022)
-        print("   [DL/LSTM] Evaluando LSTM sobre Test Set (2021-2022)...")
-        modelo_lstm.eval()
+        print("   [DL/MLP] Evaluando MLP sobre Test Set (2021-2022)...")
+        modelo_mlp.eval()
         with torch.no_grad():
-            preds_test = modelo_lstm(seq_test, static_test).numpy().flatten()
-            preds_test = np.clip(preds_test, 0.0, None)
+            test_tensor = torch.tensor(X_test_esc.values, dtype=torch.float32)
+            y_pred = modelo_mlp(test_tensor).numpy().flatten()
+            y_pred = np.clip(y_pred, 0.0, None)
             
-        test_mae = mean_absolute_error(y_test, preds_test)
-        test_rmse = np.sqrt(mean_squared_error(y_test, preds_test))
-        test_r2 = r2_score(y_test, preds_test)
-        print(f"   [DL/LSTM] Resultados Test (21-22): MAE: {test_mae:.4f} | RMSE: {test_rmse:.4f} | R²: {test_r2*100:.2f}%")
+        test_mae = mean_absolute_error(y_test, y_pred)
+        test_rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        test_r2 = r2_score(y_test, y_pred)
+        print(f"   [DL/MLP] Resultados Test (21-22): MAE: {test_mae:.4f} | RMSE: {test_rmse:.4f} | R²: {test_r2*100:.2f}%")
         
-        print("SUCCESS: [Agente 4] Inferencia neuronal profunda LSTM completada.")
+        print("SUCCESS: [Agente 4] Inferencia neuronal profunda MLP completada.")
         print("="*70)
         
         return {
-            "modelo": modelo_lstm,
+            "modelo": modelo_mlp,
             "escalador": escalador,
             "imputador": imputador,
             "cols_feat": COLS_FEAT,
@@ -333,8 +293,7 @@ class AgentePrediccionDL:
             "test_mae": test_mae,
             "test_rmse": test_rmse,
             "test_r2": test_r2,
-            "y_pred": preds_test,
-            "preparar_secuencias_fn": preparar_secuencias
+            "y_pred": y_pred
         }
 
 if __name__ == "__main__":
