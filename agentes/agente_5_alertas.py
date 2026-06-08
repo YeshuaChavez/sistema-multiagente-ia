@@ -3,7 +3,7 @@
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 5: Alertas (Interfaz de Síntesis)
 --------------------------------------------------
-Responsabilidad: Unifica las predicciones del Agente 3 (Gradient Boosting) y el Agente 4 (MLP Neural Network)
+Responsabilidad: Unifica las predicciones del Agente 3 (Gradient Boosting) y el Agente 4 (LSTM Neural Network)
 mediante un modelo de Ensemble, clasifica el escenario territorial en niveles de riesgo
 y aloja la interfaz gráfica (GUI Tkinter) interactiva y de reporte técnico.
 """
@@ -89,7 +89,7 @@ class AgenteAlertasGUI:
         self.y_pred_ml = self.res_ml['y_pred']
         self.y_pred_dl = self.res_dl['y_pred']
         
-        # Ensemble: Promedio de Gradient Boosting y MLP
+        # Ensemble: Promedio de Gradient Boosting y LSTM
         self.y_pred_ens = (self.y_pred_ml + self.y_pred_dl) / 2.0
         
         # Calcular métricas del Ensemble
@@ -110,7 +110,7 @@ class AgenteAlertasGUI:
         self.slider_ranges = {}
         self.colores_mpl = {
             "Gradient Boosting": "#ea580c", 
-            "MLP Neural Network": "#8b5cf6", 
+            "LSTM Neural Network": "#8b5cf6", 
             "Ensemble": "#10b981",
             "Ridge": "#2563eb"  # Usado para visualizaciones adicionales
         }
@@ -189,7 +189,7 @@ class AgenteAlertasGUI:
         kpis_frame = ttk.Frame(main_frame)
         kpis_frame.pack(fill="x", pady=(0, 15))
 
-        mejor_nombre = "MLP Neural Network" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "Gradient Boosting"
+        mejor_nombre = "LSTM Neural Network" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "Gradient Boosting"
         mejor_r2 = max(self.res_dl['test_r2'], self.res_ml['test_r2'])
 
         kpis = [
@@ -230,9 +230,9 @@ class AgenteAlertasGUI:
             f"{self.res_ml['test_mae']:.4f}", f"{self.res_ml['test_rmse']:.4f}", f"{self.res_ml['test_r2']*100:.2f}%"
         ))
         
-        # Fila 2: MLP Neural Network (Agente 4)
+        # Fila 2: LSTM Neural Network (Agente 4)
         tree_reg.insert("", "end", values=(
-            "Agente 4: MLP Neural Network", "Deep Learning (Neuronal Tabular)",
+            "Agente 4: LSTM Neural Network", "Deep Learning (Recurrente Temporal)",
             f"{self.res_dl['cv_mae']:.4f}", f"{self.res_dl['cv_rmse']:.4f}", f"{self.res_dl['cv_r2']*100:.2f}%",
             f"{self.res_dl['test_mae']:.4f}", f"{self.res_dl['test_rmse']:.4f}", f"{self.res_dl['test_r2']*100:.2f}%"
         ))
@@ -254,8 +254,8 @@ class AgenteAlertasGUI:
             "del modelo en el tiempo sin riesgo de fuga de información temporal.\n\n"
             "Observación Clave: Los modelos predicen directamente la tasa de incidencia de dengue (casos por 100k hab.). Durante El Niño (2021-2022), "
             "la incidencia se disparó de forma anómala. Los modelos basados en árboles (Gradient Boosting) tienen un "
-            "'límite de extrapolación' intrínseco, mientras que la red MLP Neural Network regularizada con Dropout "
-            "captura interacciones no lineales de forma robusta en el tiempo."
+            "'límite de extrapolación' intrínseco, mientras que la red LSTM Neural Network "
+            "captura dependencias secuenciales no lineales a largo plazo integrando conectividad espacial vecinal."
         )
         tk.Label(info_frame, text=info_txt, font=("Segoe UI", 9), fg="#1e40af", bg="#eff6ff", justify="left", wraplength=1200).pack(padx=12, pady=8)
 
@@ -372,7 +372,7 @@ class AgenteAlertasGUI:
         self.cards = {}
         model_info = [
             ("Gradient Boosting", "🟠 Gradient Boosting (Agente 3)", "#fff7ed", "#ea580c"),
-            ("MLP Neural Network", "🟣 MLP PyTorch (Agente 4)", "#f5f3ff", "#8b5cf6"),
+            ("LSTM Neural Network", "🟣 LSTM PyTorch (Agente 4)", "#f5f3ff", "#8b5cf6"),
         ]
 
         for key, title, bg_col, border_col in model_info:
@@ -480,23 +480,26 @@ class AgenteAlertasGUI:
         pred_ml = float(self.res_ml['modelo'].predict(entrada_esc_ml)[0])
         pred_ml = max(0.0, pred_ml)
         
-        # 4. Predicción MLP Neural Network
-        # Preprocesar datos usando imputador/escalador de la MLP
+        # 4. Predicción LSTM Neural Network
+        # Preprocesar datos usando imputador/escalador de la LSTM
         entrada_imp_dl = self.res_dl['imputador'].transform(entrada)
         entrada_esc_dl = self.res_dl['escalador'].transform(entrada_imp_dl)
+        df_row = pd.DataFrame(entrada_esc_dl, columns=self.COLS_FEAT)
         
-        # Evaluar MLP
+        # Convertir a formato temporal (3, 6) y static (5)
+        seq_t, static_t = self.res_dl['preparar_secuencias_fn'](df_row)
+        
+        # Evaluar LSTM
         self.res_dl['modelo'].eval()
         with torch.no_grad():
-            x_tensor = torch.tensor(entrada_esc_dl, dtype=torch.float32)
-            pred_dl = float(self.res_dl['modelo'](x_tensor).numpy()[0][0])
+            pred_dl = float(self.res_dl['modelo'](seq_t, static_t).numpy()[0][0])
         pred_dl = max(0.0, pred_dl)
 
         # 5. Ensemble (Agente 5)
         pred_ens = (pred_ml + pred_dl) / 2.0
 
         # Actualizar Tarjetas
-        preds = {"Gradient Boosting": pred_ml, "MLP Neural Network": pred_dl}
+        preds = {"Gradient Boosting": pred_ml, "LSTM Neural Network": pred_dl}
         for name, val in preds.items():
             val_lbl, risk_lbl = self.cards[name]
             val_lbl.config(text=f"{val:.4f}")
@@ -544,7 +547,7 @@ class AgenteAlertasGUI:
         
         model_preds = {
             "Gradient Boosting": self.y_pred_ml,
-            "MLP Neural Network": self.y_pred_dl,
+            "LSTM Neural Network": self.y_pred_dl,
             "Ensemble": self.y_pred_ens
         }
         
@@ -574,7 +577,7 @@ class AgenteAlertasGUI:
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
 
     def build_compare_chart(self, parent):
-        nombres = ["Gradient Boosting", "MLP Neural Network", "Ensemble"]
+        nombres = ["Gradient Boosting", "LSTM Neural Network", "Ensemble"]
         colores = [self.colores_mpl[n] for n in nombres]
         x = np.arange(len(nombres))
         w = 0.4
@@ -617,7 +620,7 @@ class AgenteAlertasGUI:
         
         model_preds = {
             "Gradient Boosting": self.y_pred_ml,
-            "MLP Neural Network": self.y_pred_dl,
+            "LSTM Neural Network": self.y_pred_dl,
             "Ensemble": self.y_pred_ens
         }
         
@@ -691,9 +694,9 @@ class AgenteAlertasGUI:
             "   * Entrena el algoritmo de ensamble Gradient Boosting Regressor.\n"
             "   * Integra una capa nativa de explicabilidad algorítmica (XAI) mediante el cálculo de valores SHAP (Shapley Additive exPlanations).\n\n"
             "4. AGENTE DE PREDICCIÓN DEEP LEARNING (Agente 4):\n"
-            "   * Implementa una red neuronal profunda MLP (Multi-Layer Perceptron) en PyTorch para asimilar dinámicas secuenciales y espaciales a escala subnacional.\n\n"
+            "   * Implementa una red neuronal recurrente LSTM (Long Short-Term Memory) en PyTorch para asimilar dinámicas secuenciales y espaciales (vecindad) a escala subnacional.\n\n"
             "5. AGENTE DE ALERTAS Y SÍNTESIS (Agente 5):\n"
-            "   * Unifica los pronósticos de Gradient Boosting y MLP en una salida robusta promedio (Ensemble).\n"
+            "   * Unifica los pronósticos de Gradient Boosting y LSTM en una salida robusta promedio (Ensemble).\n"
             "   * Clasifica los escenarios epidemiológicos territoriales en 4 niveles de riesgo (Normal, Vigilancia, Alerta, Epidemia) y provee "
             "la consola interactiva."
         )
