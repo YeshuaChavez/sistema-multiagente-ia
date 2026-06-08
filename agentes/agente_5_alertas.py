@@ -3,7 +3,7 @@
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 5: Alertas (Interfaz de Síntesis)
 --------------------------------------------------
-Responsabilidad: Unifica las predicciones del Agente 3 (XGBoost) y el Agente 4 (LSTM)
+Responsabilidad: Unifica las predicciones del Agente 3 (Gradient Boosting) y el Agente 4 (MLP Neural Network)
 mediante un modelo de Ensemble, clasifica el escenario territorial en niveles de riesgo
 y aloja la interfaz gráfica (GUI Tkinter) interactiva y de reporte técnico.
 """
@@ -52,11 +52,11 @@ def entrenar_sistema_completo():
     preprocesador = AgentePreprocesamiento()
     df_maestro = preprocesador.ejecutar_preprocesamiento(datos_crudos)
     
-    # 3. Agente 3: Predicción ML (XGBoost + SHAP)
+    # 3. Agente 3: Predicción ML (Gradient Boosting + SHAP)
     agente_ml = AgentePrediccionML()
     res_ml = agente_ml.entrenar_modelo()
     
-    # 4. Agente 4: Predicción DL (LSTM)
+    # 4. Agente 4: Predicción DL (MLP)
     agente_dl = AgentePrediccionDL()
     res_dl = agente_dl.entrenar_modelo()
     
@@ -73,7 +73,8 @@ class AgenteAlertasGUI:
         self.root.update()
         try:
             print("Iniciando orquestación de Agentes Predictivos...")
-            self.res_ml, self.res_dl, self.df = entrenar_sistema_completo()
+            self.res_ml, self.res_dl, _ = entrenar_sistema_completo()
+            self.df = self.res_ml['df']
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -88,7 +89,7 @@ class AgenteAlertasGUI:
         self.y_pred_ml = self.res_ml['y_pred']
         self.y_pred_dl = self.res_dl['y_pred']
         
-        # Ensemble: Promedio de XGBoost y LSTM
+        # Ensemble: Promedio de Gradient Boosting y MLP
         self.y_pred_ens = (self.y_pred_ml + self.y_pred_dl) / 2.0
         
         # Calcular métricas del Ensemble
@@ -108,8 +109,8 @@ class AgenteAlertasGUI:
         self.slider_labels = {}
         self.slider_ranges = {}
         self.colores_mpl = {
-            "XGBoost": "#ea580c", 
-            "LSTM": "#8b5cf6", 
+            "Gradient Boosting": "#ea580c", 
+            "MLP Neural Network": "#8b5cf6", 
             "Ensemble": "#10b981",
             "Ridge": "#2563eb"  # Usado para visualizaciones adicionales
         }
@@ -188,7 +189,7 @@ class AgenteAlertasGUI:
         kpis_frame = ttk.Frame(main_frame)
         kpis_frame.pack(fill="x", pady=(0, 15))
 
-        mejor_nombre = "LSTM" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "XGBoost"
+        mejor_nombre = "MLP Neural Network" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "Gradient Boosting"
         mejor_r2 = max(self.res_dl['test_r2'], self.res_ml['test_r2'])
 
         kpis = [
@@ -222,16 +223,16 @@ class AgenteAlertasGUI:
             tree_reg.heading(col, text=col)
             tree_reg.column(col, anchor="center", width=125)
 
-        # Fila 1: XGBoost (Agente 3)
+        # Fila 1: Gradient Boosting (Agente 3)
         tree_reg.insert("", "end", values=(
-            "Agente 3: XGBoost", "Machine Learning (Ensamble)",
+            "Agente 3: Gradient Boosting", "Machine Learning (Ensamble)",
             f"{self.res_ml['cv_mae']:.4f}", f"{self.res_ml['cv_rmse']:.4f}", f"{self.res_ml['cv_r2']*100:.2f}%",
             f"{self.res_ml['test_mae']:.4f}", f"{self.res_ml['test_rmse']:.4f}", f"{self.res_ml['test_r2']*100:.2f}%"
         ))
         
-        # Fila 2: LSTM (Agente 4)
+        # Fila 2: MLP Neural Network (Agente 4)
         tree_reg.insert("", "end", values=(
-            "Agente 4: LSTM", "Deep Learning (Recurrente)",
+            "Agente 4: MLP Neural Network", "Deep Learning (Neuronal Tabular)",
             f"{self.res_dl['cv_mae']:.4f}", f"{self.res_dl['cv_rmse']:.4f}", f"{self.res_dl['cv_r2']*100:.2f}%",
             f"{self.res_dl['test_mae']:.4f}", f"{self.res_dl['test_rmse']:.4f}", f"{self.res_dl['test_r2']*100:.2f}%"
         ))
@@ -252,9 +253,9 @@ class AgenteAlertasGUI:
             "Este sistema utiliza una partición cronológica (Entrenamiento: 2014-2020, Prueba: 2021-2022) para evaluar el desempeño "
             "del modelo en el tiempo sin riesgo de fuga de información temporal.\n\n"
             "Observación Clave: Los modelos predicen directamente la tasa de incidencia de dengue (casos por 100k hab.). Durante El Niño (2021-2022), "
-            "la incidencia se disparó de forma anómala. Los modelos de caja negra basados en árboles (Random Forest y XGBoost) tienen un "
-            "'límite de extrapolación' intrínseco, mientras que la LSTM captura las dependencias secuenciales no lineales a largo plazo, logrando "
-            "asilar la inercia temporal para una predicción robusta."
+            "la incidencia se disparó de forma anómala. Los modelos basados en árboles (Gradient Boosting) tienen un "
+            "'límite de extrapolación' intrínseco, mientras que la red MLP Neural Network regularizada con Dropout "
+            "captura interacciones no lineales de forma robusta en el tiempo."
         )
         tk.Label(info_frame, text=info_txt, font=("Segoe UI", 9), fg="#1e40af", bg="#eff6ff", justify="left", wraplength=1200).pack(padx=12, pady=8)
 
@@ -370,8 +371,8 @@ class AgenteAlertasGUI:
 
         self.cards = {}
         model_info = [
-            ("XGBoost", "🟠 XGBoost Regressor (Agente 3)", "#fff7ed", "#ea580c"),
-            ("LSTM", "🟣 LSTM PyTorch (Agente 4)", "#f5f3ff", "#8b5cf6"),
+            ("Gradient Boosting", "🟠 Gradient Boosting (Agente 3)", "#fff7ed", "#ea580c"),
+            ("MLP Neural Network", "🟣 MLP PyTorch (Agente 4)", "#f5f3ff", "#8b5cf6"),
         ]
 
         for key, title, bg_col, border_col in model_info:
@@ -479,26 +480,23 @@ class AgenteAlertasGUI:
         pred_ml = float(self.res_ml['modelo'].predict(entrada_esc_ml)[0])
         pred_ml = max(0.0, pred_ml)
         
-        # 4. Predicción LSTM
-        # Preprocesar datos usando imputador/escalador de la LSTM
+        # 4. Predicción MLP Neural Network
+        # Preprocesar datos usando imputador/escalador de la MLP
         entrada_imp_dl = self.res_dl['imputador'].transform(entrada)
         entrada_esc_dl = self.res_dl['escalador'].transform(entrada_imp_dl)
-        df_row = pd.DataFrame(entrada_esc_dl, columns=self.COLS_FEAT)
         
-        # Convertir a formato temporal (3, 5) y static (5)
-        seq_t, static_t = self.res_dl['preparar_secuencias_fn'](df_row)
-        
-        # Evaluar LSTM
+        # Evaluar MLP
         self.res_dl['modelo'].eval()
         with torch.no_grad():
-            pred_dl = float(self.res_dl['modelo'](seq_t, static_t).numpy()[0][0])
+            x_tensor = torch.tensor(entrada_esc_dl, dtype=torch.float32)
+            pred_dl = float(self.res_dl['modelo'](x_tensor).numpy()[0][0])
         pred_dl = max(0.0, pred_dl)
 
         # 5. Ensemble (Agente 5)
         pred_ens = (pred_ml + pred_dl) / 2.0
 
         # Actualizar Tarjetas
-        preds = {"XGBoost": pred_ml, "LSTM": pred_dl}
+        preds = {"Gradient Boosting": pred_ml, "MLP Neural Network": pred_dl}
         for name, val in preds.items():
             val_lbl, risk_lbl = self.cards[name]
             val_lbl.config(text=f"{val:.4f}")
@@ -545,8 +543,8 @@ class AgenteAlertasGUI:
         lim = y_test_arr.max() * 1.05
         
         model_preds = {
-            "XGBoost": self.y_pred_ml,
-            "LSTM": self.y_pred_dl,
+            "Gradient Boosting": self.y_pred_ml,
+            "MLP Neural Network": self.y_pred_dl,
             "Ensemble": self.y_pred_ens
         }
         
@@ -576,7 +574,7 @@ class AgenteAlertasGUI:
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
 
     def build_compare_chart(self, parent):
-        nombres = ["XGBoost", "LSTM", "Ensemble"]
+        nombres = ["Gradient Boosting", "MLP Neural Network", "Ensemble"]
         colores = [self.colores_mpl[n] for n in nombres]
         x = np.arange(len(nombres))
         w = 0.4
@@ -618,8 +616,8 @@ class AgenteAlertasGUI:
         y_test_arr = np.array(self.y_test)
         
         model_preds = {
-            "XGBoost": self.y_pred_ml,
-            "LSTM": self.y_pred_dl,
+            "Gradient Boosting": self.y_pred_ml,
+            "MLP Neural Network": self.y_pred_dl,
             "Ensemble": self.y_pred_ens
         }
         
@@ -690,12 +688,12 @@ class AgenteAlertasGUI:
             "   * Aplica rezagos temporales (lags 1, 2 y 3 meses) simétricos para clima e incidencia, y genera el dataset maestro "
             "'dataset_maestro_mensual_latam.csv'.\n\n"
             "3. AGENTE DE PREDICCIÓN MACHINE LEARNING (Agente 3):\n"
-            "   * Entrena el algoritmo de ensamble XGBoost Regressor.\n"
+            "   * Entrena el algoritmo de ensamble Gradient Boosting Regressor.\n"
             "   * Integra una capa nativa de explicabilidad algorítmica (XAI) mediante el cálculo de valores SHAP (Shapley Additive exPlanations).\n\n"
             "4. AGENTE DE PREDICCIÓN DEEP LEARNING (Agente 4):\n"
-            "   * Implementa una red neuronal recurrente LSTM (Long Short-Term Memory) en PyTorch para asimilar dinámicas secuenciales a escala subnacional.\n\n"
+            "   * Implementa una red neuronal profunda MLP (Multi-Layer Perceptron) en PyTorch para asimilar dinámicas secuenciales y espaciales a escala subnacional.\n\n"
             "5. AGENTE DE ALERTAS Y SÍNTESIS (Agente 5):\n"
-            "   * Unifica los pronósticos de XGBoost y LSTM en una salida robusta promedio (Ensemble).\n"
+            "   * Unifica los pronósticos de Gradient Boosting y MLP en una salida robusta promedio (Ensemble).\n"
             "   * Clasifica los escenarios epidemiológicos territoriales en 4 niveles de riesgo (Normal, Vigilancia, Alerta, Epidemia) y provee "
             "la consola interactiva."
         )

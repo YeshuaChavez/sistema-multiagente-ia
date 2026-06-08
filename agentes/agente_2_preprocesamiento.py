@@ -110,49 +110,28 @@ class AgentePreprocesamiento:
 
     def calcular_incidencia_y_rezagos(self, df_merged):
         """
-        Calcula la tasa de incidencia de dengue y estructura los rezagos simétricos (lags 1, 2 y 3).
+        Calcula la tasa de incidencia de dengue y limpia el dataset mensual.
+        En la Opción B, no precalculamos rezagos en disco.
         """
-        print("[Agente 2] Calculando tasas de incidencia y variables rezagadas simétricas (Lags 1-3)...")
+        print("[Agente 2] Calculando tasas de incidencia de dengue...")
         df_merged = df_merged.copy()
         
         # 1. Calcular incidencia normalizada por cada 100k hab.
         df_merged['incidencia_dengue'] = (df_merged['casos_dengue'] / df_merged['poblacion']) * 100000
         df_merged['incidencia_dengue'] = df_merged['incidencia_dengue'].round(4)
         
-        # 2. Ordenar cronológicamente para el cálculo de lags
-        df_merged = df_merged.sort_values(['pais', 'adm_1_name', 'ano', 'mes']).reset_index(drop=True)
-        group = df_merged.groupby(['pais', 'adm_1_name'])
+        # 2. Ordenar cronológicamente
+        df_final = df_merged.sort_values(['pais', 'adm_1_name', 'ano', 'mes']).reset_index(drop=True)
         
-        # 3. Lags climáticos simétricos (lags 1, 2, 3)
-        cols_clima = ['tmax_promedio', 'tmin_promedio', 'precipitacion', 'humedad_promedio']
-        for var in cols_clima:
-            base_name = var.split('_')[0] if 'promedio' in var else var
-            for lag in [1, 2, 3]:
-                df_merged[f"{base_name}_lag{lag}"] = group[var].shift(lag)
-                
-        # 4. Lags autorregresivos (lags 1, 2, 3)
-        for lag in [1, 2, 3]:
-            df_merged[f"incidencia_lag{lag}"] = group['incidencia_dengue'].shift(lag)
-            
-        # 5. Limpieza de filas con lags nulos (solo los primeros 3 meses de 2014)
-        print("   [Lags] Limpiando nulos iniciales de rezago temporal...")
-        cols_lags = [c for c in df_merged.columns if 'lag' in c]
-        df_merged.dropna(subset=cols_lags, inplace=True)
-        df_merged = df_merged.reset_index(drop=True)
+        # Estandarizar el esquema final de columnas (13 columnas en total)
+        final_columns = [
+            'iso_a0', 'pais', 'adm_1_name', 'ano', 'mes', 'casos_dengue', 
+            'incidencia_dengue', 'agua_basica', 'tmax_promedio', 'tmin_promedio', 
+            'precipitacion', 'humedad_promedio', 'poblacion'
+        ]
+        df_final = df_final[final_columns]
         
-        # Estandarizar el esquema final de columnas (28 columnas en total)
-        base_cols = ['iso_a0', 'pais', 'adm_1_name', 'ano', 'mes', 'casos_dengue', 'incidencia_dengue', 'agua_basica', 'tmax_promedio', 'tmin_promedio', 'precipitacion', 'humedad_promedio']
-        climate_lag_cols = []
-        for var in ['tmax', 'tmin', 'precipitacion', 'humedad']:
-            for lag in [1, 2, 3]:
-                climate_lag_cols.append(f"{var}_lag{lag}")
-        epi_lag_cols = [f"incidencia_lag{lag}" for lag in [1, 2, 3]]
-        pop_cols = ['poblacion']
-        
-        final_columns = base_cols + climate_lag_cols + epi_lag_cols + pop_cols
-        df_final = df_merged[final_columns]
-        
-        print(f"   [Lags] Procesamiento completado. Columnas finales: {len(df_final.columns)} | Registros: {df_final.shape[0]}")
+        print(f"   [Preprocesamiento] Completado. Columnas finales: {len(df_final.columns)} | Registros: {df_final.shape[0]}")
         return df_final
 
     def ejecutar_preprocesamiento(self, datos_crudos):

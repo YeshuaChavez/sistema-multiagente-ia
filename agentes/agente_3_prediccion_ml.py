@@ -17,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import KFold, cross_validate
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from xgboost import XGBRegressor
+from sklearn.ensemble import GradientBoostingRegressor
 
 class AgentePrediccionML:
     def __init__(self, base_dir=None):
@@ -30,16 +30,127 @@ class AgentePrediccionML:
         self.dataset_path = os.path.join(self.db_dir, "dataset_maestro_mensual_latam.csv")
         self.semilla = 42
 
+    def generar_lags_y_vecinos_dinamico(self, df):
+        """
+        Calcula dinámicamente en memoria los rezagos temporales y espaciales (vecinos).
+        """
+        print("   [Memoria] Calculando rezagos temporales y espaciales (Opción B)...")
+        df = df.copy()
+        
+        # 1. Rezagos temporales (lags 1, 2, 3)
+        # Asegurar orden cronológico para el shift
+        df = df.sort_values(by=['iso_a0', 'adm_1_name', 'ano', 'mes']).reset_index(drop=True)
+        group = df.groupby(['iso_a0', 'adm_1_name'])
+        
+        # Lags climáticos
+        cols_clima = ['tmax_promedio', 'tmin_promedio', 'precipitacion', 'humedad_promedio']
+        for var in cols_clima:
+            base_name = var.split('_')[0] if 'promedio' in var else var
+            for lag in [1, 2, 3]:
+                df[f"{base_name}_lag{lag}"] = group[var].shift(lag)
+                
+        # Lags autorregresivos
+        for lag in [1, 2, 3]:
+            df[f"incidencia_lag{lag}"] = group['incidencia_dengue'].shift(lag)
+            
+        # 2. Rezagos espaciales (Vecinos)
+        coords_path = os.path.join(self.db_dir, "departamentos_coordenadas.csv")
+        if os.path.exists(coords_path):
+            df_coords = pd.read_csv(coords_path)
+            df_coords['iso_a0'] = df_coords['iso_a0'].astype(str).str.strip().str.upper()
+            df_coords['adm_1_name'] = df_coords['adm_1_name'].astype(str).str.strip().str.upper()
+            
+            # Hacer nombres de departamento en df en mayúscula para la correspondencia
+            df['adm_1_name_upper'] = df['adm_1_name'].astype(str).str.strip().str.upper()
+            
+            # Diccionario de coordenadas
+            coords_dict = {(r.iso_a0, r.adm_1_name): (r.lat, r.lon) for r in df_coords.itertuples()}
+            
+            # Encontrar vecinos más cercanos (K=3) para cada departamento en su respectivo país
+            neighbors_dict = {}
+            countries = df_coords['iso_a0'].unique()
+            
+            for country in countries:
+                country_coords = df_coords[df_coords['iso_a0'] == country].copy()
+                depts = country_coords['adm_1_name'].values
+                coords_vals = country_coords[['lat', 'lon']].values
+                N = len(depts)
+                
+                for i in range(N):
+                    dept_i = depts[i]
+                    lat_i, lon_i = coords_vals[i]
+                    
+                    distances = []
+                    for j in range(N):
+                        if i == j:
+                            continue
+                        dist = np.sqrt((lat_i - coords_vals[j][0])**2 + (lon_i - coords_vals[j][1])**2)
+                        distances.append((depts[j], dist))
+                        
+                    distances.sort(key=lambda x: x[1])
+                    K = min(3, len(distances))
+                    nearest = [d[0] for d in distances[:K]]
+                    neighbors_dict[(country, dept_i)] = nearest
+            
+            # Pivot table para búsquedas rápidas de incidencia
+            lookup = {(r.iso_a0, r.adm_1_name_upper, r.ano, r.mes): r.incidencia_dengue for r in df.itertuples()}
+            
+            neighbor_inc = []
+            for row in df.itertuples():
+                key = (row.iso_a0, row.adm_1_name_upper)
+                neighbors = neighbors_dict.get(key, [])
+                
+                if not neighbors:
+                    neighbor_inc.append(row.incidencia_dengue)
+                    continue
+                    
+                vals = []
+                for n in neighbors:
+                    val = lookup.get((row.iso_a0, n, row.ano, row.mes), None)
+                    if val is not None:
+                        vals.append(val)
+                        
+                if vals:
+                    neighbor_inc.append(np.mean(vals))
+                else:
+                    neighbor_inc.append(row.incidencia_dengue)
+                    
+            df['incidencia_vecinos'] = neighbor_inc
+            
+            # Lags de incidencia de vecinos
+            group_upper = df.groupby(['iso_a0', 'adm_1_name_upper'])
+            for lag in [1, 2, 3]:
+                df[f'incidencia_vecinos_lag{lag}'] = group_upper['incidencia_vecinos'].shift(lag)
+                
+            df.drop(columns=['adm_1_name_upper', 'incidencia_vecinos'], inplace=True)
+            
+        else:
+            print("   [Advertencia] No se encontró el archivo de coordenadas. Omitiendo vecinos.")
+            # Si no hay coordenadas, creamos las columnas con 0.0 para no romper la firma
+            for lag in [1, 2, 3]:
+                df[f'incidencia_vecinos_lag{lag}'] = 0.0
+                
+        # 3. Eliminar filas con nulos introducidos por los lags
+        cols_lags = [c for c in df.columns if 'lag' in c]
+        df.dropna(subset=cols_lags, inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        
+        return df
+
     def entrenar_modelo(self):
         """
-        Carga el dataset maestro, realiza la partición cronológica (2014-2020 / 2021-2022)
-        y entrena el regresor XGBoost con validación cruzada y explicabilidad SHAP.
+        Carga el dataset maestro, calcula los lags dinámicamente,
+        realiza la partición cronológica (2014-2020 / 2021-2022)
+        y entrena el regresor Gradient Boosting con validación cruzada y explicabilidad SHAP.
         """
         print("[Agente 3] Cargando dataset maestro mensual consolidado...")
         if not os.path.exists(self.dataset_path):
             raise FileNotFoundError(f"Error: No se encontró el dataset maestro '{self.dataset_path}'.")
             
-        df = pd.read_csv(self.dataset_path)
+        df_raw = pd.read_csv(self.dataset_path)
+        
+        # Calcular lags y vecinos dinámicamente (Opción B)
+        df = self.generar_lags_y_vecinos_dinamico(df_raw)
         
         # 1. Definir exclusiones y variables predictoras
         COLS_EXCLUIR = ['iso_a0', 'pais', 'adm_1_name', 'ano', 'mes', 'casos_dengue', 'poblacion', 'incidencia_dengue']
@@ -68,13 +179,13 @@ class AgentePrediccionML:
         X_train = pd.DataFrame(escalador.fit_transform(X_train_imp), columns=COLS_FEAT)
         X_test = pd.DataFrame(escalador.transform(X_test_imp), columns=COLS_FEAT)
         
-        # 4. Sintonización y Validación Cruzada de XGBoost (K=5 Folds) en el bloque histórico (2014-2020)
-        print("   [ML] Iniciando validación cruzada K-Fold (K=5) para XGBoost...")
+        # 4. Sintonización y Validación Cruzada de Gradient Boosting (K=5 Folds) en el bloque histórico (2014-2020)
+        print("   [ML] Iniciando validación cruzada K-Fold (K=5) para Gradient Boosting...")
         kfold = KFold(n_splits=5, shuffle=True, random_state=self.semilla)
-        modelo_xgb = XGBRegressor(random_state=self.semilla, verbosity=0, eval_metric="rmse", n_jobs=-1)
+        modelo_ml = GradientBoostingRegressor(n_estimators=100, max_depth=6, random_state=self.semilla)
         
         cv = cross_validate(
-            modelo_xgb, X_train, y_train, cv=kfold,
+            modelo_ml, X_train, y_train, cv=kfold,
             scoring={"mae": "neg_mean_absolute_error", "rmse": "neg_root_mean_squared_error", "r2": "r2"},
             n_jobs=-1
         )
@@ -86,11 +197,11 @@ class AgentePrediccionML:
         
         # 5. Entrenamiento final sobre el bloque de Entrenamiento completo (2014-2020)
         print("   [ML] Entrenando modelo final en todo el Train Set...")
-        modelo_xgb.fit(X_train, y_train)
+        modelo_ml.fit(X_train, y_train)
         
         # 6. Proyección y Evaluación sobre el Conjunto de Prueba Independiente (2021-2022)
         print("   [ML] Evaluando sobre Test Set (2021-2022)...")
-        y_pred = modelo_xgb.predict(X_test)
+        y_pred = modelo_ml.predict(X_test)
         y_pred = np.clip(y_pred, 0.0, None)  # La incidencia no puede ser negativa
         
         test_mae = mean_absolute_error(y_test, y_pred)
@@ -100,12 +211,10 @@ class AgentePrediccionML:
         
         # 7. Capa de Explicabilidad (XAI) mediante Valores SHAP
         print("   [XAI/SHAP] Extrayendo valores de Shapley mediante TreeSHAP...")
-        explainer = shap.TreeExplainer(modelo_xgb)
+        explainer = shap.TreeExplainer(modelo_ml)
         # Calcular valores SHAP locales para el conjunto de prueba
         shap_vals = explainer.shap_values(X_test)
         
-        # En algunas versiones de shap, shap_values puede ser una lista o un objeto específico.
-        # Nos aseguramos de extraer el array y calcular la importancia media absoluta (global)
         if isinstance(shap_vals, list):
             shap_vals = shap_vals[0]
             
@@ -121,7 +230,7 @@ class AgentePrediccionML:
         print("="*70)
         
         return {
-            "modelo": modelo_xgb,
+            "modelo": modelo_ml,
             "escalador": escalador,
             "imputador": imputador,
             "cols_feat": COLS_FEAT,
