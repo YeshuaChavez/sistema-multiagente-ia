@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-UNMSM | Trabajo de Grado | SMA-ML/DL
+SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 3: Predicción Machine Learning
 --------------------------------------------------
 Responsabilidad: Modelamiento continuo de la incidencia de dengue mediante XGBoost,

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-UNMSM | Trabajo de Grado | SMA-ML/DL
+SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 4: Predicción Deep Learning
 --------------------------------------------------
 Responsabilidad: Modelamiento temporal de largo alcance mediante una arquitectura

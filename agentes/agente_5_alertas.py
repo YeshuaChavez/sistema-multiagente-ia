@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-UNMSM | Trabajo de Grado | SMA-ML/DL
+SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 5: Alertas (Interfaz de Síntesis)
 --------------------------------------------------
 Responsabilidad: Unifica las predicciones del Agente 3 (XGBoost) y el Agente 4 (LSTM)
@@ -65,7 +65,7 @@ def entrenar_sistema_completo():
 class AgenteAlertasGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("UNMSM - Sistema Multi-Agente SMA-ML/DL (Yeshua Chavez) - Proyecto Final")
+        self.root.title("Sistema Multi-Agente SMA-ML/DL (Yeshua Chavez)")
         self.root.geometry("1300x850")
         self.root.minsize(1100, 780)
         
@@ -149,7 +149,7 @@ class AgenteAlertasGUI:
                              font=("Segoe UI", 15, "bold"), fg="white", bg="#1e3a5f")
         title_lbl.pack(anchor="w", padx=20, pady=(12, 1))
         
-        sub_lbl = tk.Label(banner, text="Universidad Nacional Mayor de San Marcos  ·  Yeshua Chavez  ·  Proyecto Final de Regresión Subnacional",
+        sub_lbl = tk.Label(banner, text="Sistema de Inferencia de Incidencia de Dengue en Latinoamérica  ·  Yeshua Chavez",
                             font=("Segoe UI", 9), fg="#93c5fd", bg="#1e3a5f")
         sub_lbl.pack(anchor="w", padx=20)
 
@@ -678,10 +678,8 @@ class AgenteAlertasGUI:
         info_box.pack(fill="both", expand=True)
 
         detalles = (
-            "🏫 INSTITUCIÓN:\n"
-            "Universidad Nacional Mayor de San Marcos (UNMSM)\n"
-            "Facultad de Ingeniería de Sistemas e Informática (FISI)\n"
-            "Proyecto de Tesis de Grado (TG)  ·  Yeshua Chavez\n\n"
+            "👤 AUTOR:\n"
+            "Yeshua Chavez\n\n"
             "🤖 ARQUITECTURA CONCEPTUAL COOPERATIVA SMA-ML/DL:\n"
             "El sistema se compone de 5 agentes informáticos especializados que cooperan de manera secuencial y asíncrona:\n\n"
             "1. AGENTE DE RECOLECCIÓN (Agente 1):\n"

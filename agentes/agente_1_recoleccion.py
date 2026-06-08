@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-UNMSM | Trabajo de Grado | SMA-ML/DL
+SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 1: Recolección
 --------------------------------------------------
 Responsabilidad: Ingesta automatizada, asíncrona y masiva del corpus histórico 2014-2022.
@@ -73,7 +73,7 @@ class AgenteRecoleccion:
         pais_nombre = self.paises_nombres.get(iso, "")
         query = f"{dept_name}, {pais_nombre}"
         url = f"https://nominatim.openstreetmap.org/search?q={urllib.parse.quote(query)}&format=json&limit=1"
-        headers = {'User-Agent': 'DengueProjectPredictor/1.0 (yeshua.chavez@unmsm.edu.pe)'}
+        headers = {'User-Agent': 'DengueProjectPredictor/1.0 (yeshua.chavez@gmail.com)'}
         
         try:
             r = requests.get(url, headers=headers, timeout=15)

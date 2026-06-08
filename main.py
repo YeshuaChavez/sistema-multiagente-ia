@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-UNMSM | Trabajo de Grado | SMA-ML/DL
-Lanzador Principal (main.py)
+SMA-ML/DL - Lanzador Principal (main.py)
 --------------------------------------------------
 Responsabilidad: Punto de entrada principal para ejecutar el Sistema Multi-Agente (SMA-ML/DL).
 Inicializa la GUI del Agente 5, la cual orquesta la ejecución secuencial de la recolección,
@@ -18,10 +17,8 @@ if sys.platform.startswith('win'):
 
 def main():
     print("=" * 70)
-    # Banner
     print("      SISTEMA MULTI-AGENTE DE REGRESIÓN DE DENGUE (SMA-ML/DL)")
-    print("      Universidad Nacional Mayor de San Marcos (UNMSM)")
-    print("      Tesis de Grado  ·  Yeshua Chavez")
+    print("      Yeshua Chavez")
     print("=" * 70)
     
     root = tk.Tk()

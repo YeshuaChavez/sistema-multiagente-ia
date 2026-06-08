@@ -1,8 +1,6 @@
 # Sistema Multi-Agente para la Prediccion de Incidencia de Dengue en Latinoamerica (SMA-ML/DL)
 
-Este proyecto implementa un Sistema Multi-Agente Cooperativo para la prediccion y analisis explicable de la tasa de incidencia de dengue a nivel subnacional (departamental) mensual en Latinoamerica, cubriendo el periodo historico de 2014 a 2022. 
-
-El trabajo forma parte del proyecto de Trabajo de Grado de la Facultad de Ingenieria de Sistemas e Informatica (FISI) de la Universidad Nacional Mayor de San Marcos (UNMSM), desarrollado por Yeshua Chavez.
+Este proyecto implementa un Sistema Multi-Agente Cooperativo para la prediccion y analisis explicable de la tasa de incidencia de dengue a nivel subnacional (departamental) mensual en Latinoamerica, cubriendo el periodo historico de 2014 a 2022. Desarrollado por Yeshua Chavez.
 
 ## Arquitectura del Sistema Multi-Agente (SMA-ML/DL)
 

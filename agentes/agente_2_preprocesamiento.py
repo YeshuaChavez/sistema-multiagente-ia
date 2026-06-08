@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-UNMSM | Trabajo de Grado | SMA-ML/DL
+SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 2: Preprocesamiento
 --------------------------------------------------
 Responsabilidad: Limpieza, transformación, unión de fuentes multidominio,
