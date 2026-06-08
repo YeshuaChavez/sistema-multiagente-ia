@@ -15,6 +15,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import KFold
@@ -100,22 +101,26 @@ class AgentePrediccionDL:
         
         return torch.tensor(seq_x, dtype=torch.float32), torch.tensor(static_x, dtype=torch.float32)
 
-    def entrenar_modelo_completo(self, seq_train, static_train, y_train, epochs=25, lr=0.01):
+    def entrenar_modelo_completo(self, seq_train, static_train, y_train, epochs=100, lr=0.005, batch_size=256):
         """
-        Entrena el modelo LSTM final de PyTorch.
+        Entrena el modelo LSTM de PyTorch utilizando mini-batches (DataLoader).
         """
         y_train_t = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
         model = DengueLSTMModel()
         criterion = nn.MSELoss()
-        optimizer = optim.Adam(model.parameters(), lr=lr)
+        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+        
+        dataset = TensorDataset(seq_train, static_train, y_train_t)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         
         model.train()
         for epoch in range(epochs):
-            optimizer.zero_grad()
-            preds = model(seq_train, static_train)
-            loss = criterion(preds, y_train_t)
-            loss.backward()
-            optimizer.step()
+            for seq_b, static_b, y_b in loader:
+                optimizer.zero_grad()
+                preds = model(seq_b, static_b)
+                loss = criterion(preds, y_b)
+                loss.backward()
+                optimizer.step()
             
         return model
 
@@ -169,8 +174,8 @@ class AgentePrediccionDL:
             static_tr, static_val = static_train[train_idx], static_train[val_idx]
             y_tr, y_val = y_train.iloc[train_idx], y_train.iloc[val_idx]
             
-            # Entrenar modelo temporal en el Fold
-            m_fold = self.entrenar_modelo_completo(seq_tr, static_tr, y_tr, epochs=20, lr=0.01)
+            # Entrenar modelo temporal en el Fold (25 epochs para CV)
+            m_fold = self.entrenar_modelo_completo(seq_tr, static_tr, y_tr, epochs=25, lr=0.005, batch_size=256)
             
             # Evaluar en Validación
             m_fold.eval()
@@ -189,7 +194,7 @@ class AgentePrediccionDL:
         
         # 6. Entrenamiento final sobre el bloque de Entrenamiento completo (2014-2020)
         print("   [DL/LSTM] Entrenando modelo final LSTM en todo el Train Set...")
-        modelo_lstm = self.entrenar_modelo_completo(seq_train, static_train, y_train, epochs=25, lr=0.01)
+        modelo_lstm = self.entrenar_modelo_completo(seq_train, static_train, y_train, epochs=100, lr=0.005, batch_size=256)
         
         # 7. Proyección y Evaluación sobre el Conjunto de Prueba Independiente (2021-2022)
         print("   [DL/LSTM] Evaluando LSTM sobre Test Set (2021-2022)...")
