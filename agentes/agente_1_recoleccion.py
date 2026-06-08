@@ -49,16 +49,17 @@ class AgenteRecoleccion:
         }
         
         # Poblaciones crudas (Censos oficiales de cada país)
+        self.pob_dir = os.path.join(self.db_dir, "poblacion")
         self.poblaciones_paths = {
-            'ARG': os.path.join(self.db_dir, "poblacion_argentina.csv"),
-            'BOL': os.path.join(self.db_dir, "poblacion_bolivia.csv"),
-            'BRA': os.path.join(self.db_dir, "poblacion_brazil.csv"),
-            'COL': os.path.join(self.db_dir, "poblacion_colombia.csv"),
-            'ECU': os.path.join(self.db_dir, "poblacion_ecuador.csv"),
-            'MEX': os.path.join(self.db_dir, "poblacion_mexico.csv"),
-            'NIC': os.path.join(self.db_dir, "poblacion_nicaragua.csv"),
-            'PAN': os.path.join(self.db_dir, "poblacion_panama.csv"),
-            'PER': os.path.join(self.db_dir, "poblacion_peru.csv")
+            'ARG': os.path.join(self.pob_dir, "poblacion_argentina.csv"),
+            'BOL': os.path.join(self.pob_dir, "poblacion_bolivia.csv"),
+            'BRA': os.path.join(self.pob_dir, "poblacion_brazil.csv"),
+            'COL': os.path.join(self.pob_dir, "poblacion_colombia.csv"),
+            'ECU': os.path.join(self.pob_dir, "poblacion_ecuador.csv"),
+            'MEX': os.path.join(self.pob_dir, "poblacion_mexico.csv"),
+            'NIC': os.path.join(self.pob_dir, "poblacion_nicaragua.csv"),
+            'PAN': os.path.join(self.pob_dir, "poblacion_panama.csv"),
+            'PER': os.path.join(self.pob_dir, "poblacion_peru.csv")
         }
         
         # Rutas de salida para APIs y geocodificación
