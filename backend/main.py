@@ -7,6 +7,7 @@ Carga el motor de agentes en memoria al arrancar y expone los servicios de predi
 """
 
 import os
+import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict
@@ -84,6 +85,18 @@ def get_metadata():
         return metadata
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener metadatos: {str(e)}")
+
+@app.get("/api/coordinates", tags=["Datos"])
+def get_coordinates():
+    try:
+        if prediction_service.df_coords is None:
+            raise HTTPException(status_code=404, detail="Coordenadas no disponibles.")
+        # Reemplazar NaNs para evitar errores de serialización JSON
+        df_clean = prediction_service.df_coords.replace({np.nan: None})
+        records = df_clean.to_dict(orient="records")
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener coordenadas: {str(e)}")
 
 @app.get("/api/historical", response_model=List[HistoricalRecord], tags=["Datos"])
 def get_historical(
