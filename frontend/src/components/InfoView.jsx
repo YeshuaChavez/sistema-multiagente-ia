@@ -215,7 +215,7 @@ export default function InfoView() {
       </div>
 
       {/* Footer Credits */}
-      <div className="custom-card rounded-xl p-lg bg-primary-container text-on-primary">
+      <div className="rounded-xl p-lg bg-primary-container text-on-primary border border-outline-variant shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
         <div className="flex items-center gap-md mb-md">
           <span className="material-symbols-outlined text-secondary-fixed text-[24px]">copyright</span>
           <h4 className="text-label-md font-bold uppercase tracking-wider">Créditos y Fuentes de Datos</h4>

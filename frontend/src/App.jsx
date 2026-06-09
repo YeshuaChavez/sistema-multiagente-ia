@@ -117,7 +117,7 @@ export default function App() {
 
         {/* Footer */}
         <footer className="border-t border-outline-variant px-lg py-md flex flex-col sm:flex-row justify-between items-center gap-md text-on-surface-variant text-label-md">
-          <p>© 2024 Epidemiología Predictiva — Unidad de Análisis SMA-ML/DL</p>
+          <p>© 2026 Epidemiología Predictiva — Unidad de Análisis SMA-ML/DL</p>
           <div className="flex gap-lg">
             <span className="hover:text-primary transition-colors cursor-pointer">Documentación</span>
             <span className="hover:text-primary transition-colors cursor-pointer">Glosario</span>

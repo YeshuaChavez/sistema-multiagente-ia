@@ -12,8 +12,12 @@ export default function ExplainabilityView() {
       try {
         const response = await fetch(`${API_URL}/api/explain/global`);
         if (!response.ok) throw new Error("No se pudo cargar la explicabilidad SHAP");
-        const data = await response.json();
-        setShapData(data);
+        const raw = await response.json();
+        // API returns {feature: importance} dict — convert to sorted array
+        const arr = Object.entries(raw)
+          .map(([feature, importance]) => ({ feature, importance }))
+          .sort((a, b) => Math.abs(b.importance) - Math.abs(a.importance));
+        setShapData(arr);
       } catch (err) {
         setError(err.message);
       } finally {
