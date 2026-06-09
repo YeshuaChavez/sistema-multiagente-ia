@@ -1,0 +1,29 @@
+# Usar una imagen oficial de Python slim como base
+FROM python:3.10-slim
+
+# Evitar que Python escriba archivos .pyc y habilitar modo unbuffered
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Instalar dependencias de sistema mínimas si fueran necesarias
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar el archivo de dependencias e instalarlas
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar directorios necesarios
+COPY backend /app/backend
+COPY "Base de Datos" /app/Base de Datos
+
+# Exponer el puerto
+EXPOSE 8080
+
+# Comando para iniciar la aplicación mediante Uvicorn
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
