@@ -58,7 +58,7 @@ class AgentePrediccionDL:
             self.base_dir = base_dir
             
         self.db_dir = os.path.join(self.base_dir, "Base de Datos")
-        self.dataset_path = os.path.join(self.db_dir, "dataset_maestro_mensual_latam.csv")
+        self.dataset_path = os.path.join(self.db_dir, "datos_procesados", "dataset_maestro_mensual_latam.csv")
         self.semilla = 42
 
     def generar_lags_y_vecinos_dinamico(self, df):
@@ -85,7 +85,7 @@ class AgentePrediccionDL:
             df[f"incidencia_lag{lag}"] = group['incidencia_dengue'].shift(lag)
             
         # 2. Rezagos espaciales (Vecinos)
-        coords_path = os.path.join(self.db_dir, "departamentos_coordenadas.csv")
+        coords_path = os.path.join(self.db_dir, "datos_crudos", "departamentos_coordenadas.csv")
         if os.path.exists(coords_path):
             df_coords = pd.read_csv(coords_path)
             df_coords['iso_a0'] = df_coords['iso_a0'].astype(str).str.strip().str.upper()
@@ -207,6 +207,15 @@ class AgentePrediccionDL:
         # Calcular lags y vecinos dinámicamente (Opción B)
         df = self.generar_lags_y_vecinos_dinamico(df_raw)
         
+        # Filtrar hasta 2022 máximo
+        print("   [DL/MLP] Filtrando dataset hasta el año 2022...")
+        df = df[df['ano'] <= 2022].reset_index(drop=True)
+        
+        # Filtrado dinámico de años activos (vigilancia activa: >100 casos totales por país-año)
+        print("   [DL/MLP] Aplicando filtrado dinámico de años activos (>100 casos país-año)...")
+        yearly_totals = df.groupby(['pais', 'ano'])['casos_dengue'].transform('sum')
+        df = df[yearly_totals > 100].reset_index(drop=True)
+        
         # 1. Definir exclusiones y variables predictoras
         COLS_EXCLUIR = ['iso_a0', 'pais', 'adm_1_name', 'ano', 'mes', 'casos_dengue', 'poblacion', 'incidencia_dengue']
         COLS_FEAT = [c for c in df.columns if c not in COLS_EXCLUIR]
@@ -214,7 +223,7 @@ class AgentePrediccionDL:
         # 2. Partición Cronológica
         print("   [DL/MLP] Particionando datos: Entrenamiento (2014-2020) | Prueba (2021-2022)")
         df_train_raw = df[df['ano'] <= 2020].copy()
-        df_test_raw = df[df['ano'] >= 2021].copy()
+        df_test_raw = df[(df['ano'] >= 2021) & (df['ano'] <= 2022)].copy()
         
         X_train_raw = df_train_raw[COLS_FEAT]
         y_train = df_train_raw['incidencia_dengue']

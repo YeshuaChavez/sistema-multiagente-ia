@@ -3,7 +3,7 @@
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 1: Recolección
 --------------------------------------------------
-Responsabilidad: Ingesta automatizada, asíncrona y masiva del corpus histórico 2014-2022.
+Responsabilidad: Ingesta automatizada, asíncrona y masiva del corpus histórico 2014-2024.
 Realiza consultas a las APIs oficiales de NASA POWER y JMP (vía World Bank API),
 utilizando caché local si los archivos crudos ya existen en el entorno.
 """
@@ -31,7 +31,7 @@ class AgenteRecoleccion:
         self.db_dir = os.path.join(self.base_dir, "Base de Datos")
         
         # Rutas de entrada
-        self.dengue_path = os.path.join(self.db_dir, "Temporal_extract_V1_3.csv")
+        self.dengue_path = os.path.join(self.db_dir, "datos_crudos", "Temporal_extract_V1_3.csv")
         self.paises_iso = ['ARG', 'BOL', 'BRA', 'COL', 'ECU', 'MEX', 'NIC', 'PAN', 'PER']
         
         # Nombres de países para geocodificación
@@ -49,7 +49,7 @@ class AgenteRecoleccion:
         }
         
         # Poblaciones crudas (Censos oficiales de cada país)
-        self.pob_dir = os.path.join(self.db_dir, "poblacion")
+        self.pob_dir = os.path.join(self.db_dir, "datos_procesados", "poblacion")
         self.poblaciones_paths = {
             'ARG': os.path.join(self.pob_dir, "poblacion_argentina.csv"),
             'BOL': os.path.join(self.pob_dir, "poblacion_bolivia.csv"),
@@ -63,9 +63,9 @@ class AgenteRecoleccion:
         }
         
         # Rutas de salida para APIs y geocodificación
-        self.clima_nasa_path = os.path.join(self.db_dir, "clima_nasa_crudo.csv")
-        self.agua_jmp_path = os.path.join(self.db_dir, "agua_jmp_crudo.csv")
-        self.coords_cache_path = os.path.join(self.db_dir, "departamentos_coordenadas.csv")
+        self.clima_nasa_path = os.path.join(self.db_dir, "datos_crudos", "clima_nasa_crudo.csv")
+        self.agua_jmp_path = os.path.join(self.db_dir, "datos_crudos", "agua_jmp_crudo.csv")
+        self.coords_cache_path = os.path.join(self.db_dir, "datos_crudos", "departamentos_coordenadas.csv")
 
     def geocodificar_departamento(self, iso, dept_name):
         """
@@ -332,7 +332,7 @@ class AgenteRecoleccion:
         df = pd.read_csv(self.dengue_path, usecols=cols_to_use)
         print(f"   [OpenDengue] Casos crudos cargados. Dimensiones: {df.shape}")
         
-        # Filtrar por los 9 países, nivel departamental (o superior) y años 2014-2022
+        # Filtrar por los 9 países, nivel departamental (o superior) y años 2014-2024
         df_filtered = df[
             (df['ISO_A0'].isin(self.paises_iso)) &
             (df['Year'] >= 2014) &
@@ -342,7 +342,7 @@ class AgenteRecoleccion:
         # Estandarizar nombre nulos o vacíos
         df_filtered['adm_1_name'] = df_filtered['adm_1_name'].fillna('UNKNOWN')
         
-        print(f"   [OpenDengue] Casos filtrados (2014-2022, 9 países). Dimensiones: {df_filtered.shape}")
+        print(f"   [OpenDengue] Casos filtrados (2014-2024, 9 países). Dimensiones: {df_filtered.shape}")
         return df_filtered
 
     def recolectar_poblaciones(self):

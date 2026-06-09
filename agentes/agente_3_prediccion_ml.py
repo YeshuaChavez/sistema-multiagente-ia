@@ -17,7 +17,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import KFold, cross_validate
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.ensemble import GradientBoostingRegressor
+from xgboost import XGBRegressor
 
 class AgentePrediccionML:
     def __init__(self, base_dir=None):
@@ -27,7 +27,7 @@ class AgentePrediccionML:
             self.base_dir = base_dir
             
         self.db_dir = os.path.join(self.base_dir, "Base de Datos")
-        self.dataset_path = os.path.join(self.db_dir, "dataset_maestro_mensual_latam.csv")
+        self.dataset_path = os.path.join(self.db_dir, "datos_procesados", "dataset_maestro_mensual_latam.csv")
         self.semilla = 42
 
     def generar_lags_y_vecinos_dinamico(self, df):
@@ -54,7 +54,7 @@ class AgentePrediccionML:
             df[f"incidencia_lag{lag}"] = group['incidencia_dengue'].shift(lag)
             
         # 2. Rezagos espaciales (Vecinos)
-        coords_path = os.path.join(self.db_dir, "departamentos_coordenadas.csv")
+        coords_path = os.path.join(self.db_dir, "datos_crudos", "departamentos_coordenadas.csv")
         if os.path.exists(coords_path):
             df_coords = pd.read_csv(coords_path)
             df_coords['iso_a0'] = df_coords['iso_a0'].astype(str).str.strip().str.upper()
@@ -152,6 +152,15 @@ class AgentePrediccionML:
         # Calcular lags y vecinos dinámicamente (Opción B)
         df = self.generar_lags_y_vecinos_dinamico(df_raw)
         
+        # Filtrar hasta 2022 máximo
+        print("   [ML] Filtrando dataset hasta el año 2022...")
+        df = df[df['ano'] <= 2022].reset_index(drop=True)
+        
+        # Filtrado dinámico de años activos (vigilancia activa: >100 casos totales por país-año)
+        print("   [ML] Aplicando filtrado dinámico de años activos (>100 casos país-año)...")
+        yearly_totals = df.groupby(['pais', 'ano'])['casos_dengue'].transform('sum')
+        df = df[yearly_totals > 100].reset_index(drop=True)
+        
         # 1. Definir exclusiones y variables predictoras
         COLS_EXCLUIR = ['iso_a0', 'pais', 'adm_1_name', 'ano', 'mes', 'casos_dengue', 'poblacion', 'incidencia_dengue']
         COLS_FEAT = [c for c in df.columns if c not in COLS_EXCLUIR]
@@ -159,7 +168,7 @@ class AgentePrediccionML:
         # 2. Partición Cronológica
         print("   [ML] Particionando datos: Entrenamiento (2014-2020) | Prueba (2021-2022)")
         df_train_raw = df[df['ano'] <= 2020].copy()
-        df_test_raw = df[df['ano'] >= 2021].copy()
+        df_test_raw = df[(df['ano'] >= 2021) & (df['ano'] <= 2022)].copy()
         
         X_train_raw = df_train_raw[COLS_FEAT]
         y_train = df_train_raw['incidencia_dengue']
@@ -179,29 +188,58 @@ class AgentePrediccionML:
         X_train = pd.DataFrame(escalador.fit_transform(X_train_imp), columns=COLS_FEAT)
         X_test = pd.DataFrame(escalador.transform(X_test_imp), columns=COLS_FEAT)
         
-        # 4. Sintonización y Validación Cruzada de Gradient Boosting (K=5 Folds) en el bloque histórico (2014-2020)
-        print("   [ML] Iniciando validación cruzada K-Fold (K=5) para Gradient Boosting...")
+        # 4. Sintonización y Validación Cruzada de XGBoost (K=5 Folds) en el bloque histórico (2014-2020)
+        print("   [ML] Iniciando validación cruzada K-Fold (K=5) para XGBoost (Escala Real)...")
         kfold = KFold(n_splits=5, shuffle=True, random_state=self.semilla)
-        modelo_ml = GradientBoostingRegressor(n_estimators=100, max_depth=6, random_state=self.semilla)
         
-        cv = cross_validate(
-            modelo_ml, X_train, y_train, cv=kfold,
-            scoring={"mae": "neg_mean_absolute_error", "rmse": "neg_root_mean_squared_error", "r2": "r2"},
-            n_jobs=-1
-        )
+        cv_mae_list = []
+        cv_rmse_list = []
+        cv_r2_list = []
         
-        cv_mae = -cv["test_mae"].mean()
-        cv_rmse = -cv["test_rmse"].mean()
-        cv_r2 = cv["test_r2"].mean()
+        y_train_log = np.log1p(y_train)
+        
+        for fold, (train_idx, val_idx) in enumerate(kfold.split(X_train)):
+            X_tr, X_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
+            y_tr_log = y_train_log.iloc[train_idx]
+            y_val_real = y_train.iloc[val_idx]
+            
+            m_fold = XGBRegressor(
+                n_estimators=150,
+                learning_rate=0.05,
+                max_depth=6,
+                random_state=self.semilla,
+                n_jobs=-1
+            )
+            m_fold.fit(X_tr, y_tr_log)
+            
+            preds_val_log = m_fold.predict(X_val)
+            preds_val = np.expm1(preds_val_log)
+            preds_val = np.clip(preds_val, 0.0, None)
+            
+            cv_mae_list.append(mean_absolute_error(y_val_real, preds_val))
+            cv_rmse_list.append(np.sqrt(mean_squared_error(y_val_real, preds_val)))
+            cv_r2_list.append(r2_score(y_val_real, preds_val))
+            
+        cv_mae = np.mean(cv_mae_list)
+        cv_rmse = np.mean(cv_rmse_list)
+        cv_r2 = np.mean(cv_r2_list)
         print(f"   [ML] Resultados CV (Train): MAE: {cv_mae:.4f} | RMSE: {cv_rmse:.4f} | R²: {cv_r2*100:.2f}%")
         
         # 5. Entrenamiento final sobre el bloque de Entrenamiento completo (2014-2020)
-        print("   [ML] Entrenando modelo final en todo el Train Set...")
-        modelo_ml.fit(X_train, y_train)
+        print("   [ML] Entrenando modelo final XGBoost en todo el Train Set...")
+        modelo_ml = XGBRegressor(
+            n_estimators=150,
+            learning_rate=0.05,
+            max_depth=6,
+            random_state=self.semilla,
+            n_jobs=-1
+        )
+        modelo_ml.fit(X_train, y_train_log)
         
         # 6. Proyección y Evaluación sobre el Conjunto de Prueba Independiente (2021-2022)
         print("   [ML] Evaluando sobre Test Set (2021-2022)...")
-        y_pred = modelo_ml.predict(X_test)
+        y_pred_log = modelo_ml.predict(X_test)
+        y_pred = np.expm1(y_pred_log)
         y_pred = np.clip(y_pred, 0.0, None)  # La incidencia no puede ser negativa
         
         test_mae = mean_absolute_error(y_test, y_pred)

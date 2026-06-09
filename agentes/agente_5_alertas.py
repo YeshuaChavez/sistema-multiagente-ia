@@ -109,7 +109,7 @@ class AgenteAlertasGUI:
         self.slider_labels = {}
         self.slider_ranges = {}
         self.colores_mpl = {
-            "Gradient Boosting": "#ea580c", 
+            "XGBoost": "#ea580c", 
             "MLP Neural Network": "#8b5cf6", 
             "Ensemble": "#10b981",
             "Ridge": "#2563eb"  # Usado para visualizaciones adicionales
@@ -189,7 +189,7 @@ class AgenteAlertasGUI:
         kpis_frame = ttk.Frame(main_frame)
         kpis_frame.pack(fill="x", pady=(0, 15))
 
-        mejor_nombre = "MLP Neural Network" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "Gradient Boosting"
+        mejor_nombre = "MLP Neural Network" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "XGBoost"
         mejor_r2 = max(self.res_dl['test_r2'], self.res_ml['test_r2'])
 
         kpis = [
@@ -223,9 +223,9 @@ class AgenteAlertasGUI:
             tree_reg.heading(col, text=col)
             tree_reg.column(col, anchor="center", width=125)
 
-        # Fila 1: Gradient Boosting (Agente 3)
+        # Fila 1: XGBoost (Agente 3)
         tree_reg.insert("", "end", values=(
-            "Agente 3: Gradient Boosting", "Machine Learning (Ensamble)",
+            "Agente 3: XGBoost", "Machine Learning (XGBoost Log)",
             f"{self.res_ml['cv_mae']:.4f}", f"{self.res_ml['cv_rmse']:.4f}", f"{self.res_ml['cv_r2']*100:.2f}%",
             f"{self.res_ml['test_mae']:.4f}", f"{self.res_ml['test_rmse']:.4f}", f"{self.res_ml['test_r2']*100:.2f}%"
         ))
@@ -252,10 +252,10 @@ class AgenteAlertasGUI:
             "ℹ️ NOTA METODOLÓGICA SÓLIDA:\n"
             "Este sistema utiliza una partición cronológica (Entrenamiento: 2014-2020, Prueba: 2021-2022) para evaluar el desempeño "
             "del modelo en el tiempo sin riesgo de fuga de información temporal.\n\n"
-            "Observación Clave: Los modelos predicen directamente la tasa de incidencia de dengue (casos por 100k hab.). Durante El Niño (2021-2022), "
-            "la incidencia se disparó de forma anómala. Los modelos basados en árboles (Gradient Boosting) tienen un "
-            "'límite de extrapolación' intrínseco, mientras que la red MLP Neural Network regularizada con Dropout "
-            "captura interacciones no lineales de forma robusta en el tiempo."
+            "Observación Clave: Los modelos predicen la tasa de incidencia de dengue (casos por 100k hab.). El modelo XGBoost se entrena "
+            "sobre la variable transformada logarítmicamente (np.log1p) para suavizar extremos y estabilizar varianza, mientras que la "
+            "red MLP Neural Network regularizada con Dropout se entrena en la escala real original para permitir la extrapolación de "
+            "magnitudes extremas de epidemias. El Ensemble promedia ambas salidas a escala real obteniendo la máxima precisión combinada."
         )
         tk.Label(info_frame, text=info_txt, font=("Segoe UI", 9), fg="#1e40af", bg="#eff6ff", justify="left", wraplength=1200).pack(padx=12, pady=8)
 
@@ -342,9 +342,10 @@ class AgenteAlertasGUI:
         for key, desc, lo, hi in incidencia_params:
             self.crear_slider(col1_clima, key, desc, lo, hi)
 
-        # Columna 2: Agua JMP
-        tk.Label(col2_agua, text="💧 Acceso al Agua (Censos/JMP)", font=("Segoe UI", 10, "bold"), fg="#1e293b").pack(anchor="w", pady=(5, 8))
+        # Columna 2: Agua y Demografía
+        tk.Label(col2_agua, text="💧 Demografía y Saneamiento", font=("Segoe UI", 10, "bold"), fg="#1e293b").pack(anchor="w", pady=(5, 8))
         self.crear_slider(col2_agua, "agua_basica", "Agua Básica (%)", 68.0, 100.0)
+        self.crear_slider(col2_agua, "densidad_poblacion", "Densidad Poblacional (hab/km²)", 0.5, 1000.0)
 
         # Columna 3: Rezagos Climáticos
         tk.Label(col3_lags, text="⏱️ Rezagos Climáticos (Lags 1-3)", font=("Segoe UI", 10, "bold"), fg="#1e293b").pack(anchor="w", pady=(5, 8))
@@ -371,7 +372,7 @@ class AgenteAlertasGUI:
 
         self.cards = {}
         model_info = [
-            ("Gradient Boosting", "🟠 Gradient Boosting (Agente 3)", "#fff7ed", "#ea580c"),
+            ("XGBoost", "🟠 XGBoost (Agente 3)", "#fff7ed", "#ea580c"),
             ("MLP Neural Network", "🟣 MLP PyTorch (Agente 4)", "#f5f3ff", "#8b5cf6"),
         ]
 
@@ -496,7 +497,7 @@ class AgenteAlertasGUI:
         pred_ens = (pred_ml + pred_dl) / 2.0
 
         # Actualizar Tarjetas
-        preds = {"Gradient Boosting": pred_ml, "MLP Neural Network": pred_dl}
+        preds = {"XGBoost": pred_ml, "MLP Neural Network": pred_dl}
         for name, val in preds.items():
             val_lbl, risk_lbl = self.cards[name]
             val_lbl.config(text=f"{val:.4f}")
@@ -543,8 +544,8 @@ class AgenteAlertasGUI:
         lim = y_test_arr.max() * 1.05
         
         model_preds = {
-            "Gradient Boosting": self.y_pred_ml,
-            "LSTM Neural Network": self.y_pred_dl,
+            "XGBoost": self.y_pred_ml,
+            "MLP Neural Network": self.y_pred_dl,
             "Ensemble": self.y_pred_ens
         }
         
@@ -574,7 +575,7 @@ class AgenteAlertasGUI:
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
 
     def build_compare_chart(self, parent):
-        nombres = ["Gradient Boosting", "MLP Neural Network", "Ensemble"]
+        nombres = ["XGBoost", "MLP Neural Network", "Ensemble"]
         colores = [self.colores_mpl[n] for n in nombres]
         x = np.arange(len(nombres))
         w = 0.4
@@ -616,7 +617,7 @@ class AgenteAlertasGUI:
         y_test_arr = np.array(self.y_test)
         
         model_preds = {
-            "Gradient Boosting": self.y_pred_ml,
+            "XGBoost": self.y_pred_ml,
             "MLP Neural Network": self.y_pred_dl,
             "Ensemble": self.y_pred_ens
         }
@@ -687,13 +688,13 @@ class AgenteAlertasGUI:
             "   * Encargado del cruzamiento y normalización de la tasa de incidencia (casos por 100k hab.).\n"
             "   * Aplica rezagos temporales (lags 1, 2 y 3 meses) simétricos para clima e incidencia, y genera el dataset maestro "
             "'dataset_maestro_mensual_latam.csv'.\n\n"
-            "3. AGENTE DE PREDICCIÓN MACHINE LEARNING (Agente 3):\n"
-            "   * Entrena el algoritmo de ensamble Gradient Boosting Regressor.\n"
+            "3. AGENTE PREDICCIÓN MACHINE LEARNING (Agente 3):\n"
+            "   * Entrena el algoritmo XGBoost optimizado sobre la variable objetivo en escala logarítmica (np.log1p).\n"
             "   * Integra una capa nativa de explicabilidad algorítmica (XAI) mediante el cálculo de valores SHAP (Shapley Additive exPlanations).\n\n"
             "4. AGENTE DE PREDICCIÓN DEEP LEARNING (Agente 4):\n"
             "   * Implementa una red neuronal profunda MLP (Multi-Layer Perceptron) en PyTorch para asimilar dinámicas secuenciales y espaciales a escala subnacional.\n\n"
             "5. AGENTE DE ALERTAS Y SÍNTESIS (Agente 5):\n"
-            "   * Unifica los pronósticos de Gradient Boosting y MLP en una salida robusta promedio (Ensemble).\n"
+            "   * Unifica los pronósticos de XGBoost y MLP en una salida robusta promedio (Ensemble).\n"
             "   * Clasifica los escenarios epidemiológicos territoriales en 4 niveles de riesgo (Normal, Vigilancia, Alerta, Epidemia) y provee "
             "la consola interactiva."
         )

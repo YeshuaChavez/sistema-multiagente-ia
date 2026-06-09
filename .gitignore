@@ -1,5 +1,5 @@
 # Ignorar datasets masivos
-Base de Datos/Temporal_extract_V1_3.csv
+Base de Datos/datos_crudos/Temporal_extract_V1_3.csv
 
 # Ignorar documentos Word
 *.docx

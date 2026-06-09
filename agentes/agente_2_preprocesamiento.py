@@ -21,7 +21,7 @@ class AgentePreprocesamiento:
             self.base_dir = base_dir
             
         self.db_dir = os.path.join(self.base_dir, "Base de Datos")
-        self.output_path = os.path.join(self.db_dir, "dataset_maestro_mensual_latam.csv")
+        self.output_path = os.path.join(self.db_dir, "datos_procesados", "dataset_maestro_mensual_latam.csv")
 
     def procesar_casos(self, df_casos):
         """
@@ -120,14 +120,34 @@ class AgentePreprocesamiento:
         df_merged['incidencia_dengue'] = (df_merged['casos_dengue'] / df_merged['poblacion']) * 100000
         df_merged['incidencia_dengue'] = df_merged['incidencia_dengue'].round(4)
         
-        # 2. Ordenar cronológicamente
+        # 2. Cargar las áreas departamentales y calcular la densidad poblacional
+        areas_path = os.path.join(self.db_dir, "datos_crudos", "departamentos_areas.csv")
+        if os.path.exists(areas_path):
+            print("   [Preprocesamiento] Integrando áreas departamentales y calculando densidad poblacional...")
+            df_areas = pd.read_csv(areas_path)
+            # Estandarizar
+            df_areas['iso_a0'] = df_areas['iso_a0'].astype(str).str.strip().str.upper()
+            df_areas['adm_1_name'] = df_areas['adm_1_name'].astype(str).str.strip()
+            
+            # Cruzar
+            df_merged = pd.merge(df_merged, df_areas[['iso_a0', 'adm_1_name', 'area_km2']], on=['iso_a0', 'adm_1_name'], how='left')
+            # Calcular densidad (Población / Área)
+            df_merged['densidad_poblacion'] = df_merged['poblacion'] / df_merged['area_km2']
+            df_merged['densidad_poblacion'] = df_merged['densidad_poblacion'].round(4)
+            # Rellenar con la mediana si hay algún nulo (no debería)
+            df_merged['densidad_poblacion'] = df_merged['densidad_poblacion'].fillna(df_merged['densidad_poblacion'].median())
+        else:
+            print("   [Advertencia] No se encontró el archivo de áreas departamentales. Densidad = 0.0")
+            df_merged['densidad_poblacion'] = 0.0
+            
+        # 3. Ordenar cronológicamente
         df_final = df_merged.sort_values(['pais', 'adm_1_name', 'ano', 'mes']).reset_index(drop=True)
         
-        # Estandarizar el esquema final de columnas (13 columnas en total)
+        # Estandarizar el esquema final de columnas (14 columnas en total)
         final_columns = [
             'iso_a0', 'pais', 'adm_1_name', 'ano', 'mes', 'casos_dengue', 
             'incidencia_dengue', 'agua_basica', 'tmax_promedio', 'tmin_promedio', 
-            'precipitacion', 'humedad_promedio', 'poblacion'
+            'precipitacion', 'humedad_promedio', 'poblacion', 'densidad_poblacion'
         ]
         df_final = df_final[final_columns]
         
@@ -155,6 +175,10 @@ class AgentePreprocesamiento:
         
         # 3. Incidencia y rezagos
         df_final = self.calcular_incidencia_y_rezagos(df_merged)
+        
+        # Filtrar estrictamente hasta el año 2022
+        print("   [Preprocesamiento] Truncando dataset maestro final al rango 2014-2022...")
+        df_final = df_final[df_final['ano'] <= 2022].reset_index(drop=True)
         
         # 4. Guardar archivo maestro mensual consolidado
         df_final.to_csv(self.output_path, index=False)
