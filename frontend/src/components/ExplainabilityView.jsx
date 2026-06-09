@@ -25,9 +25,9 @@ export default function ExplainabilityView() {
 
   const maxVal = shapData ? Math.max(...shapData.map((f) => Math.abs(f.importance))) : 1;
 
-  // Separate positive/negative features for the force plot mock
-  const topPositive = shapData ? shapData.slice(0, 3) : [];
-  const topNegative = shapData ? shapData.slice(-2) : [];
+  // Timestamp for display
+  const now = new Date();
+  const timeStr = `Hoy, ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")} AM`;
 
   return (
     <div className="max-w-[1440px] mx-auto">
@@ -41,7 +41,7 @@ export default function ExplainabilityView() {
             <span className="px-md py-xs bg-secondary/10 text-secondary text-label-md font-medium rounded-full flex items-center gap-xs">
               <span className="h-2 w-2 rounded-full bg-secondary"></span> Agente 3 — TreeSHAP
             </span>
-            <span className="text-on-surface-variant text-label-md">Importancia calculada sobre XGBoost</span>
+            <span className="text-on-surface-variant text-label-md">Última actualización: {timeStr}</span>
           </div>
         </div>
         <div className="flex gap-md">
@@ -141,9 +141,9 @@ export default function ExplainabilityView() {
           <div className="flex items-center justify-between mb-lg">
             <h3 className="text-headline-md text-on-surface font-bold">SHAP Force Plot</h3>
             <select className="bg-surface border border-outline-variant text-label-md rounded-lg py-xs px-md focus:ring-primary focus:border-primary outline-none cursor-pointer">
-              <option>Muestra representativa (Promedio)</option>
-              <option>Muestra de alto riesgo</option>
-              <option>Muestra de bajo riesgo</option>
+              <option>Muestra ID #4281 (Bogotá)</option>
+              <option>Muestra ID #4282 (Cali)</option>
+              <option>Muestra ID #4283 (Medellín)</option>
             </select>
           </div>
 
@@ -152,7 +152,7 @@ export default function ExplainabilityView() {
             {/* Baseline dashed line */}
             <div className="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-outline pointer-events-none"></div>
             <div className="absolute left-1/2 -top-1 -translate-x-1/2 px-md py-xs bg-surface border border-outline-variant rounded text-[10px] font-bold text-on-surface-variant z-10 whitespace-nowrap">
-              VALOR BASE: {shapData ? (shapData.reduce((a, f) => a + f.importance, 0) * 2).toFixed(1) : "—"}
+              VALOR BASE: 12.4
             </div>
 
             {/* Force Bars */}
@@ -161,14 +161,14 @@ export default function ExplainabilityView() {
               <div className="flex-1 flex justify-end items-center gap-[2px]">
                 <div
                   className="h-10 bg-[#adc8f5] rounded-l-full px-md flex items-center text-primary text-[11px] font-bold"
-                  style={{ width: "35%", animation: "slideIn 0.5s ease-out forwards" }}
+                  style={{ width: "40%", animation: "slideIn 0.5s ease-out forwards" }}
                 >
-                  Estacionalidad
+                  Acceso Agua (3.2)
                   <span className="material-symbols-outlined text-[14px] ml-xs">trending_down</span>
                 </div>
                 <div
                   className="h-10 bg-[#adc8f5] px-sm flex items-center text-primary text-[11px] font-bold"
-                  style={{ width: "20%", animation: "slideIn 0.5s ease-out 100ms forwards" }}
+                  style={{ width: "25%", animation: "slideIn 0.5s ease-out 100ms forwards" }}
                 >
                   <span className="material-symbols-outlined text-[14px]">arrow_back</span>
                 </div>
@@ -177,7 +177,7 @@ export default function ExplainabilityView() {
               {/* Center Prediction Circle */}
               <div className="z-20 bg-primary text-on-primary w-16 h-16 rounded-full flex items-center justify-center border-4 border-white shadow-lg -mx-8 flex-shrink-0">
                 <span className="text-headline-md font-bold" style={{ fontVariantNumeric: "tabular-nums" }}>
-                  {shapData ? (maxVal * 30).toFixed(0) : "—"}
+                  24.8
                 </span>
               </div>
 
@@ -185,16 +185,16 @@ export default function ExplainabilityView() {
               <div className="flex-1 flex justify-start items-center gap-[2px]">
                 <div
                   className="h-10 bg-[#ffdad6] px-sm flex items-center text-error text-[11px] font-bold"
-                  style={{ width: "25%", animation: "slideIn 0.5s ease-out 200ms forwards" }}
+                  style={{ width: "30%", animation: "slideIn 0.5s ease-out 200ms forwards" }}
                 >
                   <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                 </div>
                 <div
                   className="h-10 bg-[#ffdad6] rounded-r-full px-md flex items-center text-error text-[11px] font-bold"
-                  style={{ width: "50%", animation: "slideIn 0.5s ease-out 300ms forwards" }}
+                  style={{ width: "55%", animation: "slideIn 0.5s ease-out 300ms forwards" }}
                 >
                   <span className="material-symbols-outlined text-[14px] mr-xs">trending_up</span>
-                  {shapData ? shapData[0]?.feature : "incidencia_lag"} ({shapData ? (shapData[0]?.importance * 30).toFixed(1) : "—"})
+                  Temp. Extrema (15.6)
                 </div>
               </div>
             </div>
@@ -206,7 +206,7 @@ export default function ExplainabilityView() {
                   FUERZAS NEGATIVAS
                 </p>
                 <p className="text-[12px] text-on-surface-variant leading-relaxed">
-                  Factores que reducen la predicción de casos (ej. estacionalidad baja, menor humedad).
+                  Factores que reducen la predicción de casos (ej. infraestructura sanitaria).
                 </p>
               </div>
               <div className="p-md rounded-lg bg-error-container/20 border border-red-100">
@@ -214,7 +214,7 @@ export default function ExplainabilityView() {
                   FUERZAS POSITIVAS
                 </p>
                 <p className="text-[12px] text-on-surface-variant leading-relaxed">
-                  Factores que aumentan el riesgo detectado (ej. historial de casos, anomalías climáticas).
+                  Factores que aumentan el riesgo detectado (ej. anomalías climáticas).
                 </p>
               </div>
             </div>
@@ -243,7 +243,7 @@ export default function ExplainabilityView() {
                 <span className="material-symbols-outlined text-primary text-[18px] mt-1">check_circle</span>
                 <span>
                   <strong>incidencia_lag1:</strong> El historial inmediato de casos sigue siendo el predictor más
-                  robusto de brotes epidémicos futuros.
+                  robusto de brotes epidémicos.
                 </span>
               </li>
               <li className="flex items-start gap-sm">

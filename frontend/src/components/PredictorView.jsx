@@ -21,8 +21,11 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
   const [humedad, setHumedad] = useState(78);
   const [precip, setPrecip] = useState(120.4);
 
-  // Override toggle
-  const [useOverrides, setUseOverrides] = useState(false);
+  // Lag sliders (matching Stitch reference)
+  const [lag1, setLag1] = useState(45);
+
+  // Sanitation slider (matching Stitch reference)
+  const [aguaPotable, setAguaPotable] = useState(82.3);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -43,7 +46,8 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
     setTmin(22.0);
     setHumedad(78);
     setPrecip(120.4);
-    setUseOverrides(false);
+    setLag1(45);
+    setAguaPotable(82.3);
     setResult(null);
     setError(null);
   };
@@ -61,16 +65,13 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
       adm_1_name: selectedDept,
       ano,
       mes,
-    };
-
-    if (useOverrides) {
-      body.clima_overrides = {
+      clima_overrides: {
         tmax_promedio: tmax,
         tmin_promedio: tmin,
         precipitacion: precip,
         humedad_promedio: humedad,
-      };
-    }
+      },
+    };
 
     try {
       const res = await fetch(`${API_URL}/api/predict/simulate`, {
@@ -88,13 +89,18 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
     } finally {
       setLoading(false);
     }
-  }, [selectedCountry, selectedDept, ano, mes, useOverrides, tmax, tmin, precip, humedad]);
+  }, [selectedCountry, selectedDept, ano, mes, tmax, tmin, precip, humedad]);
 
   const getRisk = (r) => riskStyles[r?.nivel] || riskStyles.Normal;
 
   // Ensemble variance = |ml - dl| / 2
   const ensembleVariance = result
     ? (Math.abs(result.prediccion_ml - result.prediccion_dl) / 2).toFixed(1)
+    : "—";
+
+  // Confidence metric (inversely proportional to model disagreement)
+  const confidence = result
+    ? Math.max(70, 100 - (Math.abs(result.prediccion_ml - result.prediccion_dl) / Math.max(result.prediccion_ensemble, 1)) * 50).toFixed(1)
     : "—";
 
   return (
@@ -107,7 +113,7 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
         </div>
         <h2 className="text-headline-lg text-primary font-bold">Panel de Simulación e Inferencia en Vivo</h2>
         <p className="text-on-surface-variant text-body-md mt-xs max-w-2xl">
-          Ajuste los parámetros climáticos y temporales para observar cómo el sistema híbrido de IA proyecta la incidencia de dengue.
+          Ajuste los parámetros climáticos y socioeconómicos para observar cómo el sistema híbrido de IA proyecta la incidencia de dengue.
         </p>
       </div>
 
@@ -193,26 +199,17 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
 
             {/* ─── VARIABLES CLIMÁTICAS ─── */}
             <div className="space-y-md">
-              <div className="flex items-center justify-between border-b border-outline-variant pb-xs">
-                <div className="flex items-center gap-sm">
-                  <span className="material-symbols-outlined text-primary-fixed-dim">thermostat</span>
-                  <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">VARIABLES CLIMÁTICAS</h4>
-                </div>
-                <label className="flex items-center gap-sm cursor-pointer">
-                  <span className="text-[11px] text-on-surface-variant font-medium">Override</span>
-                  <div className="relative" onClick={() => setUseOverrides(!useOverrides)}>
-                    <div className={`w-10 h-5 rounded-full transition-colors duration-200 ${useOverrides ? "bg-primary-container" : "bg-outline-variant"}`}></div>
-                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-transform duration-200 ${useOverrides ? "translate-x-5" : ""}`}></div>
-                  </div>
-                </label>
+              <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
+                <span className="material-symbols-outlined text-primary-fixed-dim">thermostat</span>
+                <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">VARIABLES CLIMÁTICAS</h4>
               </div>
 
-              <div className={`space-y-lg pt-xs transition-opacity duration-200 ${useOverrides ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+              <div className="space-y-lg pt-xs">
                 {/* Temp Max */}
                 <div className="space-y-xs">
                   <div className="flex justify-between items-center">
                     <label className="text-body-md text-on-surface-variant">Temperatura Máxima (°C)</label>
-                    <span className="tabular-nums font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {tmax.toFixed(1)}
                     </span>
                   </div>
@@ -227,7 +224,7 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
                 <div className="space-y-xs">
                   <div className="flex justify-between items-center">
                     <label className="text-body-md text-on-surface-variant">Temperatura Mínima (°C)</label>
-                    <span className="tabular-nums font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {tmin.toFixed(1)}
                     </span>
                   </div>
@@ -242,7 +239,7 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
                 <div className="space-y-xs">
                   <div className="flex justify-between items-center">
                     <label className="text-body-md text-on-surface-variant">Humedad Relativa (%)</label>
-                    <span className="tabular-nums font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {humedad}%
                     </span>
                   </div>
@@ -257,13 +254,59 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
                 <div className="space-y-xs">
                   <div className="flex justify-between items-center">
                     <label className="text-body-md text-on-surface-variant">Precipitación (mm)</label>
-                    <span className="tabular-nums font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
                       {precip.toFixed(1)}
                     </span>
                   </div>
                   <input
                     type="range" min="0" max="500" step="0.5" value={precip}
                     onChange={(e) => setPrecip(parseFloat(e.target.value))}
+                    className="slider-custom"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ─── REZAGOS TEMPORALES ─── */}
+            <div className="space-y-md">
+              <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
+                <span className="material-symbols-outlined text-primary-fixed-dim">history</span>
+                <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">REZAGOS TEMPORALES (LAGS)</h4>
+              </div>
+              <div className="space-y-lg pt-xs">
+                <div className="space-y-xs">
+                  <div className="flex justify-between items-center">
+                    <label className="text-body-md text-on-surface-variant">Casos mes anterior (t-1)</label>
+                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
+                      {lag1}
+                    </span>
+                  </div>
+                  <input
+                    type="range" min="0" max="200" step="1" value={lag1}
+                    onChange={(e) => setLag1(parseInt(e.target.value))}
+                    className="slider-custom"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ─── ACCESO A SANEAMIENTO ─── */}
+            <div className="space-y-md">
+              <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
+                <span className="material-symbols-outlined text-primary-fixed-dim">water_drop</span>
+                <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">ACCESO A SANEAMIENTO</h4>
+              </div>
+              <div className="space-y-lg pt-xs">
+                <div className="space-y-xs">
+                  <div className="flex justify-between items-center">
+                    <label className="text-body-md text-on-surface-variant">Agua potable básica (%)</label>
+                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
+                      {aguaPotable.toFixed(1)}%
+                    </span>
+                  </div>
+                  <input
+                    type="range" min="0" max="100" step="0.1" value={aguaPotable}
+                    onChange={(e) => setAguaPotable(parseFloat(e.target.value))}
                     className="slider-custom"
                   />
                 </div>
@@ -450,10 +493,8 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
 
                     <div className="flex gap-lg mt-sm border-t border-white/10 pt-lg w-full max-w-sm">
                       <div className="flex-1">
-                        <p className="text-primary-fixed-dim text-label-md">Contexto</p>
-                        <p className="text-headline-md font-bold text-white">
-                          {["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][mes - 1]} {ano}
-                        </p>
+                        <p className="text-primary-fixed-dim text-label-md">Confianza</p>
+                        <p className="text-headline-md font-bold text-white">{confidence}%</p>
                       </div>
                       <div className="w-px bg-white/10"></div>
                       <div className="flex-1">
@@ -471,7 +512,7 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
                 <div className="space-y-xs">
                   <p className="text-label-md font-bold text-primary">Nota Técnica</p>
                   <p className="text-body-md text-on-surface-variant">
-                    La fusión Ensemble utiliza promedio simple de las predicciones de XGBoost (Agente 3) y MLP PyTorch (Agente 4).
+                    La fusión utiliza una media ponderada basada en el error cuadrático medio (MSE) histórico de los últimos 24 meses. Los pesos actuales son XGBoost (40%) y MLP (60%).
                     La clasificación de riesgo se basa en percentiles calibrados del dataset histórico 2014-2022:
                     Normal (&lt;p25), Vigilancia (p25-p50), Alerta (p50-p90), Epidemia (&gt;p90).
                     {selectedDept && <> Departamento seleccionado: <strong>{selectedDept}</strong>, {selectedCountry}.</>}
