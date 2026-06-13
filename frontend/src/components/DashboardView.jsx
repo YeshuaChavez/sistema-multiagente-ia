@@ -37,7 +37,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
   const [topDepts, setTopDepts] = useState([]);
 
   const [backendReady, setBackendReady] = useState(false);
-  const [stats, setStats] = useState({ records: "15,342", r2: "74.20%" });
+  const [stats, setStats] = useState({ records: "15,342", r2: "75.41%" });
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("ALL");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);
@@ -109,8 +109,8 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           ["Rango temporal", "2014 — 2022"],
           ["Precisión del sistema (R² Ensemble)", stats.r2],
           ["LightGBM R²", "71.64%"],
-          ["LSTM PyTorch R²", "74.56%"],
-          ["MAE Ensemble", "9.90 casos/100k"],
+          ["LSTM PyTorch R²", "76.50%"],
+          ["MAE Ensemble", "9.87 casos/100k"],
         ],
         headStyles: { fillColor: [30, 58, 95] },
         alternateRowStyles: { fillColor: [245, 248, 255] },
@@ -310,7 +310,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
               <h5 className="text-label-md font-bold uppercase tracking-wider">Estado del Modelo Híbrido</h5>
             </div>
             <p className="text-body-md opacity-90 leading-relaxed">
-              El motor ensemble combina <strong>LightGBM</strong> (R²=71.6%) y <strong>LSTM PyTorch</strong> (R²=74.6%) mediante promedio simple, alcanzando <strong>R²=74.2%</strong> y MAE de 9.90 casos/100k hab.
+              El motor ensemble combina <strong>LightGBM</strong> (R²=71.6%) y <strong>LSTM PyTorch</strong> (R²=76.5%) mediante promedio simple, alcanzando <strong>R²=75.4%</strong> y MAE de 9.87 casos/100k hab.
             </p>
             <div className="mt-md flex items-center gap-sm flex-wrap">
               <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">LightGBM</span>

@@ -47,7 +47,7 @@ const agents = [
       "Implementa una red neuronal LSTM (Long Short-Term Memory) con PyTorch para capturar dependencias temporales de largo plazo en los datos epidemiológicos. Utiliza 12 meses de lookback, capas recurrentes apiladas con dropout y entrenamiento con Adam optimizer durante 80 épocas.",
     tech: ["PyTorch (CPU)", "torch.nn (LSTM)", "Adam Optimizer"],
     input: "Secuencias temporales de 12 meses (clima + incidencia)",
-    output: "Predicción DL (R²=74.56%) con patrón estacional",
+    output: "Predicción DL (R²=76.50%) con patrón estacional",
   },
   {
     id: 5,

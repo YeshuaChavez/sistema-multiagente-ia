@@ -556,7 +556,7 @@ export default function PredictorView({
                   <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=74.6%</p>
+                        <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=76.5%</p>
                         <h4 className="text-headline-md text-primary font-bold">LSTM PyTorch</h4>
                       </div>
                       <span className="material-symbols-outlined text-outline">timeline</span>
@@ -605,7 +605,7 @@ export default function PredictorView({
                     <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#0891b2] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=74.6%</p>
+                          <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=76.5%</p>
                           <h4 className="text-headline-md text-primary font-bold">LSTM PyTorch</h4>
                         </div>
                         <span className="material-symbols-outlined text-[#0891b2]">timeline</span>
@@ -672,7 +672,7 @@ export default function PredictorView({
                   <div className="space-y-xs">
                     <p className="text-label-md font-bold text-primary">Nota de Verificación</p>
                     <p>
-                      El ensemble combina <strong>LightGBM</strong> (R²=71.6%, gradiente boosting tabular) y <strong>LSTM PyTorch</strong> (R²=74.6%, red recurrente con 12 meses de lookback), alcanzando un R² conjunto de <strong>74.20%</strong>. La clasificación de riesgo usa percentiles locales calibrados por departamento: Normal (&lt;p25), Vigilancia (p25–p50), Alerta (p50–p90), Epidemia (&gt;p90).
+                      El ensemble combina <strong>LightGBM</strong> (R²=71.6%, gradiente boosting tabular) y <strong>LSTM PyTorch</strong> (R²=76.5%, red recurrente con 12 meses de lookback), alcanzando un R² conjunto de <strong>75.41%</strong>. La clasificación de riesgo usa percentiles locales calibrados por departamento: Normal (&lt;p25), Vigilancia (p25–p50), Alerta (p50–p90), Epidemia (&gt;p90).
                     </p>
                   </div>
                 </div>
