@@ -174,8 +174,8 @@ class PredictionService:
         entrada_esc_dl = self.escalador_dl.transform(entrada_imp_dl)
         with torch.no_grad():
             x_tensor = torch.tensor(entrada_esc_dl, dtype=torch.float32)
-            pred_dl = float(self.modelo_dl(x_tensor).numpy()[0][0])
-        pred_dl = max(0.0, pred_dl)
+            pred_dl_log = float(self.modelo_dl(x_tensor).numpy()[0][0])
+        pred_dl = max(0.0, np.expm1(pred_dl_log))
         
         # 3. Fusión Ensemble Promedio
         pred_ens = (pred_ml + pred_dl) / 2.0

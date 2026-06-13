@@ -224,9 +224,10 @@ def main():
     X_train_esc_dl = pd.DataFrame(escalador_dl.fit_transform(X_train_imp_dl), columns=COLS_FEAT)
     X_test_esc_dl = pd.DataFrame(escalador_dl.transform(X_test_imp_dl), columns=COLS_FEAT)
     
-    # Dataset PyTorch
+    # Dataset PyTorch — log1p en el target para alinear escala con XGBoost
+    y_train_log_dl = np.log1p(y_train.values)
     X_train_t = torch.tensor(X_train_esc_dl.values, dtype=torch.float32)
-    y_train_t = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
+    y_train_t = torch.tensor(y_train_log_dl, dtype=torch.float32).unsqueeze(1)
     
     model_dl = DengueMLPModel(input_dim=len(COLS_FEAT))
     criterion = nn.MSELoss()
