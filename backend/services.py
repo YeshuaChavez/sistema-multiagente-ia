@@ -344,12 +344,12 @@ class PredictionService:
         pred_lstm = self._predict_lstm_sequence(df_dept, ref_idx, clima_overrides)
 
         if pred_lstm is not None:
-            # Ensemble 3-way
-            pred_ens3 = (res["prediccion_ml"] + res["prediccion_dl"] + pred_lstm) / 3.0
+            # Ensemble 2-way: LightGBM + LSTM (MLP excluido por menor R²)
+            pred_ens2 = (res["prediccion_ml"] + pred_lstm) / 2.0
             res["prediccion_lstm"] = round(pred_lstm, 4)
             res["riesgo_lstm"] = self.calcular_nivel_riesgo(pred_lstm, iso_a0, adm_1_name)
-            res["prediccion_ensemble"] = round(pred_ens3, 4)
-            res["riesgo_ensemble"] = self.calcular_nivel_riesgo(pred_ens3, iso_a0, adm_1_name)
+            res["prediccion_ensemble"] = round(pred_ens2, 4)
+            res["riesgo_ensemble"] = self.calcular_nivel_riesgo(pred_ens2, iso_a0, adm_1_name)
         else:
             res["prediccion_lstm"] = None
             res["riesgo_lstm"] = None

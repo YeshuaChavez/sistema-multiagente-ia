@@ -542,43 +542,30 @@ export default function PredictorView({
             {/* PLACEHOLDER */}
             {!result && !loading && !error && (
               <div className="flex flex-col gap-md">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 opacity-50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Agente ML</p>
-                        <h4 className="text-headline-sm text-primary font-bold">LightGBM</h4>
+                        <p className="text-label-md text-on-surface-variant">Agente ML · R²=71.6%</p>
+                        <h4 className="text-headline-md text-primary font-bold">LightGBM</h4>
                       </div>
                       <span className="material-symbols-outlined text-outline">analytics</span>
                     </div>
                     <div className="flex items-end justify-between">
-                      <span className="text-[40px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
+                      <span className="text-[48px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
                       <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
                     </div>
                   </div>
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 opacity-50">
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Agente DL</p>
-                        <h4 className="text-headline-sm text-primary font-bold">MLP PyTorch</h4>
-                      </div>
-                      <span className="material-symbols-outlined text-outline">neurology</span>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <span className="text-[40px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
-                      <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
-                    </div>
-                  </div>
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 opacity-50">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-label-md text-on-surface-variant">Agente Seq.</p>
-                        <h4 className="text-headline-sm text-primary font-bold">LSTM PyTorch</h4>
+                        <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=74.6%</p>
+                        <h4 className="text-headline-md text-primary font-bold">LSTM PyTorch</h4>
                       </div>
                       <span className="material-symbols-outlined text-outline">timeline</span>
                     </div>
                     <div className="flex items-end justify-between">
-                      <span className="text-[40px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
+                      <span className="text-[48px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
                       <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
                     </div>
                   </div>
@@ -596,18 +583,18 @@ export default function PredictorView({
             {/* RESULTS RENDERING */}
             {result && !loading && (
               <div className="flex flex-col gap-md animate-fade-in-up">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                   {/* LightGBM */}
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#ea580c] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 hover:shadow-md transition-shadow">
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#ea580c] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Agente ML</p>
-                        <h4 className="text-headline-sm text-primary font-bold">LightGBM</h4>
+                        <p className="text-label-md text-on-surface-variant">Agente ML · R²=71.6%</p>
+                        <h4 className="text-headline-md text-primary font-bold">LightGBM</h4>
                       </div>
                       <span className="material-symbols-outlined text-[#ea580c]">analytics</span>
                     </div>
                     <div className="flex items-end justify-between">
-                      <span className="text-[38px] font-black text-[#ea580c]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                      <span className="text-[42px] font-black text-[#ea580c]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
                         {result.prediccion_ml.toFixed(1)}
                       </span>
                       <span className={`${getRisk(result.riesgo_ml).bg} ${getRisk(result.riesgo_ml).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_ml).border}`}>
@@ -616,37 +603,18 @@ export default function PredictorView({
                     </div>
                   </div>
 
-                  {/* MLP PyTorch */}
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#8b5cf6] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-label-md text-on-surface-variant">Agente DL</p>
-                        <h4 className="text-headline-sm text-primary font-bold">MLP PyTorch</h4>
-                      </div>
-                      <span className="material-symbols-outlined text-[#8b5cf6]">neurology</span>
-                    </div>
-                    <div className="flex items-end justify-between">
-                      <span className="text-[38px] font-black text-[#8b5cf6]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                        {result.prediccion_dl.toFixed(1)}
-                      </span>
-                      <span className={`${getRisk(result.riesgo_dl).bg} ${getRisk(result.riesgo_dl).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_dl).border}`}>
-                        {getRisk(result.riesgo_dl).label}
-                      </span>
-                    </div>
-                  </div>
-
                   {/* LSTM PyTorch */}
                   {result.prediccion_lstm != null && (
-                    <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#0891b2] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 hover:shadow-md transition-shadow">
+                    <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#0891b2] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="text-label-md text-on-surface-variant">Agente Seq.</p>
-                          <h4 className="text-headline-sm text-primary font-bold">LSTM PyTorch</h4>
+                          <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=74.6%</p>
+                          <h4 className="text-headline-md text-primary font-bold">LSTM PyTorch</h4>
                         </div>
                         <span className="material-symbols-outlined text-[#0891b2]">timeline</span>
                       </div>
                       <div className="flex items-end justify-between">
-                        <span className="text-[38px] font-black text-[#0891b2]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                        <span className="text-[42px] font-black text-[#0891b2]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
                           {result.prediccion_lstm.toFixed(1)}
                         </span>
                         <span className={`${getRisk(result.riesgo_lstm).bg} ${getRisk(result.riesgo_lstm).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_lstm).border}`}>
@@ -656,6 +624,34 @@ export default function PredictorView({
                     </div>
                   )}
                 </div>
+
+                {/* MLP como referencia secundaria (excluido del ensemble) */}
+                {result.prediccion_dl != null && (
+                  <details className="group">
+                    <summary className="cursor-pointer text-label-md text-on-surface-variant flex items-center gap-xs hover:text-primary transition-colors list-none">
+                      <span className="material-symbols-outlined text-[16px] group-open:rotate-90 transition-transform">chevron_right</span>
+                      Ver Agente MLP PyTorch (referencia · R²=51.0% · excluido del ensemble)
+                    </summary>
+                    <div className="mt-sm bg-white dark:bg-zinc-900 border-l-4 border-l-[#8b5cf6]/40 border border-outline-variant/50 rounded-lg p-lg flex flex-col justify-between opacity-60">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-label-md text-on-surface-variant">Agente DL · excluido del ensemble</p>
+                          <h4 className="text-headline-sm text-primary font-bold">MLP PyTorch</h4>
+                        </div>
+                        <span className="material-symbols-outlined text-[#8b5cf6]/60">neurology</span>
+                      </div>
+                      <div className="flex items-end justify-between mt-md">
+                        <span className="text-[32px] font-black text-[#8b5cf6]/70" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                          {result.prediccion_dl.toFixed(1)}
+                        </span>
+                        <span className={`${getRisk(result.riesgo_dl).bg} ${getRisk(result.riesgo_dl).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_dl).border} opacity-70`}>
+                          {getRisk(result.riesgo_dl).label}
+                        </span>
+                      </div>
+                    </div>
+                  </details>
+                )}
+
 
                 {/* Consensus Hero Card */}
                 <div className="relative overflow-hidden bg-primary text-on-primary rounded-xl p-xl shadow-xl flex flex-col items-center justify-center text-center">
@@ -704,7 +700,7 @@ export default function PredictorView({
                   <div className="space-y-xs">
                     <p className="text-label-md font-bold text-primary">Nota de Verificación</p>
                     <p>
-                      El ensemble combina 3 agentes: <strong>LightGBM</strong> (gradiente boosting tabular), <strong>MLP PyTorch</strong> (red neuronal feedforward) y <strong>LSTM PyTorch</strong> (red recurrente con 12 meses de lookback). La clasificación de riesgo usa percentiles locales calibrados por departamento: Normal (&lt;p25), Vigilancia (p25–p50), Alerta (p50–p90), Epidemia (&gt;p90).
+                      El ensemble combina los 2 mejores agentes: <strong>LightGBM</strong> (R²=71.6%, gradiente boosting tabular) y <strong>LSTM PyTorch</strong> (R²=74.6%, red recurrente con 12 meses de lookback). El MLP quedó excluido por menor precisión (R²=51%). La clasificación de riesgo usa percentiles locales calibrados por departamento: Normal (&lt;p25), Vigilancia (p25–p50), Alerta (p50–p90), Epidemia (&gt;p90).
                     </p>
                   </div>
                 </div>
