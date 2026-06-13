@@ -7,10 +7,7 @@ const menuItems = [
   { id: "info", label: "Info Técnica", icon: "menu_book" },
 ];
 
-export default function Sidebar({ currentView, setCurrentView, onOpenSettings, onOpenSupport }) {
-  const handleGenerateReport = () => {
-    alert("Reporte general consolidado generado y guardado en almacenamiento local.");
-  };
+export default function Sidebar({ currentView, setCurrentView, onOpenSettings, onOpenSupport, onGenerateReport }) {
 
   return (
     <aside className="h-screen w-64 fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant flex flex-col py-lg z-50 hidden md:flex">
@@ -46,7 +43,7 @@ export default function Sidebar({ currentView, setCurrentView, onOpenSettings, o
       {/* Bottom Actions */}
       <div className="mt-auto pt-lg border-t border-outline-variant/30 space-y-xs">
         <button 
-          onClick={handleGenerateReport}
+          onClick={onGenerateReport}
           className="mx-md mb-md bg-primary text-on-primary px-md py-sm rounded-lg text-label-md font-bold hover:opacity-90 transition-all flex items-center justify-center gap-sm w-[calc(100%-32px)] cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]">summarize</span>

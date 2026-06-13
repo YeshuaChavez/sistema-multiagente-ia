@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import DashboardView from "./components/DashboardView";
@@ -73,6 +75,128 @@ export default function App() {
     }
   }, [darkMode]);
 
+  // Generar reporte consolidado PDF desde la sidebar
+  const handleGenerateReport = async () => {
+    const doc = new jsPDF();
+    const fecha = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
+    const PRIMARY = [30, 58, 95];
+    const ORANGE  = [217, 119, 6];
+    const GRAY    = [100, 100, 100];
+
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(...PRIMARY);
+    doc.text("EpiPredict Dengue", 14, 18);
+    doc.setFontSize(10);
+    doc.setTextColor(...GRAY);
+    doc.text("Reporte Consolidado — Sistema Multi-Agente SMA-ML/DL", 14, 25);
+    doc.text(`Generado: ${fecha}`, 14, 31);
+
+    // Métricas del sistema
+    let metrics = { records: "15,342", r2_lgbm: "71.64%", r2_lstm: "76.50%", r2_ens: "75.41%", mae: "9.87" };
+    try {
+      const r = await fetch(`${API_URL}/api/metrics`);
+      if (r.ok) {
+        const m = await r.json();
+        metrics = {
+          records:  m.records_procesados?.toLocaleString() ?? metrics.records,
+          r2_lgbm:  m.r2_lgbm  != null ? `${(m.r2_lgbm  * 100).toFixed(2)}%` : metrics.r2_lgbm,
+          r2_lstm:  m.r2_lstm  != null ? `${(m.r2_lstm  * 100).toFixed(2)}%` : metrics.r2_lstm,
+          r2_ens:   m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : metrics.r2_ens,
+          mae:      m.mae_ensemble != null ? m.mae_ensemble.toFixed(2) : metrics.mae,
+        };
+      }
+    } catch (_) {}
+
+    doc.setFontSize(12);
+    doc.setTextColor(...PRIMARY);
+    doc.text("1. Métricas del Sistema", 14, 40);
+    autoTable(doc, {
+      startY: 44,
+      head: [["Indicador", "Valor"]],
+      body: [
+        ["Registros históricos procesados", `${metrics.records} obs. (2014–2022)`],
+        ["Países en América Latina", "18 países"],
+        ["R² — Agente 3 (LightGBM)", metrics.r2_lgbm],
+        ["R² — Agente 4 (LSTM PyTorch)", metrics.r2_lstm],
+        ["R² — Ensemble Final (Agentes 3+4)", metrics.r2_ens],
+        ["MAE Ensemble", `${metrics.mae} casos/100k hab.`],
+      ],
+      headStyles: { fillColor: PRIMARY },
+      alternateRowStyles: { fillColor: [245, 248, 255] },
+    });
+
+    // Top departamentos
+    let topDepts = [];
+    try {
+      const r = await fetch(`${API_URL}/api/top-departments?n=10`);
+      if (r.ok) topDepts = await r.json();
+    } catch (_) {}
+
+    const y1 = doc.lastAutoTable?.finalY ?? 100;
+    doc.setFontSize(12);
+    doc.setTextColor(...PRIMARY);
+    doc.text("2. Top 10 Focos de Mayor Incidencia Histórica", 14, y1 + 10);
+    autoTable(doc, {
+      startY: y1 + 14,
+      head: [["Departamento", "País", "Incidencia media (casos/100k)", "Máximo registrado"]],
+      body: topDepts.length > 0
+        ? topDepts.map((d) => [
+            d.adm_1_name ?? "—",
+            d.pais ?? "—",
+            (d.mean_incidencia ?? "—").toString(),
+            (d.max_incidencia  ?? "—").toString(),
+          ])
+        : [["Sin datos disponibles", "", "", ""]],
+      headStyles: { fillColor: ORANGE },
+      alternateRowStyles: { fillColor: [255, 251, 235] },
+    });
+
+    // Arquitectura del sistema
+    const y2 = doc.lastAutoTable?.finalY ?? 160;
+    doc.setFontSize(12);
+    doc.setTextColor(...PRIMARY);
+    doc.text("3. Arquitectura Multi-Agente", 14, y2 + 10);
+    autoTable(doc, {
+      startY: y2 + 14,
+      head: [["Agente", "Rol", "Tecnología"]],
+      body: [
+        ["Agente 1", "Recolección de datos",          "OpenDengue + NASA POWER API"],
+        ["Agente 2", "Preprocesamiento",              "Pandas, NumPy, Scikit-Learn"],
+        ["Agente 3", "Predicción ML",                 "LightGBM + SHAP (TreeSHAP)"],
+        ["Agente 4", "Predicción DL (series de tiempo)", "LSTM PyTorch (2 capas, 12-mes lookback)"],
+        ["Agente 5", "Orquestación y alertas",        "Ensemble averaging + percentiles calibrados"],
+      ],
+      headStyles: { fillColor: [79, 70, 229] },
+      alternateRowStyles: { fillColor: [245, 245, 255] },
+    });
+
+    // Niveles de alerta
+    const y3 = doc.lastAutoTable?.finalY ?? 220;
+    doc.setFontSize(12);
+    doc.setTextColor(...PRIMARY);
+    doc.text("4. Niveles de Alerta Epidemiológica", 14, y3 + 10);
+    autoTable(doc, {
+      startY: y3 + 14,
+      head: [["Nivel", "Umbral (percentil histórico)", "Acción recomendada"]],
+      body: [
+        ["Normal",     "< P25",      "Monitoreo rutinario"],
+        ["Vigilancia", "P25 – P50",  "Refuerzo de vigilancia pasiva"],
+        ["Alerta",     "P50 – P90",  "Activación de equipos de respuesta"],
+        ["Epidemia",   "> P90",      "Declaración de emergencia sanitaria"],
+      ],
+      headStyles: { fillColor: [16, 185, 129] },
+    });
+
+    // Footer
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    doc.setTextColor(...GRAY);
+    doc.text("EpiPredict Dengue — Proyecto Final FISI-UNMSM | Uso académico", 14, pageH - 8);
+
+    doc.save("EpiPredict_ReporteCompleto.pdf");
+  };
+
   // Navegar al predictor desde el mapa
   const handleSelectDepartment = (iso, dept) => {
     let countryName = iso;
@@ -129,11 +253,12 @@ export default function App() {
   return (
     <>
       {/* Sidebar — fixed, hidden on mobile */}
-      <Sidebar 
-        currentView={currentView} 
-        setCurrentView={setCurrentView} 
+      <Sidebar
+        currentView={currentView}
+        setCurrentView={setCurrentView}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenSupport={() => setIsSupportOpen(true)}
+        onGenerateReport={handleGenerateReport}
       />
 
       {/* Main Content Area */}

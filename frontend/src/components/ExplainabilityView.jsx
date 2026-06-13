@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -115,7 +117,83 @@ export default function ExplainabilityView({ activeSubtab }) {
   };
 
   const handleExport = () => {
-    alert("Exportar PDF disponible desde el Panel de Control.");
+    const doc = new jsPDF();
+    const fecha = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
+    const PRIMARY = [30, 58, 95];
+    const GRAY    = [100, 100, 100];
+
+    doc.setFontSize(18);
+    doc.setTextColor(...PRIMARY);
+    doc.text("EpiPredict Dengue — Explicabilidad SHAP", 14, 18);
+    doc.setFontSize(10);
+    doc.setTextColor(...GRAY);
+    doc.text(`Agente 3 · TreeSHAP | Generado: ${fecha}`, 14, 26);
+
+    if (activeSubtab === "Local SHAP") {
+      if (!localResult) {
+        alert("Primero analiza un departamento en la pestaña Local SHAP.");
+        return;
+      }
+      doc.setFontSize(13);
+      doc.setTextColor(...PRIMARY);
+      doc.text(`SHAP Local — ${localDept} (${localCountry})`, 14, 36);
+      doc.setFontSize(10);
+      doc.setTextColor(...GRAY);
+      doc.text(
+        `Predicción Ensemble: ${localResult.prediction?.toFixed(2)} casos/100k · Riesgo: ${localResult.riesgo?.nivel ?? "—"}`,
+        14, 43
+      );
+      autoTable(doc, {
+        startY: 48,
+        head: [["Variable", "Valor SHAP", "Dirección"]],
+        body: localResult.shapArr.map((f) => [
+          f.feature,
+          (f.value > 0 ? "+" : "") + f.value.toFixed(6),
+          f.value >= 0 ? "Aumenta riesgo" : "Reduce riesgo",
+        ]),
+        headStyles: { fillColor: PRIMARY },
+        alternateRowStyles: { fillColor: [245, 248, 255] },
+        columnStyles: {
+          1: { halign: "right", fontStyle: "bold" },
+          2: { halign: "center" },
+        },
+      });
+    } else {
+      // Global SHAP
+      if (!shapData || shapData.length === 0) {
+        alert("Los datos SHAP globales aún están cargando.");
+        return;
+      }
+      doc.setFontSize(13);
+      doc.setTextColor(...PRIMARY);
+      doc.text("SHAP Global — Importancia Media de Variables (todos los departamentos)", 14, 36);
+      autoTable(doc, {
+        startY: 42,
+        head: [["Ranking", "Variable", "Importancia SHAP media", "Dirección"]],
+        body: shapData.map((f, i) => [
+          `#${i + 1}`,
+          f.feature,
+          f.importance.toFixed(6),
+          f.importance >= 0 ? "Aumenta riesgo" : "Reduce riesgo",
+        ]),
+        headStyles: { fillColor: PRIMARY },
+        alternateRowStyles: { fillColor: [245, 248, 255] },
+        columnStyles: {
+          2: { halign: "right", fontStyle: "bold" },
+          3: { halign: "center" },
+        },
+      });
+    }
+
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    doc.setTextColor(...GRAY);
+    doc.text("EpiPredict Dengue — Proyecto Final FISI-UNMSM | Uso académico", 14, pageH - 8);
+
+    const filename = activeSubtab === "Local SHAP"
+      ? `SHAP_Local_${localDept.replace(/\s+/g, "_")}.pdf`
+      : "SHAP_Global_EpiPredict.pdf";
+    doc.save(filename);
   };
 
   const maxVal = Array.isArray(shapData) && shapData.length > 0 
