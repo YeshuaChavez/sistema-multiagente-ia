@@ -3,9 +3,10 @@
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 3: Predicción Machine Learning
 --------------------------------------------------
-Responsabilidad: Modelamiento continuo de la incidencia de dengue mediante XGBoost,
-optimización bajo validación cruzada temporal y análisis de explicabilidad (XAI)
-mediante la extracción de valores SHAP (Shapley Additive exPlanations).
+Responsabilidad: Modelamiento continuo de la incidencia de dengue mediante LightGBM
+(Gradient Boosting de hoja a hoja), optimización bajo validación cruzada temporal
+y análisis de explicabilidad (XAI) mediante la extracción de valores SHAP
+(Shapley Additive exPlanations) con TreeSHAP.
 """
 
 import os
@@ -15,9 +16,9 @@ import numpy as np
 import shap
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import KFold, cross_validate
+from sklearn.model_selection import KFold
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from xgboost import XGBRegressor
+from lightgbm import LGBMRegressor
 
 class AgentePrediccionML:
     def __init__(self, base_dir=None):
@@ -188,66 +189,66 @@ class AgentePrediccionML:
         X_train = pd.DataFrame(escalador.fit_transform(X_train_imp), columns=COLS_FEAT)
         X_test = pd.DataFrame(escalador.transform(X_test_imp), columns=COLS_FEAT)
         
-        # 4. Sintonización y Validación Cruzada de XGBoost (K=5 Folds) en el bloque histórico (2014-2020)
-        print("   [ML] Iniciando validación cruzada K-Fold (K=5) para XGBoost (Escala Real)...")
+        # 4. Sintonización y Validación Cruzada de LightGBM (K=5 Folds) en el bloque histórico (2014-2020)
+        print("   [ML] Iniciando validación cruzada K-Fold (K=5) para LightGBM...")
         kfold = KFold(n_splits=5, shuffle=True, random_state=self.semilla)
-        
+
         cv_mae_list = []
         cv_rmse_list = []
         cv_r2_list = []
-        
-        y_train_log = np.log1p(y_train)
-        
+
         for fold, (train_idx, val_idx) in enumerate(kfold.split(X_train)):
             X_tr, X_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
-            y_tr_log = y_train_log.iloc[train_idx]
+            y_tr = y_train.iloc[train_idx]
             y_val_real = y_train.iloc[val_idx]
-            
-            m_fold = XGBRegressor(
-                n_estimators=150,
-                learning_rate=0.05,
-                max_depth=6,
+
+            m_fold = LGBMRegressor(
+                n_estimators=400,
+                learning_rate=0.04,
+                num_leaves=63,
+                min_child_samples=20,
                 random_state=self.semilla,
-                n_jobs=-1
+                n_jobs=-1,
+                verbose=-1
             )
-            m_fold.fit(X_tr, y_tr_log)
-            
-            preds_val_log = m_fold.predict(X_val)
-            preds_val = np.expm1(preds_val_log)
+            m_fold.fit(X_tr, y_tr)
+
+            preds_val = m_fold.predict(X_val)
             preds_val = np.clip(preds_val, 0.0, None)
-            
+
             cv_mae_list.append(mean_absolute_error(y_val_real, preds_val))
             cv_rmse_list.append(np.sqrt(mean_squared_error(y_val_real, preds_val)))
             cv_r2_list.append(r2_score(y_val_real, preds_val))
-            
+
         cv_mae = np.mean(cv_mae_list)
         cv_rmse = np.mean(cv_rmse_list)
         cv_r2 = np.mean(cv_r2_list)
         print(f"   [ML] Resultados CV (Train): MAE: {cv_mae:.4f} | RMSE: {cv_rmse:.4f} | R²: {cv_r2*100:.2f}%")
-        
+
         # 5. Entrenamiento final sobre el bloque de Entrenamiento completo (2014-2020)
-        print("   [ML] Entrenando modelo final XGBoost en todo el Train Set...")
-        modelo_ml = XGBRegressor(
-            n_estimators=150,
-            learning_rate=0.05,
-            max_depth=6,
+        print("   [ML] Entrenando modelo final LightGBM en todo el Train Set...")
+        modelo_ml = LGBMRegressor(
+            n_estimators=400,
+            learning_rate=0.04,
+            num_leaves=63,
+            min_child_samples=20,
             random_state=self.semilla,
-            n_jobs=-1
+            n_jobs=-1,
+            verbose=-1
         )
-        modelo_ml.fit(X_train, y_train_log)
-        
+        modelo_ml.fit(X_train, y_train)
+
         # 6. Proyección y Evaluación sobre el Conjunto de Prueba Independiente (2021-2022)
         print("   [ML] Evaluando sobre Test Set (2021-2022)...")
-        y_pred_log = modelo_ml.predict(X_test)
-        y_pred = np.expm1(y_pred_log)
-        y_pred = np.clip(y_pred, 0.0, None)  # La incidencia no puede ser negativa
+        y_pred = modelo_ml.predict(X_test)
+        y_pred = np.clip(y_pred, 0.0, None)
         
         test_mae = mean_absolute_error(y_test, y_pred)
         test_rmse = np.sqrt(mean_squared_error(y_test, y_pred))
         test_r2 = r2_score(y_test, y_pred)
         print(f"   [ML] Resultados Test (21-22): MAE: {test_mae:.4f} | RMSE: {test_rmse:.4f} | R²: {test_r2*100:.2f}%")
         
-        # 7. Capa de Explicabilidad (XAI) mediante Valores SHAP
+        # 7. Capa de Explicabilidad (XAI) mediante Valores SHAP (TreeSHAP — LightGBM)
         print("   [XAI/SHAP] Extrayendo valores de Shapley mediante TreeSHAP...")
         explainer = shap.TreeExplainer(modelo_ml)
         # Calcular valores SHAP locales para el conjunto de prueba
@@ -264,7 +265,7 @@ class AgentePrediccionML:
         for idx, (var, val) in enumerate(shap_importance.head(5).items()):
             print(f"     {idx+1}. {var}: {val:.4f} (SHAP medio)")
             
-        print("SUCCESS: [Agente 3] Entrenamiento y análisis explicable (SHAP) finalizado.")
+        print("SUCCESS: [Agente 3] Entrenamiento LightGBM y análisis explicable (SHAP) finalizado.")
         print("="*70)
         
         return {

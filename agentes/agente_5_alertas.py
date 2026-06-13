@@ -3,7 +3,7 @@
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 5: Alertas (Interfaz de Síntesis)
 --------------------------------------------------
-Responsabilidad: Unifica las predicciones del Agente 3 (Gradient Boosting) y el Agente 4 (MLP Neural Network)
+Responsabilidad: Unifica las predicciones del Agente 3 (LightGBM) y el Agente 4 (LSTM PyTorch)
 mediante un modelo de Ensemble, clasifica el escenario territorial en niveles de riesgo
 y aloja la interfaz gráfica (GUI Tkinter) interactiva y de reporte técnico.
 """
@@ -56,7 +56,7 @@ def entrenar_sistema_completo():
     agente_ml = AgentePrediccionML()
     res_ml = agente_ml.entrenar_modelo()
     
-    # 4. Agente 4: Predicción DL (MLP)
+    # 4. Agente 4: Predicción DL (LSTM PyTorch)
     agente_dl = AgentePrediccionDL()
     res_dl = agente_dl.entrenar_modelo()
     
@@ -89,7 +89,7 @@ class AgenteAlertasGUI:
         self.y_pred_ml = self.res_ml['y_pred']
         self.y_pred_dl = self.res_dl['y_pred']
         
-        # Ensemble: Promedio de Gradient Boosting y MLP
+        # Ensemble: Promedio de LightGBM y LSTM PyTorch
         self.y_pred_ens = (self.y_pred_ml + self.y_pred_dl) / 2.0
         
         # Calcular métricas del Ensemble
@@ -109,10 +109,10 @@ class AgenteAlertasGUI:
         self.slider_labels = {}
         self.slider_ranges = {}
         self.colores_mpl = {
-            "XGBoost": "#ea580c", 
-            "MLP Neural Network": "#8b5cf6", 
+            "LightGBM": "#ea580c",
+            "LSTM PyTorch": "#8b5cf6",
             "Ensemble": "#10b981",
-            "Ridge": "#2563eb"  # Usado para visualizaciones adicionales
+            "Ridge": "#2563eb"
         }
 
         self.setup_styles()
@@ -189,7 +189,7 @@ class AgenteAlertasGUI:
         kpis_frame = ttk.Frame(main_frame)
         kpis_frame.pack(fill="x", pady=(0, 15))
 
-        mejor_nombre = "MLP Neural Network" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "XGBoost"
+        mejor_nombre = "LSTM PyTorch" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "LightGBM"
         mejor_r2 = max(self.res_dl['test_r2'], self.res_ml['test_r2'])
 
         kpis = [
@@ -223,16 +223,16 @@ class AgenteAlertasGUI:
             tree_reg.heading(col, text=col)
             tree_reg.column(col, anchor="center", width=125)
 
-        # Fila 1: XGBoost (Agente 3)
+        # Fila 1: LightGBM (Agente 3)
         tree_reg.insert("", "end", values=(
-            "Agente 3: XGBoost", "Machine Learning (XGBoost Log)",
+            "Agente 3: LightGBM", "Machine Learning (Gradient Boosting)",
             f"{self.res_ml['cv_mae']:.4f}", f"{self.res_ml['cv_rmse']:.4f}", f"{self.res_ml['cv_r2']*100:.2f}%",
             f"{self.res_ml['test_mae']:.4f}", f"{self.res_ml['test_rmse']:.4f}", f"{self.res_ml['test_r2']*100:.2f}%"
         ))
-        
-        # Fila 2: MLP Neural Network (Agente 4)
+
+        # Fila 2: LSTM PyTorch (Agente 4)
         tree_reg.insert("", "end", values=(
-            "Agente 4: MLP Neural Network", "Deep Learning (Neuronal Tabular)",
+            "Agente 4: LSTM PyTorch", "Deep Learning (Secuencias Temporales)",
             f"{self.res_dl['cv_mae']:.4f}", f"{self.res_dl['cv_rmse']:.4f}", f"{self.res_dl['cv_r2']*100:.2f}%",
             f"{self.res_dl['test_mae']:.4f}", f"{self.res_dl['test_rmse']:.4f}", f"{self.res_dl['test_r2']*100:.2f}%"
         ))
@@ -252,10 +252,10 @@ class AgenteAlertasGUI:
             "ℹ️ NOTA METODOLÓGICA SÓLIDA:\n"
             "Este sistema utiliza una partición cronológica (Entrenamiento: 2014-2020, Prueba: 2021-2022) para evaluar el desempeño "
             "del modelo en el tiempo sin riesgo de fuga de información temporal.\n\n"
-            "Observación Clave: Los modelos predicen la tasa de incidencia de dengue (casos por 100k hab.). El modelo XGBoost se entrena "
-            "sobre la variable transformada logarítmicamente (np.log1p) para suavizar extremos y estabilizar varianza, mientras que la "
-            "red MLP Neural Network regularizada con Dropout se entrena en la escala real original para permitir la extrapolación de "
-            "magnitudes extremas de epidemias. El Ensemble promedia ambas salidas a escala real obteniendo la máxima precisión combinada."
+            "Observación Clave: Los modelos predicen la tasa de incidencia de dengue (casos por 100k hab.). El modelo LightGBM (Agente 3) "
+            "aplica Gradient Boosting de hoja a hoja con hiperparámetros calibrados (n_estimators=400, lr=0.04, num_leaves=63). La red "
+            "LSTM PyTorch (Agente 4) captura dependencias temporales de largo plazo mediante secuencias de 12 meses de variables "
+            "climáticas y epidemiológicas. El Ensemble promedia ambas salidas obteniendo la máxima precisión combinada."
         )
         tk.Label(info_frame, text=info_txt, font=("Segoe UI", 9), fg="#1e40af", bg="#eff6ff", justify="left", wraplength=1200).pack(padx=12, pady=8)
 
@@ -372,8 +372,8 @@ class AgenteAlertasGUI:
 
         self.cards = {}
         model_info = [
-            ("XGBoost", "🟠 XGBoost (Agente 3)", "#fff7ed", "#ea580c"),
-            ("MLP Neural Network", "🟣 MLP PyTorch (Agente 4)", "#f5f3ff", "#8b5cf6"),
+            ("LightGBM", "🟠 LightGBM (Agente 3)", "#fff7ed", "#ea580c"),
+            ("LSTM PyTorch", "🟣 LSTM PyTorch (Agente 4)", "#f5f3ff", "#8b5cf6"),
         ]
 
         for key, title, bg_col, border_col in model_info:
@@ -473,31 +473,53 @@ class AgenteAlertasGUI:
 
         entrada = np.array([vector])
         
-        # 2. Preprocesamiento (Imputación y escalado de XGBoost)
+        # 2. Preprocesamiento (Imputación y escalado LightGBM)
         entrada_imp_ml = self.res_ml['imputador'].transform(entrada)
         entrada_esc_ml = self.res_ml['escalador'].transform(entrada_imp_ml)
-        
-        # 3. Predicción XGBoost
+
+        # 3. Predicción LightGBM
         pred_ml = float(self.res_ml['modelo'].predict(entrada_esc_ml)[0])
         pred_ml = max(0.0, pred_ml)
-        
-        # 4. Predicción MLP Neural Network
-        # Preprocesar datos usando imputador/escalador de la MLP
-        entrada_imp_dl = self.res_dl['imputador'].transform(entrada)
-        entrada_esc_dl = self.res_dl['escalador'].transform(entrada_imp_dl)
-        
-        # Evaluar MLP
+
+        # 4. Predicción LSTM PyTorch
+        # Construir vector de 6 features LSTM desde los sliders
+        lstm_feats = self.res_dl['lstm_features']
+        live_map = self.res_dl['lstm_live_map']
+        feat_medians = self.res_dl['lstm_feat_medians']
+
+        raw_lstm = np.zeros((1, len(lstm_feats)), dtype=np.float32)
+        for i, feat in enumerate(lstm_feats):
+            src = live_map.get(feat, feat)
+            if src in self.sliders:
+                raw_lstm[0, i] = self.sliders[src].get()
+            elif feat in self.sliders:
+                raw_lstm[0, i] = self.sliders[feat].get()
+            else:
+                raw_lstm[0, i] = feat_medians.get(feat, 0.0)
+
+        entrada_imp_dl = self.res_dl['lstm_imputador'].transform(raw_lstm)
+        entrada_esc_dl = self.res_dl['lstm_scaler'].transform(entrada_imp_dl)
+        # Crear secuencia de 12 pasos replicando el vector actual
+        seq = np.tile(entrada_esc_dl[:, np.newaxis, :],
+                      (1, self.res_dl['lstm_seq_len'], 1)).astype(np.float32)
+
         self.res_dl['modelo'].eval()
         with torch.no_grad():
-            x_tensor = torch.tensor(entrada_esc_dl, dtype=torch.float32)
-            pred_dl = float(self.res_dl['modelo'](x_tensor).numpy()[0][0])
+            x_tensor = torch.tensor(seq, dtype=torch.float32)
+            pred_dl_scaled = float(self.res_dl['modelo'](x_tensor).numpy()[0][0])
+
+        # Invertir escala de la predicción LSTM
+        n_feats = len(lstm_feats)
+        dummy = np.zeros((1, n_feats), dtype=np.float32)
+        dummy[0, -1] = pred_dl_scaled
+        pred_dl = float(self.res_dl['lstm_scaler'].inverse_transform(dummy)[0, -1])
         pred_dl = max(0.0, pred_dl)
 
         # 5. Ensemble (Agente 5)
         pred_ens = (pred_ml + pred_dl) / 2.0
 
         # Actualizar Tarjetas
-        preds = {"XGBoost": pred_ml, "MLP Neural Network": pred_dl}
+        preds = {"LightGBM": pred_ml, "LSTM PyTorch": pred_dl}
         for name, val in preds.items():
             val_lbl, risk_lbl = self.cards[name]
             val_lbl.config(text=f"{val:.4f}")
@@ -544,11 +566,11 @@ class AgenteAlertasGUI:
         lim = y_test_arr.max() * 1.05
         
         model_preds = {
-            "XGBoost": self.y_pred_ml,
-            "MLP Neural Network": self.y_pred_dl,
+            "LightGBM": self.y_pred_ml,
+            "LSTM PyTorch": self.y_pred_dl,
             "Ensemble": self.y_pred_ens
         }
-        
+
         for ax, (nombre, pred) in zip(axes, model_preds.items()):
             color = self.colores_mpl[nombre]
             mae = mean_absolute_error(self.y_test, pred)
@@ -575,7 +597,7 @@ class AgenteAlertasGUI:
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
 
     def build_compare_chart(self, parent):
-        nombres = ["XGBoost", "MLP Neural Network", "Ensemble"]
+        nombres = ["LightGBM", "LSTM PyTorch", "Ensemble"]
         colores = [self.colores_mpl[n] for n in nombres]
         x = np.arange(len(nombres))
         w = 0.4
@@ -617,11 +639,11 @@ class AgenteAlertasGUI:
         y_test_arr = np.array(self.y_test)
         
         model_preds = {
-            "XGBoost": self.y_pred_ml,
-            "MLP Neural Network": self.y_pred_dl,
+            "LightGBM": self.y_pred_ml,
+            "LSTM PyTorch": self.y_pred_dl,
             "Ensemble": self.y_pred_ens
         }
-        
+
         for ax, (nombre, pred) in zip(axes, model_preds.items()):
             color = self.colores_mpl[nombre]
             residuos = pred - y_test_arr
@@ -689,12 +711,14 @@ class AgenteAlertasGUI:
             "   * Aplica rezagos temporales (lags 1, 2 y 3 meses) simétricos para clima e incidencia, y genera el dataset maestro "
             "'dataset_maestro_mensual_latam.csv'.\n\n"
             "3. AGENTE PREDICCIÓN MACHINE LEARNING (Agente 3):\n"
-            "   * Entrena el algoritmo XGBoost optimizado sobre la variable objetivo en escala logarítmica (np.log1p).\n"
-            "   * Integra una capa nativa de explicabilidad algorítmica (XAI) mediante el cálculo de valores SHAP (Shapley Additive exPlanations).\n\n"
+            "   * Entrena el algoritmo LightGBM (Gradient Boosting de hoja a hoja) con hiperparámetros calibrados "
+            "(n_estimators=400, lr=0.04, num_leaves=63, min_child_samples=20).\n"
+            "   * Integra una capa nativa de explicabilidad algorítmica (XAI) mediante el cálculo de valores SHAP (TreeSHAP).\n\n"
             "4. AGENTE DE PREDICCIÓN DEEP LEARNING (Agente 4):\n"
-            "   * Implementa una red neuronal profunda MLP (Multi-Layer Perceptron) en PyTorch para asimilar dinámicas secuenciales y espaciales a escala subnacional.\n\n"
+            "   * Implementa una red LSTM (Long Short-Term Memory) en PyTorch con secuencias de 12 meses, capas apiladas "
+            "(hidden_dim=64, num_layers=2, dropout=0.2) y optimizador Adam (lr=0.003, 80 épocas).\n\n"
             "5. AGENTE DE ALERTAS Y SÍNTESIS (Agente 5):\n"
-            "   * Unifica los pronósticos de XGBoost y MLP en una salida robusta promedio (Ensemble).\n"
+            "   * Unifica los pronósticos de LightGBM y LSTM PyTorch en una salida robusta promedio (Ensemble).\n"
             "   * Clasifica los escenarios epidemiológicos territoriales en 4 niveles de riesgo (Normal, Vigilancia, Alerta, Epidemia) y provee "
             "la consola interactiva."
         )
