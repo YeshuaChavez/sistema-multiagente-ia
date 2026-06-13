@@ -63,11 +63,6 @@ class PredictionService:
         self.imputador_ml = None
         self.escalador_ml = None
 
-        # DL (MLP PyTorch)
-        self.modelo_dl = None
-        self.imputador_dl = None
-        self.escalador_dl = None
-
         # LSTM PyTorch
         self.modelo_lstm = None
         self.escalador_lstm = None
@@ -118,21 +113,7 @@ class PredictionService:
         with open(os.path.join(self.model_dir, "escalador_ml.pkl"), "rb") as f:
             self.escalador_ml = pickle.load(f)
 
-        # 5. MLP PyTorch
-        mlp_path = os.path.join(self.model_dir, "mlp_model.pth")
-        if not os.path.exists(mlp_path):
-            raise FileNotFoundError(f"Falta mlp_model.pth: {mlp_path}")
-        self.modelo_dl = DengueMLPModel(input_dim=len(self.cols_feat))
-        self.modelo_dl.load_state_dict(
-            torch.load(mlp_path, map_location=torch.device('cpu'))
-        )
-        self.modelo_dl.eval()
-        with open(os.path.join(self.model_dir, "imputador_dl.pkl"), "rb") as f:
-            self.imputador_dl = pickle.load(f)
-        with open(os.path.join(self.model_dir, "escalador_dl.pkl"), "rb") as f:
-            self.escalador_dl = pickle.load(f)
-
-        # 6. LSTM PyTorch
+        # 5. LSTM PyTorch
         lstm_path = os.path.join(self.model_dir, "lstm_model.pth")
         lstm_config_path = os.path.join(self.model_dir, "lstm_config.json")
         lstm_features_path = os.path.join(self.model_dir, "lstm_features.pkl")
@@ -233,32 +214,19 @@ class PredictionService:
     # ─────────────────────────────────────────────────────────────
 
     def realizar_prediccion_vector(self, vector_x, iso_a0=None, adm_1_name=None):
-        """Predicción de LightGBM + MLP a partir de un vector de features plano."""
+        """Predicción LightGBM a partir de un vector de features plano."""
         entrada = pd.DataFrame([vector_x], columns=self.cols_feat)
 
-        # LightGBM
         entrada_imp_ml = self.imputador_ml.transform(entrada)
         entrada_esc_ml = self.escalador_ml.transform(entrada_imp_ml)
         pred_ml_log = float(self.modelo_ml.predict(entrada_esc_ml)[0])
         pred_ml = max(0.0, np.expm1(pred_ml_log))
 
-        # MLP
-        entrada_imp_dl = self.imputador_dl.transform(entrada)
-        entrada_esc_dl = self.escalador_dl.transform(entrada_imp_dl)
-        with torch.no_grad():
-            x_tensor = torch.tensor(entrada_esc_dl, dtype=torch.float32)
-            pred_dl_log = float(self.modelo_dl(x_tensor).numpy()[0][0])
-        pred_dl = max(0.0, np.expm1(pred_dl_log))
-
-        pred_ens_2 = (pred_ml + pred_dl) / 2.0
-
         return {
             "prediccion_ml":       round(pred_ml, 4),
             "riesgo_ml":           self.calcular_nivel_riesgo(pred_ml, iso_a0, adm_1_name),
-            "prediccion_dl":       round(pred_dl, 4),
-            "riesgo_dl":           self.calcular_nivel_riesgo(pred_dl, iso_a0, adm_1_name),
-            "prediccion_ensemble": round(pred_ens_2, 4),
-            "riesgo_ensemble":     self.calcular_nivel_riesgo(pred_ens_2, iso_a0, adm_1_name),
+            "prediccion_ensemble": round(pred_ml, 4),
+            "riesgo_ensemble":     self.calcular_nivel_riesgo(pred_ml, iso_a0, adm_1_name),
         }
 
     # ─────────────────────────────────────────────────────────────

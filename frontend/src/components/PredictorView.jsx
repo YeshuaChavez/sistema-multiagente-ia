@@ -102,9 +102,8 @@ const runMockPrediction = (values, country, dept) => {
   baseInc = Math.max(1.0, baseInc);
   
   const pred_ml = baseInc * (0.94 + Math.sin(tmax) * 0.04);
-  const pred_dl = baseInc * (1.06 + Math.cos(precip) * 0.04);
   const pred_lstm = baseInc * (1.0 + Math.sin(tmax + precip * 0.01) * 0.03);
-  const pred_ens = (pred_ml + pred_dl + pred_lstm) / 3.0;
+  const pred_ens = (pred_ml + pred_lstm) / 2.0;
 
   const isLowRiskDept = dept && dept.toUpperCase() === "AGUASCALIENTES";
   const p25 = 0.0;
@@ -121,8 +120,6 @@ const runMockPrediction = (values, country, dept) => {
   return {
     prediccion_ml: pred_ml,
     riesgo_ml: getMockRisk(pred_ml),
-    prediccion_dl: pred_dl,
-    riesgo_dl: getMockRisk(pred_dl),
     prediccion_lstm: pred_lstm,
     riesgo_lstm: getMockRisk(pred_lstm),
     prediccion_ensemble: pred_ens,
@@ -325,12 +322,12 @@ export default function PredictorView({
 
   const getRisk = (r) => riskStyles[r?.nivel] || riskStyles.Normal;
 
-  // Ensemble statistics (3-model)
+  // Ensemble statistics (LightGBM + LSTM)
   const allPreds = result
-    ? [result.prediccion_ml, result.prediccion_dl, result.prediccion_lstm].filter(v => v != null)
+    ? [result.prediccion_ml, result.prediccion_lstm].filter(v => v != null)
     : [];
-  const ensembleVariance = allPreds.length > 1
-    ? (Math.max(...allPreds) - Math.min(...allPreds)).toFixed(1)
+  const ensembleVariance = allPreds.length === 2
+    ? Math.abs(allPreds[0] - allPreds[1]).toFixed(1)
     : "—";
 
   const confidence = result && allPreds.length > 0
@@ -625,32 +622,7 @@ export default function PredictorView({
                   )}
                 </div>
 
-                {/* MLP como referencia secundaria (excluido del ensemble) */}
-                {result.prediccion_dl != null && (
-                  <details className="group">
-                    <summary className="cursor-pointer text-label-md text-on-surface-variant flex items-center gap-xs hover:text-primary transition-colors list-none">
-                      <span className="material-symbols-outlined text-[16px] group-open:rotate-90 transition-transform">chevron_right</span>
-                      Ver Agente MLP PyTorch (referencia · R²=51.0% · excluido del ensemble)
-                    </summary>
-                    <div className="mt-sm bg-white dark:bg-zinc-900 border-l-4 border-l-[#8b5cf6]/40 border border-outline-variant/50 rounded-lg p-lg flex flex-col justify-between opacity-60">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-label-md text-on-surface-variant">Agente DL · excluido del ensemble</p>
-                          <h4 className="text-headline-sm text-primary font-bold">MLP PyTorch</h4>
-                        </div>
-                        <span className="material-symbols-outlined text-[#8b5cf6]/60">neurology</span>
-                      </div>
-                      <div className="flex items-end justify-between mt-md">
-                        <span className="text-[32px] font-black text-[#8b5cf6]/70" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                          {result.prediccion_dl.toFixed(1)}
-                        </span>
-                        <span className={`${getRisk(result.riesgo_dl).bg} ${getRisk(result.riesgo_dl).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_dl).border} opacity-70`}>
-                          {getRisk(result.riesgo_dl).label}
-                        </span>
-                      </div>
-                    </div>
-                  </details>
-                )}
+
 
 
                 {/* Consensus Hero Card */}
