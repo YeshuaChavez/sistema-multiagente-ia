@@ -158,6 +158,13 @@ def get_metrics():
     with open(metrics_path, "r") as f:
         return _json.load(f)
 
+@app.get("/api/top-departments", tags=["Datos"])
+def get_top_departments(n: int = Query(5, ge=1, le=20, description="Número de departamentos a retornar")):
+    try:
+        return prediction_service.obtener_top_departamentos(n=n)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener top departamentos: {str(e)}")
+
 @app.get("/api/explain/global", tags=["Explicabilidad XAI"])
 def explain_global():
     if prediction_service.shap_importance is None:

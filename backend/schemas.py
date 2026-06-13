@@ -38,6 +38,7 @@ class PredictionResponse(BaseModel):
     riesgo_ensemble: RiskLevel = Field(..., description="Nivel de riesgo de la predicción final del Ensemble")
     features_usadas: Optional[Dict[str, float]] = Field(None, description="Características utilizadas como entrada al modelo")
     percentiles_locales: Optional[Dict[str, float]] = Field(None, description="Percentiles locales de incidencia (p25, p50, p90)")
+    shap_local: Optional[Dict[str, float]] = Field(None, description="Valores SHAP locales por feature para esta predicción específica")
 
 class HistoricalRecord(BaseModel):
     fecha: str

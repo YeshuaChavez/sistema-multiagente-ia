@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -16,18 +16,27 @@ const MOCK_SHAP_GLOBAL = [
 ];
 
 export default function ExplainabilityView({ activeSubtab }) {
+  // ─── Global SHAP state ───
   const [shapData, setShapData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [recalculating, setRecalculating] = useState(false);
 
+  // ─── Local SHAP state ───
+  const [metadata, setMetadata] = useState({});       // {pais: {iso_a0, departamentos}}
+  const [localCountry, setLocalCountry] = useState(""); // pais name
+  const [localDept, setLocalDept] = useState("");
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState(null);
+  const [localResult, setLocalResult] = useState(null); // {prediction, riesgo, shap_local}
+
+  // ─── Fetch global SHAP ───
   useEffect(() => {
     const fetchShap = async () => {
       try {
         const response = await fetch(`${API_URL}/api/explain/global`);
         if (!response.ok) throw new Error("No se pudo cargar la explicabilidad SHAP");
         const raw = await response.json();
-        // API returns {feature: importance} dict — convert to sorted array
         const arr = Object.entries(raw)
           .map(([feature, importance]) => ({ feature, importance }))
           .sort((a, b) => Math.abs(b.importance) - Math.abs(a.importance));
@@ -42,16 +51,69 @@ export default function ExplainabilityView({ activeSubtab }) {
     fetchShap();
   }, []);
 
+  // ─── Fetch metadata for local SHAP selectors ───
+  useEffect(() => {
+    fetch(`${API_URL}/api/metadata`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((data) => {
+        setMetadata(data);
+        const firstCountry = Object.keys(data)[0] ?? "";
+        setLocalCountry(firstCountry);
+        setLocalDept(data[firstCountry]?.departamentos?.[0] ?? "");
+      })
+      .catch(() => {});
+  }, []);
+
+  const countryOptions = Object.keys(metadata);
+  const deptOptions = localCountry ? (metadata[localCountry]?.departamentos ?? []) : [];
+
+  const handleCountryChange = (e) => {
+    const c = e.target.value;
+    setLocalCountry(c);
+    setLocalDept(metadata[c]?.departamentos?.[0] ?? "");
+    setLocalResult(null);
+  };
+
+  const handleAnalyzeLocal = useCallback(async () => {
+    if (!localCountry || !localDept) return;
+    const iso_a0 = metadata[localCountry]?.iso_a0;
+    if (!iso_a0) return;
+    setLocalLoading(true);
+    setLocalError(null);
+    setLocalResult(null);
+    try {
+      const res = await fetch(`${API_URL}/api/predict/simulate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ iso_a0, adm_1_name: localDept }),
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      if (!data.shap_local) throw new Error("El backend no retornó valores SHAP locales.");
+      // Convert shap_local dict to sorted array (top 12 by |value|)
+      const shapArr = Object.entries(data.shap_local)
+        .map(([feature, value]) => ({ feature, value }))
+        .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+        .slice(0, 12);
+      setLocalResult({
+        prediction: data.prediccion_ensemble ?? data.prediccion_ml,
+        riesgo: data.riesgo_ensemble ?? data.riesgo_ml,
+        shapArr,
+      });
+    } catch (err) {
+      setLocalError(err.message);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [localCountry, localDept, metadata]);
+
   const handleRecalculate = () => {
     setRecalculating(true);
-    setTimeout(() => {
-      setRecalculating(false);
-      alert("Valores SHAP re-calculados exitosamente para todas las muestras en memoria.");
-    }, 1500);
+    setTimeout(() => setRecalculating(false), 1500);
   };
 
   const handleExport = () => {
-    alert("Exportando reporte SHAP en formato PDF...");
+    alert("Exportar PDF disponible desde el Panel de Control.");
   };
 
   const maxVal = Array.isArray(shapData) && shapData.length > 0 
@@ -181,93 +243,122 @@ export default function ExplainabilityView({ activeSubtab }) {
           </div>
         )}
 
-        {/* ═══ TAB CONTENT: LOCAL SHAP Force Plot ═══ */}
+        {/* ═══ TAB CONTENT: LOCAL SHAP ═══ */}
         {activeSubtab === "Local SHAP" && (
           <div className="bg-white dark:bg-zinc-900 border border-outline-variant p-lg rounded-xl shadow-[0px_4px_20px_rgba(30,58,95,0.04)] max-w-4xl mx-auto w-full flex flex-col animate-fade-in">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-md mb-lg">
-              <div>
-                <h3 className="text-headline-md text-on-surface font-bold">SHAP Local Force Plot</h3>
-                <p className="text-label-md text-on-surface-variant">Descomposición espacial de una muestra en vivo</p>
-              </div>
-              <select className="bg-surface border border-outline-variant text-label-md rounded-lg py-xs px-md focus:ring-primary focus:border-primary outline-none cursor-pointer text-on-surface">
-                <option>Muestra ID #4281 (Loreto, Perú)</option>
-                <option>Muestra ID #4282 (Amazonas, Brasil)</option>
-                <option>Muestra ID #4283 (Cali, Colombia)</option>
+            <div className="mb-lg">
+              <h3 className="text-headline-md text-on-surface font-bold">SHAP Local — Descomposición por Departamento</h3>
+              <p className="text-label-md text-on-surface-variant mt-xs">
+                Selecciona un país y departamento para ver la contribución de cada variable a la predicción de ese lugar.
+              </p>
+            </div>
+
+            {/* Selectors */}
+            <div className="flex flex-col sm:flex-row gap-md mb-lg">
+              <select
+                value={localCountry}
+                onChange={handleCountryChange}
+                className="flex-1 bg-surface-container border border-outline-variant text-label-md rounded-lg py-xs px-md focus:ring-primary outline-none cursor-pointer text-on-surface"
+              >
+                {countryOptions.length === 0 && <option value="">Cargando países...</option>}
+                {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
+              <select
+                value={localDept}
+                onChange={(e) => { setLocalDept(e.target.value); setLocalResult(null); }}
+                className="flex-1 bg-surface-container border border-outline-variant text-label-md rounded-lg py-xs px-md focus:ring-primary outline-none cursor-pointer text-on-surface"
+              >
+                {deptOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              <button
+                onClick={handleAnalyzeLocal}
+                disabled={localLoading || !localDept}
+                className="px-lg py-xs bg-primary text-on-primary rounded-lg text-label-md font-bold hover:bg-primary/90 transition-colors flex items-center gap-sm cursor-pointer disabled:opacity-55"
+              >
+                {localLoading
+                  ? <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Analizando...</>
+                  : <><span className="material-symbols-outlined text-[16px]">analytics</span> Analizar</>}
+              </button>
             </div>
 
-            {/* Force Plot Visualization */}
-            <div className="flex-1 flex flex-col justify-center py-xl relative overflow-hidden">
-              {/* Baseline dashed line */}
-              <div className="absolute left-1/2 top-0 bottom-0 border-l border-dashed border-outline pointer-events-none"></div>
-              <div className="absolute left-1/2 -top-1 -translate-x-1/2 px-md py-xs bg-surface dark:bg-zinc-800 border border-outline-variant rounded text-[10px] font-bold text-on-surface-variant z-10 whitespace-nowrap">
-                VALOR BASE CONTINENTAL: 12.4
+            {/* Error */}
+            {localError && (
+              <div className="bg-error-container p-md rounded-lg flex items-center gap-md mb-md">
+                <span className="material-symbols-outlined text-on-error-container">error</span>
+                <p className="text-label-md text-on-error-container font-medium">{localError}</p>
               </div>
+            )}
 
-              {/* Force Bars */}
-              <div className="relative h-24 flex items-center mt-lg">
-                {/* Negative Forces (Left — Blue) */}
-                <div className="flex-1 flex justify-end items-center gap-[2px]">
-                  <div
-                    className="h-10 bg-[#adc8f5] dark:bg-blue-900/60 rounded-l-full px-md flex items-center text-primary dark:text-blue-300 text-[11px] font-bold whitespace-nowrap"
-                    style={{ width: "40%", animation: "slideIn 0.5s ease-out forwards" }}
-                  >
-                    Acceso Agua (82.3%)
-                    <span className="material-symbols-outlined text-[14px] ml-xs">trending_down</span>
+            {/* Empty state */}
+            {!localResult && !localLoading && !localError && (
+              <div className="flex flex-col items-center justify-center py-2xl text-on-surface-variant gap-md">
+                <span className="material-symbols-outlined text-[48px] opacity-30">bar_chart_4_bars</span>
+                <p className="text-label-md">Selecciona un departamento y haz clic en Analizar</p>
+              </div>
+            )}
+
+            {/* Results */}
+            {localResult && (
+              <div className="animate-fade-in">
+                {/* Prediction summary */}
+                <div className="flex items-center gap-lg mb-lg p-md rounded-lg border border-outline-variant bg-surface-container-low">
+                  <div>
+                    <p className="text-label-md text-on-surface-variant">Predicción Ensemble</p>
+                    <p className="text-headline-lg font-bold text-primary" style={{ fontVariantNumeric: "tabular-nums" }}>
+                      {localResult.prediction?.toFixed(1)} <span className="text-label-md font-normal opacity-60">casos/100k</span>
+                    </p>
                   </div>
                   <div
-                    className="h-10 bg-[#adc8f5] dark:bg-blue-900/40 px-sm flex items-center text-primary dark:text-blue-300 text-[11px] font-bold"
-                    style={{ width: "25%", animation: "slideIn 0.5s ease-out 100ms forwards" }}
+                    className="px-md py-xs rounded-full text-label-md font-bold text-white"
+                    style={{ backgroundColor: localResult.riesgo?.color ?? "#10b981" }}
                   >
-                    <span className="material-symbols-outlined text-[14px]">arrow_back</span>
+                    {localResult.riesgo?.nivel ?? "—"}
                   </div>
                 </div>
 
-                {/* Center Prediction Circle */}
-                <div className="z-20 bg-primary text-on-primary w-16 h-16 rounded-full flex items-center justify-center border-4 border-white dark:border-zinc-800 shadow-lg -mx-8 flex-shrink-0">
-                  <span className="text-headline-md font-bold" style={{ fontVariantNumeric: "tabular-nums" }}>
-                    24.8
-                  </span>
+                {/* SHAP bars */}
+                <p className="text-label-md font-bold text-on-surface-variant uppercase tracking-wider mb-md">
+                  Top {localResult.shapArr.length} variables por impacto SHAP
+                </p>
+                <div className="space-y-md">
+                  {(() => {
+                    const maxAbs = Math.max(...localResult.shapArr.map((f) => Math.abs(f.value)), 0.001);
+                    return localResult.shapArr.map((feat) => {
+                      const pct = (Math.abs(feat.value) / maxAbs) * 100;
+                      const isNeg = feat.value < 0;
+                      return (
+                        <div key={feat.feature} className="space-y-xs">
+                          <div className="flex justify-between items-center" style={{ fontVariantNumeric: "tabular-nums" }}>
+                            <span className="text-label-md text-on-surface font-medium">{feat.feature}</span>
+                            <span className={`text-label-md font-bold ${isNeg ? "text-blue-600" : "text-orange-500"}`}>
+                              {feat.value > 0 ? "+" : ""}{feat.value.toFixed(4)}
+                            </span>
+                          </div>
+                          <div className="w-full bg-surface-container-low h-3.5 rounded-full overflow-hidden">
+                            <div
+                              className={`chart-bar h-full rounded-full bg-gradient-to-r ${isNeg ? "from-blue-600 to-blue-400" : "from-orange-400 to-orange-600"}`}
+                              style={{ width: `${Math.max(pct, 3)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
 
-                {/* Positive Forces (Right — Red) */}
-                <div className="flex-1 flex justify-start items-center gap-[2px]">
-                  <div
-                    className="h-10 bg-[#ffdad6] dark:bg-red-950/40 px-sm flex items-center text-error dark:text-red-300 text-[11px] font-bold"
-                    style={{ width: "30%", animation: "slideIn 0.5s ease-out 200ms forwards" }}
-                  >
-                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                {/* Legend */}
+                <div className="mt-lg flex justify-between items-center border-t border-outline-variant pt-md">
+                  <div className="flex items-center gap-sm">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Reduce riesgo (SHAP &lt; 0)</span>
                   </div>
-                  <div
-                    className="h-10 bg-[#ffdad6] dark:bg-red-900/60 rounded-r-full px-md flex items-center text-error dark:text-red-300 text-[11px] font-bold whitespace-nowrap"
-                    style={{ width: "55%", animation: "slideIn 0.5s ease-out 300ms forwards" }}
-                  >
-                    <span className="material-symbols-outlined text-[14px] mr-xs">trending_up</span>
-                    Temp. Máxima (32.5°C)
+                  <div className="flex items-center gap-sm">
+                    <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Aumenta riesgo (SHAP &gt; 0)</span>
+                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
                   </div>
                 </div>
               </div>
-
-              {/* Explanation Cards Below Force Plot */}
-              <div className="mt-xl grid grid-cols-1 sm:grid-cols-2 gap-lg text-center">
-                <div className="p-md rounded-lg bg-surface-container-low dark:bg-zinc-850 border border-outline-variant">
-                  <p className="text-label-md text-primary dark:text-blue-400 mb-xs font-bold uppercase tracking-wider">
-                    FUERZAS NEGATIVAS
-                  </p>
-                  <p className="text-[12px] text-on-surface-variant leading-relaxed">
-                    Factores que reducen la predicción de casos (ej. buena infraestructura sanitaria local).
-                  </p>
-                </div>
-                <div className="p-md rounded-lg bg-error-container/20 dark:bg-red-950/20 border border-outline-variant">
-                  <p className="text-label-md text-error dark:text-red-400 mb-xs font-bold uppercase tracking-wider">
-                    FUERZAS POSITIVAS
-                  </p>
-                  <p className="text-[12px] text-on-surface-variant leading-relaxed">
-                    Factores que aumentan el riesgo detectado (ej. anomalías térmicas y lluvias extremas).
-                  </p>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         )}
       </div>

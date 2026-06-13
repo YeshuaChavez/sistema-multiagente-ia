@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Map from "./MapContainer";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -25,13 +27,14 @@ const countryNames = {
 };
 
 export default function DashboardView({ coordinates, onSelectDepartment, backendUrl }) {
-  const [topDepts, setTopDepts] = useState([
-    { name: "Valle del Cauca (COL)", value: 124.5, pct: 95, color: "bg-gradient-to-r from-red-500 to-red-400" },
-    { name: "Antioquia (COL)", value: 108.2, pct: 82, color: "bg-gradient-to-r from-orange-500 to-orange-400" },
-    { name: "Santander (COL)", value: 92.1, pct: 70, color: "bg-gradient-to-r from-orange-400 to-yellow-500" },
-    { name: "Huila (COL)", value: 76.4, pct: 58, color: "bg-gradient-to-r from-yellow-500 to-yellow-400" },
-    { name: "Tolima (COL)", value: 65.8, pct: 45, color: "bg-gradient-to-r from-yellow-400 to-yellow-300" },
-  ]);
+  const BAR_COLORS = [
+    "bg-gradient-to-r from-red-500 to-red-400",
+    "bg-gradient-to-r from-orange-500 to-orange-400",
+    "bg-gradient-to-r from-orange-400 to-yellow-500",
+    "bg-gradient-to-r from-yellow-500 to-yellow-400",
+    "bg-gradient-to-r from-yellow-400 to-yellow-300",
+  ];
+  const [topDepts, setTopDepts] = useState([]);
 
   const [backendReady, setBackendReady] = useState(false);
   const [stats, setStats] = useState({ records: "15,342", r2: "74.20%" });
@@ -51,9 +54,19 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
         if (metricsRes.ok) {
           const m = await metricsRes.json();
           setStats({
-            records: m.records_procesados?.toLocaleString() ?? "15,663",
+            records: m.records_procesados?.toLocaleString() ?? "15,342",
             r2: m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : (m.r2_lgbm != null ? `${(m.r2_lgbm * 100).toFixed(2)}%` : "—"),
           });
+        }
+        // Load real top departments
+        const topRes = await fetch(`${backendUrl}/api/top-departments?n=5`);
+        if (topRes.ok) {
+          const raw = await topRes.json();
+          setTopDepts(raw.map((d, i) => ({
+            ...d,
+            value: d.mean_incidencia,
+            color: BAR_COLORS[i % BAR_COLORS.length],
+          })));
         }
       } catch (err) {
         console.warn("Backend no disponible para Dashboard", err);
@@ -72,20 +85,65 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
 
   const handleDownloadReport = () => {
     setIsGeneratingReport(true);
-    setReportProgress(10);
-    const interval = setInterval(() => {
-      setReportProgress((p) => {
-        if (p >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsGeneratingReport(false);
-            alert("Reporte PDF generado exitosamente y guardado en tu carpeta de Descargas.");
-          }, 600);
-          return 100;
-        }
-        return p + 20;
+    setReportProgress(20);
+
+    try {
+      const doc = new jsPDF();
+      const fecha = new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
+
+      doc.setFontSize(18);
+      doc.setTextColor(30, 58, 95);
+      doc.text("EpiPredict Dengue", 14, 18);
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text("Reporte Epidemiológico — Sistema Multi-Agente (LightGBM + LSTM)", 14, 26);
+      doc.text(`Generado: ${fecha}`, 14, 32);
+
+      setReportProgress(40);
+
+      autoTable(doc, {
+        startY: 40,
+        head: [["Métrica del Sistema", "Valor"]],
+        body: [
+          ["Registros consolidados", stats.records + " obs."],
+          ["Rango temporal", "2014 — 2022"],
+          ["Precisión del sistema (R² Ensemble)", stats.r2],
+          ["LightGBM R²", "71.64%"],
+          ["LSTM PyTorch R²", "74.56%"],
+          ["MAE Ensemble", "9.90 casos/100k"],
+        ],
+        headStyles: { fillColor: [30, 58, 95] },
+        alternateRowStyles: { fillColor: [245, 248, 255] },
       });
-    }, 200);
+
+      setReportProgress(70);
+
+      const finalY = doc.lastAutoTable?.finalY ?? 100;
+      doc.setFontSize(13);
+      doc.setTextColor(30, 58, 95);
+      doc.text("Top 5 Focos de Mayor Incidencia Histórica", 14, finalY + 12);
+
+      autoTable(doc, {
+        startY: finalY + 16,
+        head: [["Departamento", "País", "Media (casos/100k)", "Máximo (casos/100k)"]],
+        body: topDepts.map((d) => [
+          d.name ?? d.adm_1_name ?? "—",
+          d.pais ?? "—",
+          (d.mean_incidencia ?? d.value ?? "—").toString(),
+          (d.max_incidencia ?? "—").toString(),
+        ]),
+        headStyles: { fillColor: [217, 119, 6] },
+        alternateRowStyles: { fillColor: [255, 251, 235] },
+      });
+
+      setReportProgress(95);
+      doc.save("EpiPredict_Reporte.pdf");
+    } catch (err) {
+      console.error("Error generando PDF:", err);
+    } finally {
+      setReportProgress(100);
+      setTimeout(() => setIsGeneratingReport(false), 600);
+    }
   };
 
   return (

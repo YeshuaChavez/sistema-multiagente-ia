@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
+import shap
 import lightgbm  # noqa: F401  (import needed for unpickling LGBMRegressor)
 
 
@@ -70,6 +71,7 @@ class PredictionService:
         self.lstm_seq_len = 12
 
         self.shap_importance = None
+        self.shap_explainer = None
         self.p25 = self.p50 = self.p90 = 0.0
 
         self.inicializar_servicio()
@@ -112,6 +114,9 @@ class PredictionService:
             self.imputador_ml = pickle.load(f)
         with open(os.path.join(self.model_dir, "escalador_ml.pkl"), "rb") as f:
             self.escalador_ml = pickle.load(f)
+
+        # SHAP explainer para LightGBM (TreeSHAP local)
+        self.shap_explainer = shap.TreeExplainer(self.modelo_ml)
 
         # 5. LSTM PyTorch
         lstm_path = os.path.join(self.model_dir, "lstm_model.pth")
@@ -213,21 +218,62 @@ class PredictionService:
     # PREDICCIÓN PRINCIPAL (LightGBM + MLP, sin LSTM)
     # ─────────────────────────────────────────────────────────────
 
-    def realizar_prediccion_vector(self, vector_x, iso_a0=None, adm_1_name=None):
+    def realizar_prediccion_vector(self, vector_x, iso_a0=None, adm_1_name=None, compute_shap=False):
         """Predicción LightGBM a partir de un vector de features plano."""
         entrada = pd.DataFrame([vector_x], columns=self.cols_feat)
 
         entrada_imp_ml = self.imputador_ml.transform(entrada)
-        entrada_esc_ml = self.escalador_ml.transform(entrada_imp_ml)
+        entrada_esc_ml = pd.DataFrame(
+            self.escalador_ml.transform(entrada_imp_ml), columns=self.cols_feat
+        )
         pred_ml_log = float(self.modelo_ml.predict(entrada_esc_ml)[0])
         pred_ml = max(0.0, np.expm1(pred_ml_log))
 
-        return {
+        result = {
             "prediccion_ml":       round(pred_ml, 4),
             "riesgo_ml":           self.calcular_nivel_riesgo(pred_ml, iso_a0, adm_1_name),
             "prediccion_ensemble": round(pred_ml, 4),
             "riesgo_ensemble":     self.calcular_nivel_riesgo(pred_ml, iso_a0, adm_1_name),
         }
+
+        if compute_shap and self.shap_explainer is not None:
+            shap_vals = self.shap_explainer.shap_values(entrada_esc_ml)
+            # Normalize across SHAP API versions
+            if hasattr(shap_vals, 'values'):
+                raw_vals = shap_vals.values[0]          # Explanation object (shap >= 0.41)
+            elif isinstance(shap_vals, list):
+                raw_vals = shap_vals[0][0]              # multi-output list
+            else:
+                raw_vals = np.asarray(shap_vals)[0]     # standard 2D ndarray
+            result["shap_local"] = {
+                feat: round(float(val), 6)
+                for feat, val in zip(self.cols_feat, raw_vals)
+            }
+
+        return result
+
+    def obtener_top_departamentos(self, n=5):
+        """Retorna los n departamentos con mayor incidencia media histórica."""
+        grp = (
+            self.df_master
+            .groupby(['adm_1_name', 'iso_a0', 'pais'])['incidencia_dengue']
+            .agg(mean_incidencia='mean', max_incidencia='max')
+            .reset_index()
+            .nlargest(n, 'mean_incidencia')
+        )
+        max_mean = float(grp['mean_incidencia'].max()) or 1.0
+        result = []
+        for _, row in grp.iterrows():
+            result.append({
+                "name": f"{row['adm_1_name'].title()} ({row['iso_a0']})",
+                "adm_1_name": row['adm_1_name'],
+                "iso_a0": row['iso_a0'],
+                "pais": row['pais'],
+                "mean_incidencia": round(float(row['mean_incidencia']), 1),
+                "max_incidencia": round(float(row['max_incidencia']), 1),
+                "pct": round(float(row['mean_incidencia']) / max_mean * 100, 1),
+            })
+        return result
 
     # ─────────────────────────────────────────────────────────────
     # SIMULACIÓN COMPLETA (LightGBM + MLP + LSTM = Ensemble 3-way)
@@ -305,8 +351,8 @@ class PredictionService:
                 if feat in clima_overrides:
                     vector[i] = float(clima_overrides[feat])
 
-        # ─── LightGBM + MLP (2-model base) ───
-        res = self.realizar_prediccion_vector(vector, iso_a0, adm_1_name)
+        # ─── LightGBM (con SHAP local) ───
+        res = self.realizar_prediccion_vector(vector, iso_a0, adm_1_name, compute_shap=True)
 
         # ─── LSTM (secuencia temporal) ───
         pred_lstm = self._predict_lstm_sequence(df_dept, ref_idx, clima_overrides)
