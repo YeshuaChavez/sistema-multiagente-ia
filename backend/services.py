@@ -8,14 +8,28 @@ toda la lógica de predicción a los Agentes 3, 4 y 5.
 
 import os
 import sys
+import importlib.util
 import pandas as pd
 
-# Asegurar que el directorio raíz del proyecto esté en el path de importación
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from agentes.agente_3_prediccion_ml import AgentePrediccionML
-from agentes.agente_4_prediccion_dl import AgentePrediccionDL
-from agentes.agente_5_alertas import AgenteOrquestador
+def _load_agente(module_name: str, rel_path: str):
+    """Carga un módulo de agente por ruta de archivo (independiente de sys.path)."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    full_path = os.path.join(root, rel_path)
+    spec = importlib.util.spec_from_file_location(module_name, full_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_a3 = _load_agente("agente_3_prediccion_ml", "agentes/agente_3_prediccion_ml.py")
+_a4 = _load_agente("agente_4_prediccion_dl", "agentes/agente_4_prediccion_dl.py")
+_a5 = _load_agente("agente_5_alertas",        "agentes/agente_5_alertas.py")
+
+AgentePrediccionML = _a3.AgentePrediccionML
+AgentePrediccionDL = _a4.AgentePrediccionDL
+AgenteOrquestador  = _a5.AgenteOrquestador
 
 
 class PredictionService:
