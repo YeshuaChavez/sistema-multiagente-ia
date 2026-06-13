@@ -4,6 +4,6 @@
     "mae_lgbm": 10.1633,
     "r2_lstm": 0.765,
     "mae_lstm": 10.2201,
-    "r2_ensemble": 0.742,
-    "mae_ensemble": 9.8971
+    "r2_ensemble": 0.7541,
+    "mae_ensemble": 9.8692
 }
