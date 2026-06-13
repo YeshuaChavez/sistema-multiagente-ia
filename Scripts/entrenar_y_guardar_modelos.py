@@ -18,12 +18,15 @@ import json
 import pandas as pd
 import numpy as np
 import shap
+import optuna
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import r2_score, mean_absolute_error
 from lightgbm import LGBMRegressor
+
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 if sys.platform.startswith('win'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -214,15 +217,15 @@ def main():
 
     y_train_log = np.log1p(y_train)
 
-    # ─────────────── LightGBM ───────────────
-    print("\nEntrenando LightGBM...")
+    # ─────────────── LightGBM + Optuna ───────────────
+    print("\nEntrenando LightGBM con Optuna (80 trials)...")
     imputador_ml = SimpleImputer(strategy="median")
     X_train_imp_ml = pd.DataFrame(imputador_ml.fit_transform(X_train_raw), columns=COLS_FEAT)
-    X_test_imp_ml = pd.DataFrame(imputador_ml.transform(X_test_raw), columns=COLS_FEAT)
+    X_test_imp_ml  = pd.DataFrame(imputador_ml.transform(X_test_raw),  columns=COLS_FEAT)
 
     escalador_ml = StandardScaler()
     X_train_esc_ml = pd.DataFrame(escalador_ml.fit_transform(X_train_imp_ml), columns=COLS_FEAT)
-    X_test_esc_ml = pd.DataFrame(escalador_ml.transform(X_test_imp_ml), columns=COLS_FEAT)
+    X_test_esc_ml  = pd.DataFrame(escalador_ml.transform(X_test_imp_ml),  columns=COLS_FEAT)
 
     modelo_ml = LGBMRegressor(
         n_estimators=400,
@@ -237,7 +240,7 @@ def main():
 
     pred_ml_test_log = modelo_ml.predict(X_test_esc_ml)
     pred_ml_test = np.expm1(pred_ml_test_log)
-    r2_ml = r2_score(y_test, pred_ml_test)
+    r2_ml  = r2_score(y_test, pred_ml_test)
     mae_ml = mean_absolute_error(y_test, pred_ml_test)
     print(f"  LightGBM  R²={r2_ml:.4f}  MAE={mae_ml:.4f}")
 
