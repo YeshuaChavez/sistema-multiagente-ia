@@ -288,6 +288,56 @@ class AgentePrediccionML:
             "n_test": len_test
         }
 
+    # ─────────────────────────────────────────────────────────────
+    # MODO INFERENCIA — carga modelo pre-entrenado desde disco
+    # ─────────────────────────────────────────────────────────────
+
+    @classmethod
+    def cargar_modelo(cls, model_dir, base_dir=None):
+        """Carga LightGBM serializado para inferencia sin reentrenar."""
+        import pickle
+        import json
+        agente = cls(base_dir=base_dir)
+        with open(os.path.join(model_dir, "lgbm_model.pkl"), "rb") as f:
+            agente.modelo = pickle.load(f)
+        with open(os.path.join(model_dir, "imputador_ml.pkl"), "rb") as f:
+            agente.imputador = pickle.load(f)
+        with open(os.path.join(model_dir, "escalador_ml.pkl"), "rb") as f:
+            agente.escalador = pickle.load(f)
+        with open(os.path.join(model_dir, "cols_feat.pkl"), "rb") as f:
+            agente.cols_feat = pickle.load(f)
+        shap_path = os.path.join(model_dir, "shap_importance.json")
+        if os.path.exists(shap_path):
+            with open(shap_path, "r") as f:
+                agente.shap_importance = json.load(f)
+        else:
+            agente.shap_importance = {}
+        agente._shap_explainer = shap.TreeExplainer(agente.modelo)
+        print(f"   [Agente 3] LightGBM cargado — {len(agente.cols_feat)} features.")
+        return agente
+
+    def predecir(self, vector, compute_shap=False):
+        """Inferencia LightGBM sobre un vector de features (escala real, con expm1)."""
+        entrada = pd.DataFrame([vector], columns=self.cols_feat)
+        X_imp = self.imputador.transform(entrada)
+        X_esc = pd.DataFrame(self.escalador.transform(X_imp), columns=self.cols_feat)
+        pred_log = float(self.modelo.predict(X_esc)[0])
+        pred = max(0.0, np.expm1(pred_log))
+        result = {"prediccion_ml": round(pred, 4)}
+        if compute_shap and hasattr(self, '_shap_explainer') and self._shap_explainer is not None:
+            shap_vals = self._shap_explainer.shap_values(X_esc)
+            if hasattr(shap_vals, 'values'):
+                raw_vals = shap_vals.values[0]
+            elif isinstance(shap_vals, list):
+                raw_vals = shap_vals[0][0]
+            else:
+                raw_vals = np.asarray(shap_vals)[0]
+            result["shap_local"] = {
+                feat: round(float(val), 6) for feat, val in zip(self.cols_feat, raw_vals)
+            }
+        return result
+
+
 if __name__ == "__main__":
     agente = AgentePrediccionML()
     resultados = agente.entrenar_modelo()

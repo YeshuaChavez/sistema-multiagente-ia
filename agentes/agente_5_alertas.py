@@ -1,740 +1,283 @@
 # -*- coding: utf-8 -*-
 """
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
-Agente 5: Alertas (Interfaz de Síntesis)
+Agente 5: Orquestador de Consenso (Ensemble + Alertas)
 --------------------------------------------------
-Responsabilidad: Unifica las predicciones del Agente 3 (LightGBM) y el Agente 4 (LSTM PyTorch)
-mediante un modelo de Ensemble, clasifica el escenario territorial en niveles de riesgo
-y aloja la interfaz gráfica (GUI Tkinter) interactiva y de reporte técnico.
+Responsabilidad: Unifica las predicciones del Agente 3 (LightGBM) y el Agente 4
+(LSTM PyTorch) mediante promedio de ensemble, clasifica el nivel de riesgo
+epidemiológico con percentiles históricos calibrados por departamento, y coordina
+la respuesta final del sistema multi-agente.
 """
 
 import os
-import sys
-import tkinter as tk
-from tkinter import ttk, messagebox
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-import matplotlib
-matplotlib.use("TkAgg")
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-import torch
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-
-# Importar agentes del paquete
-from agentes.agente_1_recoleccion import AgenteRecoleccion
-from agentes.agente_2_preprocesamiento import AgentePreprocesamiento
-from agentes.agente_3_prediccion_ml import AgentePrediccionML
-from agentes.agente_4_prediccion_dl import AgentePrediccionDL
-
-# Configuración de estética de gráficos
-sns.set_theme(style="whitegrid")
-plt.rcParams.update({
-    'font.size': 8,
-    'axes.labelsize': 9,
-    'axes.titlesize': 9,
-    'xtick.labelsize': 8,
-    'ytick.labelsize': 8
-})
-
-def entrenar_sistema_completo():
+class AgenteOrquestador:
     """
-    Orquesta la ejecución secuencial de los Agentes 1, 2, 3 y 4.
+    Agente 5 — Orquestador del Sistema Multi-Agente SMA-ML/DL.
+
+    Flujo de inferencia:
+      Agente 3 (LightGBM) ─┐
+                             ├─► Ensemble (promedio) ─► Nivel de Riesgo
+      Agente 4 (LSTM)     ─┘
+
+    Niveles de alerta calibrados con percentiles históricos:
+      Normal     (<p25)
+      Vigilancia (p25–p50)
+      Alerta     (p50–p90)
+      Epidemia   (>p90)
     """
-    # 1. Agente 1: Recolección
-    recolector = AgenteRecoleccion()
-    datos_crudos = recolector.ejecutar_ingesta()
-    
-    # 2. Agente 2: Preprocesamiento (Crea dataset_maestro_mensual_latam.csv)
-    preprocesador = AgentePreprocesamiento()
-    df_maestro = preprocesador.ejecutar_preprocesamiento(datos_crudos)
-    
-    # 3. Agente 3: Predicción ML (Gradient Boosting + SHAP)
-    agente_ml = AgentePrediccionML()
-    res_ml = agente_ml.entrenar_modelo()
-    
-    # 4. Agente 4: Predicción DL (LSTM PyTorch)
-    agente_dl = AgentePrediccionDL()
-    res_dl = agente_dl.entrenar_modelo()
-    
-    return res_ml, res_dl, df_maestro
 
-class AgenteAlertasGUI:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Sistema Multi-Agente SMA-ML/DL (Yeshua Chavez)")
-        self.root.geometry("1300x850")
-        self.root.minsize(1100, 780)
-        
-        # Iniciar entrenamiento orquestado por los agentes
-        self.root.update()
-        try:
-            print("Iniciando orquestación de Agentes Predictivos...")
-            self.res_ml, self.res_dl, _ = entrenar_sistema_completo()
-            self.df = self.res_ml['df']
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            messagebox.showerror(
-                "Error del Sistema Multi-Agente", 
-                f"Ocurrió un error al ejecutar el flujo de los agentes:\n{str(e)}"
-            )
-            sys.exit(1)
+    _NIVELES = {
+        "normal":     {"nivel": "Normal",     "codigo": "normal",     "color": "#10b981"},
+        "vigilancia": {"nivel": "Vigilancia", "codigo": "vigilancia", "color": "#eab308"},
+        "alerta":     {"nivel": "Alerta",     "codigo": "alerta",     "color": "#f97316"},
+        "epidemia":   {"nivel": "Epidemia",   "codigo": "epidemia",   "color": "#ef4444"},
+    }
 
-        # Configuración de variables de Ensemble
-        self.y_test = self.res_ml['y_test']
-        self.y_pred_ml = self.res_ml['y_pred']
-        self.y_pred_dl = self.res_dl['y_pred']
-        
-        # Ensemble: Promedio de LightGBM y LSTM PyTorch
-        self.y_pred_ens = (self.y_pred_ml + self.y_pred_dl) / 2.0
-        
-        # Calcular métricas del Ensemble
-        self.ens_mae = mean_absolute_error(self.y_test, self.y_pred_ens)
-        self.ens_rmse = np.sqrt(mean_squared_error(self.y_test, self.y_pred_ens))
-        self.ens_r2 = r2_score(self.y_test, self.y_pred_ens)
+    def __init__(self, agente_ml, agente_dl, df_master, df_coords=None):
+        """
+        Args:
+            agente_ml:  AgentePrediccionML cargado en modo inferencia (cargar_modelo).
+            agente_dl:  AgentePrediccionDL cargado en modo inferencia (cargar_modelo).
+            df_master:  DataFrame maestro mensual (dataset_maestro_mensual_latam.csv).
+            df_coords:  DataFrame de coordenadas departamentales (opcional).
+        """
+        self.agente_ml = agente_ml
+        self.agente_dl = agente_dl
+        self.df_master = df_master
+        self.df_coords = df_coords
 
-        # Percentiles para riesgo (calculados sobre la incidencia real del dataset mensual)
-        self.p25 = self.df["incidencia_dengue"].quantile(0.25)
-        self.p50 = self.df["incidencia_dengue"].quantile(0.50)
-        self.p90 = self.df["incidencia_dengue"].quantile(0.90)
+        # Percentiles globales como fallback cuando el departamento no tiene historial suficiente
+        self.p25 = float(df_master["incidencia_dengue"].quantile(0.25))
+        self.p50 = float(df_master["incidencia_dengue"].quantile(0.50))
+        self.p90 = float(df_master["incidencia_dengue"].quantile(0.90))
 
-        # Datos para interactores
-        self.COLS_FEAT = self.res_ml['cols_feat']
-        self.def_val = self.df[self.COLS_FEAT].median().to_dict()
-        self.sliders = {}
-        self.slider_labels = {}
-        self.slider_ranges = {}
-        self.colores_mpl = {
-            "LightGBM": "#ea580c",
-            "LSTM PyTorch": "#8b5cf6",
-            "Ensemble": "#10b981",
-            "Ridge": "#2563eb"
-        }
+        print(f"   [Agente 5] Orquestador listo — percentiles globales: "
+              f"p25={self.p25:.2f}, p50={self.p50:.2f}, p90={self.p90:.2f}")
 
-        self.setup_styles()
-        self.create_widgets()
+    # ─────────────────────────────────────────────────────────────
+    # CLASIFICACIÓN DE RIESGO EPIDEMIOLÓGICO
+    # ─────────────────────────────────────────────────────────────
 
-    def setup_styles(self):
-        self.style = ttk.Style()
-        self.style.theme_use("clam")
-        
-        # Colores
-        self.style.configure("TFrame", background="#ffffff")
-        self.style.configure("TLabel", background="#ffffff", foreground="#334155", font=("Segoe UI", 10))
-        self.style.configure("Header.TLabel", font=("Segoe UI", 15, "bold"), foreground="#1e3a5f")
-        self.style.configure("SubHeader.TLabel", font=("Segoe UI", 9), foreground="#64748b")
-        
-        # Estilo para Notebook
-        self.style.configure("TNotebook", background="#f1f5f9", borderwidth=0)
-        self.style.configure("TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=[12, 5])
-        self.style.map("TNotebook.Tab",
-            background=[("selected", "#1e3a5f"), ("active", "#eff6ff"), ("!selected", "#e2e8f0")],
-            foreground=[("selected", "#ffffff"), ("!selected", "#475569")]
-        )
+    def calcular_nivel_riesgo(self, pred_val, iso_a0=None, adm_1_name=None):
+        """Clasifica el nivel de riesgo usando percentiles del departamento (o globales)."""
+        p25, p50, p90 = self.p25, self.p50, self.p90
 
-        # Treeview Styles
-        self.style.configure("Treeview", font=("Segoe UI", 9), rowheight=24)
-        self.style.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"), background="#e2e8f0", foreground="#1e293b")
+        if iso_a0 and adm_1_name:
+            df_dept = self.df_master[
+                (self.df_master['iso_a0'] == iso_a0.strip().upper()) &
+                (self.df_master['adm_1_name'].str.upper() == adm_1_name.strip().upper())
+            ]
+            if not df_dept.empty:
+                p25 = float(df_dept["incidencia_dengue"].quantile(0.25))
+                p50 = max(float(df_dept["incidencia_dengue"].quantile(0.50)), 0.5)
+                p90 = max(float(df_dept["incidencia_dengue"].quantile(0.90)), 5.0)
 
-    def create_widgets(self):
-        # 1. Banner Superior Académico
-        banner = tk.Frame(self.root, bg="#1e3a5f", height=85)
-        banner.pack(fill="x", side="top")
-        banner.pack_propagate(False)
-        
-        title_lbl = tk.Label(banner, text="🦟 Sistema Multi-Agente (SMA-ML/DL) — Predicción de Dengue en Latinoamérica",
-                             font=("Segoe UI", 15, "bold"), fg="white", bg="#1e3a5f")
-        title_lbl.pack(anchor="w", padx=20, pady=(12, 1))
-        
-        sub_lbl = tk.Label(banner, text="Sistema de Inferencia de Incidencia de Dengue en Latinoamérica  ·  Yeshua Chavez",
-                            font=("Segoe UI", 9), fg="#93c5fd", bg="#1e3a5f")
-        sub_lbl.pack(anchor="w", padx=20)
-
-        # 2. Contenedor de Pestañas (Notebook Principal)
-        self.notebook = ttk.Notebook(self.root)
-        self.notebook.pack(fill="both", expand=True, padx=12, pady=12)
-
-        # Crear pestañas principales
-        self.tab_metrics = ttk.Frame(self.notebook)
-        self.tab_predictor = ttk.Frame(self.notebook)
-        self.tab_charts = ttk.Frame(self.notebook)
-        self.tab_importance = ttk.Frame(self.notebook)
-        self.tab_info = ttk.Frame(self.notebook)
-
-        self.notebook.add(self.tab_metrics, text="📊 Dashboard de Métricas")
-        self.notebook.add(self.tab_predictor, text="🔮 Predictor en Vivo (Ensemble)")
-        self.notebook.add(self.tab_charts, text="📈 Gráficos de Análisis")
-        self.notebook.add(self.tab_importance, text="🔍 Explicabilidad XAI (SHAP)")
-        self.notebook.add(self.tab_info, text="ℹ️ Información de Agentes")
-
-        # Rellenar cada pestaña
-        self.build_metrics_tab()
-        self.build_predictor_tab()
-        self.build_charts_tab()
-        self.build_importance_tab()
-        self.build_info_tab()
-
-    # =============================================================================
-    # PESTAÑA 1 — DASHBOARD DE MÉTRICAS DE REGRESIÓN
-    # =============================================================================
-    def build_metrics_tab(self):
-        main_frame = ttk.Frame(self.tab_metrics, padding=15)
-        main_frame.pack(fill="both", expand=True)
-
-        # Fila superior de KPIs
-        kpis_frame = ttk.Frame(main_frame)
-        kpis_frame.pack(fill="x", pady=(0, 15))
-
-        mejor_nombre = "LSTM PyTorch" if self.res_dl['test_r2'] > self.res_ml['test_r2'] else "LightGBM"
-        mejor_r2 = max(self.res_dl['test_r2'], self.res_ml['test_r2'])
-
-        kpis = [
-            ("TOTAL REGISTROS", f"{self.df.shape[0]:,}", "observaciones mensuales"),
-            ("PARTICIÓN CRONOLÓGICA", f"{self.res_ml['n_train']:,} / {self.res_ml['n_test']:,}", "Train (14-20) / Test (21-22)"),
-            ("MEJOR MODELO (TEST)", f"{mejor_nombre}", f"R² de {mejor_r2 * 100:.2f}%"),
-            ("MÉTRICAS EVALUADAS", "R², MAE, RMSE", "regresión supervisada")
-        ]
-
-        for i, (label, val, unit) in enumerate(kpis):
-            card = tk.Frame(kpis_frame, bg="#f8fafc", highlightbackground="#cbd5e1", highlightthickness=1, bd=0)
-            card.grid(row=0, column=i, padx=8, sticky="nsew")
-            kpis_frame.columnconfigure(i, weight=1)
-            
-            lbl_title = tk.Label(card, text=label, font=("Segoe UI", 8, "bold"), fg="#64748b", bg="#f8fafc")
-            lbl_title.pack(pady=(10, 1))
-            lbl_val = tk.Label(card, text=val, font=("Segoe UI", 14, "bold"), fg="#1e293b", bg="#f8fafc")
-            lbl_val.pack(pady=1)
-            lbl_unit = tk.Label(card, text=unit, font=("Segoe UI", 8), fg="#94a3b8", bg="#f8fafc")
-            lbl_unit.pack(pady=(0, 10))
-
-        # Sección Regresión
-        reg_lbl = ttk.Label(main_frame, text="📋 Métricas de Regresión de los Agentes Predictivos", font=("Segoe UI", 11, "bold"))
-        reg_lbl.pack(anchor="w", pady=(8, 3))
-
-        cols_reg = ("Modelo/Agente", "Tipo de Modelo", "CV MAE (14-20) ↓", "CV RMSE (14-20) ↓", "CV R² (14-20) ↑", "Test MAE (21-22) ↓", "Test RMSE (21-22) ↓", "Test R² (21-22) ↑")
-        tree_reg = ttk.Treeview(main_frame, columns=cols_reg, show="headings", height=3)
-        tree_reg.pack(fill="x", pady=(0, 15))
-
-        for col in cols_reg:
-            tree_reg.heading(col, text=col)
-            tree_reg.column(col, anchor="center", width=125)
-
-        # Fila 1: LightGBM (Agente 3)
-        tree_reg.insert("", "end", values=(
-            "Agente 3: LightGBM", "Machine Learning (Gradient Boosting)",
-            f"{self.res_ml['cv_mae']:.4f}", f"{self.res_ml['cv_rmse']:.4f}", f"{self.res_ml['cv_r2']*100:.2f}%",
-            f"{self.res_ml['test_mae']:.4f}", f"{self.res_ml['test_rmse']:.4f}", f"{self.res_ml['test_r2']*100:.2f}%"
-        ))
-
-        # Fila 2: LSTM PyTorch (Agente 4)
-        tree_reg.insert("", "end", values=(
-            "Agente 4: LSTM PyTorch", "Deep Learning (Secuencias Temporales)",
-            f"{self.res_dl['cv_mae']:.4f}", f"{self.res_dl['cv_rmse']:.4f}", f"{self.res_dl['cv_r2']*100:.2f}%",
-            f"{self.res_dl['test_mae']:.4f}", f"{self.res_dl['test_rmse']:.4f}", f"{self.res_dl['test_r2']*100:.2f}%"
-        ))
-
-        # Fila 3: Ensemble Promedio (Consolidación Agente 5)
-        tree_reg.insert("", "end", values=(
-            "Agente 5: Ensemble", "Consolidación (Promedio)",
-            "N/A", "N/A", "N/A",
-            f"{self.ens_mae:.4f}", f"{self.ens_rmse:.4f}", f"{self.ens_r2*100:.2f}%"
-        ))
-
-        # Cuadro informativo aclaratorio
-        info_frame = tk.Frame(main_frame, bg="#eff6ff", highlightbackground="#bfdbfe", highlightthickness=1)
-        info_frame.pack(fill="x", pady=5)
-        
-        info_txt = (
-            "ℹ️ NOTA METODOLÓGICA SÓLIDA:\n"
-            "Este sistema utiliza una partición cronológica (Entrenamiento: 2014-2020, Prueba: 2021-2022) para evaluar el desempeño "
-            "del modelo en el tiempo sin riesgo de fuga de información temporal.\n\n"
-            "Observación Clave: Los modelos predicen la tasa de incidencia de dengue (casos por 100k hab.). El modelo LightGBM (Agente 3) "
-            "aplica Gradient Boosting de hoja a hoja con hiperparámetros calibrados (n_estimators=400, lr=0.04, num_leaves=63). La red "
-            "LSTM PyTorch (Agente 4) captura dependencias temporales de largo plazo mediante secuencias de 12 meses de variables "
-            "climáticas y epidemiológicas. El Ensemble promedia ambas salidas obteniendo la máxima precisión combinada."
-        )
-        tk.Label(info_frame, text=info_txt, font=("Segoe UI", 9), fg="#1e40af", bg="#eff6ff", justify="left", wraplength=1200).pack(padx=12, pady=8)
-
-    # =============================================================================
-    # PESTAÑA 2 — PREDICTOR EN TIEMPO REAL
-    # =============================================================================
-    def build_predictor_tab(self):
-        main_frame = ttk.Frame(self.tab_predictor, padding=10)
-        main_frame.pack(fill="both", expand=True)
-
-        left_inputs = ttk.Frame(main_frame, padding=5)
-        left_inputs.grid(row=0, column=0, sticky="nsew")
-        
-        right_outputs = ttk.Frame(main_frame, padding=10)
-        right_outputs.grid(row=0, column=1, sticky="ns")
-        
-        main_frame.columnconfigure(0, weight=1)
-        main_frame.columnconfigure(1, minsize=380)
-        main_frame.rowconfigure(0, weight=1)
-
-        # Canvas con scroll vertical
-        canvas = tk.Canvas(left_inputs, bg="white", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(left_inputs, orient="vertical", command=canvas.yview)
-        scroll_frame = ttk.Frame(canvas, padding=5)
-
-        scroll_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        #Selector por País
-        ref_frame = tk.Frame(scroll_frame, bg="#f8fafc", highlightbackground="#e2e8f0", highlightthickness=1)
-        ref_frame.pack(fill="x", pady=(5, 12), padx=5, ipady=8)
-        
-        ref_lbl = tk.Label(ref_frame, text="📍 CARGAR VALORES TÍPICOS DE UN PAÍS (MEDIANA HISTÓRICA)", 
-                           font=("Segoe UI", 9, "bold"), fg="#1e3a5f", bg="#f8fafc")
-        ref_lbl.pack(anchor="w", padx=15, pady=(8, 2))
-        
-        self.paises = ["— Ingresar manualmente —"] + sorted(self.df["pais"].unique().tolist())
-        self.country_combo = ttk.Combobox(ref_frame, values=self.paises, state="readonly", font=("Segoe UI", 10))
-        self.country_combo.set("— Ingresar manualmente —")
-        self.country_combo.pack(anchor="w", padx=15, fill="x", expand=True)
-        self.country_combo.bind("<<ComboboxSelected>>", self.on_country_select)
-
-        # Columnas de sliders
-        cols_frame = ttk.Frame(scroll_frame)
-        cols_frame.pack(fill="both", expand=True, padx=5)
-
-        col1_clima = ttk.Frame(cols_frame, padding=5)
-        col1_clima.grid(row=0, column=0, sticky="n")
-        
-        col2_agua = ttk.Frame(cols_frame, padding=5)
-        col2_agua.grid(row=0, column=1, sticky="n")
-        
-        col3_lags = ttk.Frame(cols_frame, padding=5)
-        col3_lags.grid(row=0, column=2, sticky="n")
-
-        cols_frame.columnconfigure(0, weight=1)
-        cols_frame.columnconfigure(1, weight=1)
-        cols_frame.columnconfigure(2, weight=1)
-
-        # Columna 1: Clima e Incidencia Lags
-        tk.Label(col1_clima, text="🌡️ Clima Actual", font=("Segoe UI", 10, "bold"), fg="#1e293b").pack(anchor="w", pady=(5, 8))
-        clima_params = [
-            ("tmax_promedio", "Temperatura Máxima (°C)", 11.0, 40.0),
-            ("tmin_promedio", "Temperatura Mínima (°C)", -3.0, 28.0),
-            ("precipitacion", "Precipitación (mm)", 0.0, 600.0),
-            ("humedad_promedio", "Humedad Relativa (%)", 20.0, 95.0),
-        ]
-        for key, desc, lo, hi in clima_params:
-            self.crear_slider(col1_clima, key, desc, lo, hi)
-
-        tk.Label(col1_clima, text="⏱️ Rezagos de Incidencia", font=("Segoe UI", 10, "bold"), fg="#1e293b").pack(anchor="w", pady=(15, 8))
-        incidencia_params = [
-            ("incidencia_lag1", "Incidencia lag 1 mes (casos/100k)", 0.0, 75.0),
-            ("incidencia_lag2", "Incidencia lag 2 mes (casos/100k)", 0.0, 75.0),
-            ("incidencia_lag3", "Incidencia lag 3 mes (casos/100k)", 0.0, 75.0),
-        ]
-        for key, desc, lo, hi in incidencia_params:
-            self.crear_slider(col1_clima, key, desc, lo, hi)
-
-        # Columna 2: Agua y Demografía
-        tk.Label(col2_agua, text="💧 Demografía y Saneamiento", font=("Segoe UI", 10, "bold"), fg="#1e293b").pack(anchor="w", pady=(5, 8))
-        self.crear_slider(col2_agua, "agua_basica", "Agua Básica (%)", 68.0, 100.0)
-        self.crear_slider(col2_agua, "densidad_poblacion", "Densidad Poblacional (hab/km²)", 0.5, 1000.0)
-
-        # Columna 3: Rezagos Climáticos
-        tk.Label(col3_lags, text="⏱️ Rezagos Climáticos (Lags 1-3)", font=("Segoe UI", 10, "bold"), fg="#1e293b").pack(anchor="w", pady=(5, 8))
-        lag_params = [
-            ("tmax_lag1", "Tmax lag 1 mes (°C)", 11.0, 40.0),
-            ("tmax_lag2", "Tmax lag 2 mes (°C)", 11.0, 40.0),
-            ("tmax_lag3", "Tmax lag 3 mes (°C)", 11.0, 40.0),
-            ("tmin_lag1", "Tmin lag 1 mes (°C)", -3.0, 28.0),
-            ("tmin_lag2", "Tmin lag 2 mes (°C)", -3.0, 28.0),
-            ("tmin_lag3", "Tmin lag 3 mes (°C)", -3.0, 28.0),
-            ("precipitacion_lag1", "Prec lag 1 mes (mm)", 0.0, 600.0),
-            ("precipitacion_lag2", "Prec lag 2 mes (mm)", 0.0, 600.0),
-            ("precipitacion_lag3", "Prec lag 3 mes (mm)", 0.0, 600.0),
-            ("humedad_lag1", "Humedad lag 1 mes (%)", 20.0, 95.0),
-            ("humedad_lag2", "Humedad lag 2 mes (%)", 20.0, 95.0),
-            ("humedad_lag3", "Humedad lag 3 mes (%)", 20.0, 95.0),
-        ]
-        for key, desc, lo, hi in lag_params:
-            self.crear_slider(col3_lags, key, desc, lo, hi)
-
-        # Panel de Outputs Derecho
-        title_out = tk.Label(right_outputs, text="📡 PREDICCIONES DEL MODELO", font=("Segoe UI", 11, "bold"), fg="#1e293b")
-        title_out.pack(pady=(5, 10))
-
-        self.cards = {}
-        model_info = [
-            ("LightGBM", "🟠 LightGBM (Agente 3)", "#fff7ed", "#ea580c"),
-            ("LSTM PyTorch", "🟣 LSTM PyTorch (Agente 4)", "#f5f3ff", "#8b5cf6"),
-        ]
-
-        for key, title, bg_col, border_col in model_info:
-            frame_c = tk.Frame(right_outputs, bg=bg_col, bd=1, relief="solid", highlightbackground=border_col)
-            frame_c.pack(fill="x", pady=6, ipady=4)
-            
-            lbl_m_title = tk.Label(frame_c, text=title, font=("Segoe UI", 9, "bold"), fg="#374151", bg=bg_col)
-            lbl_m_title.pack(anchor="w", padx=12, pady=(6, 1))
-            
-            val_lbl = tk.Label(frame_c, text="0.00", font=("Segoe UI", 18, "bold"), fg=border_col, bg=bg_col)
-            val_lbl.pack(anchor="w", padx=12)
-            
-            unit_lbl = tk.Label(frame_c, text="casos por 100,000 hab.", font=("Segoe UI", 8), fg="#6b7280", bg=bg_col)
-            unit_lbl.pack(anchor="w", padx=12)
-            
-            risk_lbl = tk.Label(frame_c, text="Normal", font=("Segoe UI", 9, "bold"), bg="#e2e8f0", fg="#334155", width=26)
-            risk_lbl.pack(pady=(4, 6))
-
-            self.cards[key] = (val_lbl, risk_lbl)
-
-        # Card de Ensemble Promedio (Agente 5)
-        frame_e = tk.Frame(right_outputs, bg="#f1f5f9", bd=2, relief="groove")
-        frame_e.pack(fill="x", pady=10, ipady=5)
-        
-        lbl_e_title = tk.Label(frame_e, text="🤖 PREDICCIÓN PROMEDIO ENSEMBLE (Agente 5)", font=("Segoe UI", 9, "bold"), fg="#1e293b", bg="#f1f5f9")
-        lbl_e_title.pack(anchor="w", padx=12, pady=(6, 1))
-        
-        self.ens_val_lbl = tk.Label(frame_e, text="0.00", font=("Segoe UI", 20, "bold"), fg="#10b981", bg="#f1f5f9")
-        self.ens_val_lbl.pack(anchor="w", padx=12)
-        
-        unit_lbl_e = tk.Label(frame_e, text="casos por 100,000 hab.", font=("Segoe UI", 8), fg="#64748b", bg="#f1f5f9")
-        unit_lbl_e.pack(anchor="w", padx=12)
-        
-        self.ens_risk_lbl = tk.Label(frame_e, text="Normal", font=("Segoe UI", 9, "bold"), bg="#cbd5e1", fg="#1e293b", width=25)
-        self.ens_risk_lbl.pack(pady=(4, 6))
-
-        # Iniciar predicciones
-        self.actualizar_predicciones()
-
-    def crear_slider(self, parent, key, label_text, lo, hi):
-        frame = ttk.Frame(parent)
-        frame.pack(fill="x", pady=3, padx=2)
-
-        lbl = ttk.Label(frame, text=label_text, width=32, anchor="w", font=("Segoe UI", 8))
-        lbl.pack(side="top", anchor="w")
-
-        val_var = tk.DoubleVar()
-        init_val = float(round(self.def_val.get(key, (lo + hi) / 2), 4))
-        val_var.set(init_val)
-
-        sub_frame = ttk.Frame(frame)
-        sub_frame.pack(fill="x")
-
-        val_lbl = ttk.Label(sub_frame, text=f"{init_val:.2f}", width=7, anchor="e", font=("Segoe UI", 8))
-        
-        slider = ttk.Scale(
-            sub_frame, from_=lo, to=hi, variable=val_var, orient="horizontal",
-            command=lambda e, kv=key, vv=val_var, vl=val_lbl: self.on_slider_move(kv, vv, vl)
-        )
-        slider.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        val_lbl.pack(side="right")
-
-        self.sliders[key] = val_var
-        self.slider_labels[key] = val_lbl
-        self.slider_ranges[key] = (lo, hi)
-
-    def on_slider_move(self, key, var, label):
-        val = var.get()
-        label.config(text=f"{val:.2f}")
-        self.actualizar_predicciones()
-
-    def on_country_select(self, event):
-        pais_sel = self.country_combo.get()
-        if pais_sel == "— Ingresar manualmente —":
-            val_ref = self.df[self.COLS_FEAT].median().to_dict()
+        if pred_val <= p25:
+            return self._NIVELES["normal"]
+        elif pred_val <= p50:
+            return self._NIVELES["vigilancia"]
+        elif pred_val <= p90:
+            return self._NIVELES["alerta"]
         else:
-            val_ref = self.df[self.df["pais"] == pais_sel][self.COLS_FEAT].median().to_dict()
-        
-        for key, var in self.sliders.items():
-            if key in val_ref:
-                lo, hi = self.slider_ranges[key]
-                val = float(val_ref[key])
-                val_clamped = max(lo, min(hi, val))
-                var.set(val_clamped)
-                self.slider_labels[key].config(text=f"{val_clamped:.2f}")
-                
-        self.actualizar_predicciones()
+            return self._NIVELES["epidemia"]
 
-    def actualizar_predicciones(self):
-        # 1. Crear vector de entrada
+    # ─────────────────────────────────────────────────────────────
+    # PREDICCIÓN ORQUESTADA (AGENTE 3 + AGENTE 4 + ENSEMBLE)
+    # ─────────────────────────────────────────────────────────────
+
+    def predecir_departamento(self, iso_a0, adm_1_name, ano=None, mes=None, clima_overrides=None):
+        """
+        Orquesta la predicción completa de incidencia de dengue para un departamento.
+
+        Pasos:
+          1. Recupera el historial del departamento.
+          2. Construye el vector de 34 features para Agente 3 (LightGBM).
+          3. Agente 3 → predicción ML + SHAP local.
+          4. Agente 4 → predicción LSTM con secuencia de 12 meses.
+          5. Ensemble = (ML + LSTM) / 2.
+          6. Clasifica nivel de riesgo para cada predicción.
+
+        Returns:
+            dict con prediccion_ml, prediccion_lstm, prediccion_ensemble,
+            riesgo_*, shap_local, features_usadas, percentiles_locales.
+        """
+        iso_a0 = iso_a0.strip().upper()
+        adm_1_name_u = adm_1_name.strip().upper()
+
+        df_dept = self.df_master[
+            (self.df_master['iso_a0'] == iso_a0) &
+            (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
+        ].sort_values(['ano', 'mes']).reset_index(drop=True)
+
+        if df_dept.empty:
+            raise ValueError(f"No se encontraron registros para {adm_1_name} ({iso_a0})")
+
+        # ── Registro de referencia ──
+        target_row = pd.DataFrame()
+        if ano is not None and mes is not None:
+            target_row = df_dept[(df_dept['ano'] == ano) & (df_dept['mes'] == mes)]
+        if target_row.empty:
+            target_row = df_dept.iloc[[-1]]
+
+        base_record = target_row.iloc[0].to_dict()
+        ref_idx = list(target_row.index)[0]
+        ref_mes = int(base_record.get('mes', 1))
+
+        if clima_overrides:
+            for key, val in clima_overrides.items():
+                if key in base_record:
+                    base_record[key] = float(val)
+
+        # ── Vector de features para Agente 3 ──
+        cols_feat = self.agente_ml.cols_feat
         vector = []
-        for col in self.COLS_FEAT:
-            if col in self.sliders:
-                vector.append(self.sliders[col].get())
+        for feat in cols_feat:
+            val = base_record.get(feat)
+            if val is not None and not (isinstance(val, float) and np.isnan(val)):
+                vector.append(val)
+            elif "_lag" in feat:
+                parts = feat.split("_lag")
+                var_base = parts[0]
+                lag_num = int(parts[1])
+                lag_val = None
+                if ref_idx >= lag_num:
+                    map_vars = {
+                        "tmax": "tmax_promedio", "tmin": "tmin_promedio",
+                        "precipitacion": "precipitacion", "humedad": "humedad_promedio",
+                        "incidencia": "incidencia_dengue",
+                        "incidencia_vecinos": "incidencia_dengue",
+                    }
+                    col_real = map_vars.get(var_base, var_base)
+                    if col_real in df_dept.columns:
+                        lag_val = df_dept.loc[ref_idx - lag_num, col_real]
+                if lag_val is None or (isinstance(lag_val, float) and np.isnan(lag_val)):
+                    med = df_dept[df_dept['mes'] == ref_mes].median(numeric_only=True).to_dict()
+                    lag_val = med.get(var_base, 0.0)
+                vector.append(lag_val)
+            elif feat == "incidencia_roll3":
+                vals = df_dept['incidencia_dengue'].iloc[max(0, ref_idx - 3):ref_idx].values
+                vector.append(float(np.mean(vals)) if len(vals) > 0 else 0.0)
+            elif feat == "incidencia_roll6":
+                vals = df_dept['incidencia_dengue'].iloc[max(0, ref_idx - 6):ref_idx].values
+                vector.append(float(np.mean(vals)) if len(vals) > 0 else 0.0)
+            elif feat == "mes_sin":
+                vector.append(float(np.sin(2 * np.pi * ref_mes / 12)))
+            elif feat == "mes_cos":
+                vector.append(float(np.cos(2 * np.pi * ref_mes / 12)))
             else:
-                vector.append(self.def_val[col])
+                vector.append(0.0)
 
-        entrada = np.array([vector])
-        
-        # 2. Preprocesamiento (Imputación y escalado LightGBM)
-        entrada_imp_ml = self.res_ml['imputador'].transform(entrada)
-        entrada_esc_ml = self.res_ml['escalador'].transform(entrada_imp_ml)
+        if clima_overrides:
+            for i, feat in enumerate(cols_feat):
+                if feat in clima_overrides:
+                    vector[i] = float(clima_overrides[feat])
 
-        # 3. Predicción LightGBM
-        pred_ml = float(self.res_ml['modelo'].predict(entrada_esc_ml)[0])
-        pred_ml = max(0.0, pred_ml)
+        # ── Agente 3: LightGBM ──
+        res_ml = self.agente_ml.predecir(vector, compute_shap=True)
+        pred_ml = res_ml["prediccion_ml"]
 
-        # 4. Predicción LSTM PyTorch
-        # Construir vector de 6 features LSTM desde los sliders
-        lstm_feats = self.res_dl['lstm_features']
-        live_map = self.res_dl['lstm_live_map']
-        feat_medians = self.res_dl['lstm_feat_medians']
+        # ── Agente 4: LSTM PyTorch ──
+        pred_lstm = self.agente_dl.predecir_secuencia(df_dept, ref_idx, clima_overrides)
 
-        raw_lstm = np.zeros((1, len(lstm_feats)), dtype=np.float32)
-        for i, feat in enumerate(lstm_feats):
-            src = live_map.get(feat, feat)
-            if src in self.sliders:
-                raw_lstm[0, i] = self.sliders[src].get()
-            elif feat in self.sliders:
-                raw_lstm[0, i] = self.sliders[feat].get()
-            else:
-                raw_lstm[0, i] = feat_medians.get(feat, 0.0)
+        # ── Agente 5: Ensemble ──
+        pred_ens = (pred_ml + pred_lstm) / 2.0 if pred_lstm is not None else pred_ml
 
-        entrada_imp_dl = self.res_dl['lstm_imputador'].transform(raw_lstm)
-        entrada_esc_dl = self.res_dl['lstm_scaler'].transform(entrada_imp_dl)
-        # Crear secuencia de 12 pasos replicando el vector actual
-        seq = np.tile(entrada_esc_dl[:, np.newaxis, :],
-                      (1, self.res_dl['lstm_seq_len'], 1)).astype(np.float32)
+        result = {
+            "prediccion_ml":       round(pred_ml, 4),
+            "riesgo_ml":           self.calcular_nivel_riesgo(pred_ml, iso_a0, adm_1_name),
+            "prediccion_lstm":     round(pred_lstm, 4) if pred_lstm is not None else None,
+            "riesgo_lstm":         self.calcular_nivel_riesgo(pred_lstm, iso_a0, adm_1_name) if pred_lstm is not None else None,
+            "prediccion_ensemble": round(pred_ens, 4),
+            "riesgo_ensemble":     self.calcular_nivel_riesgo(pred_ens, iso_a0, adm_1_name),
+            "features_usadas":     {f: float(v) for f, v in zip(cols_feat, vector)},
+        }
+        if "shap_local" in res_ml:
+            result["shap_local"] = res_ml["shap_local"]
 
-        self.res_dl['modelo'].eval()
-        with torch.no_grad():
-            x_tensor = torch.tensor(seq, dtype=torch.float32)
-            pred_dl_scaled = float(self.res_dl['modelo'](x_tensor).numpy()[0][0])
-
-        # Invertir escala de la predicción LSTM
-        n_feats = len(lstm_feats)
-        dummy = np.zeros((1, n_feats), dtype=np.float32)
-        dummy[0, -1] = pred_dl_scaled
-        pred_dl = float(self.res_dl['lstm_scaler'].inverse_transform(dummy)[0, -1])
-        pred_dl = max(0.0, pred_dl)
-
-        # 5. Ensemble (Agente 5)
-        pred_ens = (pred_ml + pred_dl) / 2.0
-
-        # Actualizar Tarjetas
-        preds = {"LightGBM": pred_ml, "LSTM PyTorch": pred_dl}
-        for name, val in preds.items():
-            val_lbl, risk_lbl = self.cards[name]
-            val_lbl.config(text=f"{val:.4f}")
-            self.aplicar_badge_riesgo(val, risk_lbl)
-            
-        self.ens_val_lbl.config(text=f"{pred_ens:.4f}")
-        self.aplicar_badge_riesgo(pred_ens, self.ens_risk_lbl)
-
-    def aplicar_badge_riesgo(self, pred, widget):
-        if pred <= self.p25:
-            widget.config(text="🟢 Riesgo: Bajo / Normal", bg="#dcfce7", fg="#166534")
-        elif pred <= self.p50:
-            widget.config(text="🟡 Riesgo: Vigilancia", bg="#fefce8", fg="#854d0e")
-        elif pred <= self.p90:
-            widget.config(text="🟠 Riesgo: Alerta", bg="#fff7ed", fg="#9a3412")
-        else:
-            widget.config(text="🔴 Riesgo: Epidemia", bg="#fef2f2", fg="#991b1b")
-
-    # =============================================================================
-    # PESTAÑA 3 — GRÁFICOS DE ANÁLISIS
-    # =============================================================================
-    def build_charts_tab(self):
-        main_frame = ttk.Frame(self.tab_charts, padding=5)
-        main_frame.pack(fill="both", expand=True)
-
-        self.charts_notebook = ttk.Notebook(main_frame)
-        self.charts_notebook.pack(fill="both", expand=True)
-
-        self.subtab_real_pred = ttk.Frame(self.charts_notebook)
-        self.subtab_compare = ttk.Frame(self.charts_notebook)
-        self.subtab_residuals = ttk.Frame(self.charts_notebook)
-
-        self.charts_notebook.add(self.subtab_real_pred, text="📍 Reales vs. Predichos")
-        self.charts_notebook.add(self.subtab_compare, text="📊 Comparativa de Métricas")
-        self.charts_notebook.add(self.subtab_residuals, text="📉 Distribución de Residuos")
-
-        self.build_real_pred_chart(self.subtab_real_pred)
-        self.build_compare_chart(self.subtab_compare)
-        self.build_residuals_chart(self.subtab_residuals)
-
-    def build_real_pred_chart(self, parent):
-        fig, axes = plt.subplots(1, 3, figsize=(11.5, 4.3), facecolor="#ffffff")
-        y_test_arr = np.array(self.y_test)
-        lim = y_test_arr.max() * 1.05
-        
-        model_preds = {
-            "LightGBM": self.y_pred_ml,
-            "LSTM PyTorch": self.y_pred_dl,
-            "Ensemble": self.y_pred_ens
+        # Percentiles locales del departamento
+        df_d = self.df_master[
+            (self.df_master['iso_a0'] == iso_a0) &
+            (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
+        ]
+        p25, p50, p90 = self.p25, self.p50, self.p90
+        if not df_d.empty:
+            p25 = float(df_d["incidencia_dengue"].quantile(0.25))
+            p50 = max(float(df_d["incidencia_dengue"].quantile(0.50)), 0.5)
+            p90 = max(float(df_d["incidencia_dengue"].quantile(0.90)), 5.0)
+        result["percentiles_locales"] = {
+            "p25": round(p25, 4),
+            "p50": round(p50, 4),
+            "p90": round(p90, 4),
         }
 
-        for ax, (nombre, pred) in zip(axes, model_preds.items()):
-            color = self.colores_mpl[nombre]
-            mae = mean_absolute_error(self.y_test, pred)
-            rmse = np.sqrt(mean_squared_error(self.y_test, pred))
-            r2 = r2_score(self.y_test, pred)
-            
-            ax.plot([0, lim], [0, lim], color="#94a3b8", lw=1.5, ls="--")
-            ax.scatter(y_test_arr, pred, color=color, alpha=0.45, s=15, linewidths=0)
-            ax.text(0.05, 0.95,
-                    f"MAE  = {mae:.3f}\nRMSE = {rmse:.3f}\nR²   = {r2*100:.1f}%",
-                    transform=ax.transAxes, fontsize=8, va="top", fontfamily="monospace",
-                    bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=color, lw=1, alpha=0.9))
-            ax.set_xlim(0, lim)
-            ax.set_ylim(0, lim)
-            ax.set_xlabel("Incidencia real (casos/100k)", fontsize=7.5)
-            ax.set_ylabel("Incidencia predicha (casos/100k)", fontsize=7.5)
-            ax.set_title(f"{nombre}", fontsize=8.5, fontweight="bold", color="#1e293b")
-            ax.tick_params(labelsize=7)
-            ax.grid(True, ls=":", alpha=0.4, color="#cbd5e1")
-            
-        plt.tight_layout()
-        canvas = FigureCanvasTkAgg(fig, master=parent)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
+        return result
 
-    def build_compare_chart(self, parent):
-        nombres = ["LightGBM", "LSTM PyTorch", "Ensemble"]
-        colores = [self.colores_mpl[n] for n in nombres]
-        x = np.arange(len(nombres))
-        w = 0.4
-        
-        fig, axes = plt.subplots(1, 3, figsize=(11.5, 4.3), facecolor="#ffffff")
-        
-        # MAE
-        vals_mae = [self.res_ml['test_mae'], self.res_dl['test_mae'], self.ens_mae]
-        axes[0].bar(x, vals_mae, w, color=colores, edgecolor="white")
-        axes[0].set_title("Test MAE ↓ (Menor es mejor)", fontsize=8.5, fontweight="bold")
-        
-        # RMSE
-        vals_rmse = [self.res_ml['test_rmse'], self.res_dl['test_rmse'], self.ens_rmse]
-        axes[1].bar(x, vals_rmse, w, color=colores, edgecolor="white")
-        axes[1].set_title("Test RMSE ↓ (Menor es mejor)", fontsize=8.5, fontweight="bold")
-        
-        # R2
-        vals_r2 = [self.res_ml['test_r2']*100, self.res_dl['test_r2']*100, self.ens_r2*100]
-        axes[2].bar(x, vals_r2, w, color=colores, edgecolor="white")
-        axes[2].set_title("Test R² % ↑ (Mayor es mejor)", fontsize=8.5, fontweight="bold")
-        
-        for idx, ax in enumerate(axes):
-            ax.set_xticks(x)
-            ax.set_xticklabels(nombres, fontsize=8)
-            ax.tick_params(labelsize=7)
-            ax.grid(axis="y", ls=":", alpha=0.4, color="#cbd5e1")
-            
-            # Poner etiquetas de valor
-            for i, val in enumerate([vals_mae, vals_rmse, vals_r2][idx]):
-                ax.text(i, val + (val*0.015), f"{val:.2f}", ha="center", va="bottom", fontsize=8, fontweight="bold")
-            
-        plt.tight_layout()
-        canvas = FigureCanvasTkAgg(fig, master=parent)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
+    # ─────────────────────────────────────────────────────────────
+    # SERVICIOS DE DATOS
+    # ─────────────────────────────────────────────────────────────
 
-    def build_residuals_chart(self, parent):
-        fig, axes = plt.subplots(1, 3, figsize=(11.5, 4.3), facecolor="#ffffff")
-        y_test_arr = np.array(self.y_test)
-        
-        model_preds = {
-            "LightGBM": self.y_pred_ml,
-            "LSTM PyTorch": self.y_pred_dl,
-            "Ensemble": self.y_pred_ens
-        }
+    def obtener_metadatos_paises(self):
+        """Retorna {pais: {iso_a0, departamentos[]}} de todos los países disponibles."""
+        paises_dict = {}
+        for row in self.df_master[['pais', 'iso_a0', 'adm_1_name']].drop_duplicates().itertuples():
+            if row.pais not in paises_dict:
+                paises_dict[row.pais] = {"iso_a0": row.iso_a0, "departamentos": []}
+            if row.adm_1_name not in paises_dict[row.pais]["departamentos"]:
+                paises_dict[row.pais]["departamentos"].append(row.adm_1_name)
+        for p in paises_dict:
+            paises_dict[p]["departamentos"].sort()
+        return paises_dict
 
-        for ax, (nombre, pred) in zip(axes, model_preds.items()):
-            color = self.colores_mpl[nombre]
-            residuos = pred - y_test_arr
-            
-            ax.hist(residuos, bins=25, color=color, alpha=0.70, edgecolor="white", lw=0.5)
-            ax.axvline(0, color="#1e293b", lw=1.2, ls="--", label="Residuo = 0")
-            ax.axvline(residuos.mean(), color="#f59e0b", lw=1.2, label=f"Media = {residuos.mean():.2f}")
-            
-            ax.set_title(f"{nombre}", fontsize=8.5, fontweight="bold", color="#1e293b")
-            ax.set_xlabel("Residuo (predicho − real)", fontsize=7.5)
-            ax.set_ylabel("Frecuencia", fontsize=7.5)
-            ax.legend(fontsize=7)
-            ax.tick_params(labelsize=7)
-            ax.grid(True, ls=":", alpha=0.4, color="#cbd5e1")
-            
-        plt.tight_layout()
-        canvas = FigureCanvasTkAgg(fig, master=parent)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
+    def obtener_historico_departamento(self, iso_a0, adm_1_name):
+        """Retorna la serie histórica mensual de un departamento."""
+        iso_a0 = iso_a0.strip().upper()
+        adm_1_name_u = adm_1_name.strip().upper()
+        df_f = self.df_master[
+            (self.df_master['iso_a0'] == iso_a0) &
+            (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
+        ].sort_values(['ano', 'mes']).reset_index(drop=True)
+        records = []
+        for r in df_f.itertuples():
+            records.append({
+                "fecha":         f"{r.ano}-{r.mes:02d}",
+                "ano":           int(r.ano),
+                "mes":           int(r.mes),
+                "casos":         int(r.casos_dengue),
+                "incidencia":    float(r.incidencia_dengue),
+                "tmax":          float(r.tmax_promedio),
+                "tmin":          float(r.tmin_promedio),
+                "precipitacion": float(r.precipitacion),
+                "humedad":       float(r.humedad_promedio),
+            })
+        return records
 
-    # =============================================================================
-    # PESTAÑA 4 — IMPORTANCIA & EXPLICABILIDAD (SHAP VALUES)
-    # =============================================================================
-    def build_importance_tab(self):
-        main_frame = ttk.Frame(self.tab_importance, padding=10)
-        main_frame.pack(fill="both", expand=True)
-        
-        fig, ax = plt.subplots(1, 1, figsize=(10, 5), facecolor="#ffffff")
-        
-        # Graficar importancias globales SHAP
-        shap_imp = self.res_ml['shap_importance']
-        ax.barh(shap_imp.index[::-1], shap_imp.values[::-1], color="#ea580c", alpha=0.8)
-        ax.set_title("Explicabilidad Global de Variables del Agente Predictivo (TreeSHAP Values)", fontsize=10, fontweight="bold")
-        ax.set_xlabel("Importancia Promedio Absoluta |SHAP Value|", fontsize=8.5)
-        ax.tick_params(labelsize=8)
-        ax.spines[["top", "right"]].set_visible(False)
-        ax.grid(axis="x", ls=":", alpha=0.4, color="#cbd5e1")
-        
-        plt.tight_layout()
-        
-        canvas = FigureCanvasTkAgg(fig, master=main_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
-
-    # =============================================================================
-    # PESTAÑA 5 — INFORMACIÓN DE LOS AGENTES
-    # =============================================================================
-    def build_info_tab(self):
-        main_frame = ttk.Frame(self.tab_info, padding=15)
-        main_frame.pack(fill="both", expand=True)
-
-        info_box = ttk.Frame(main_frame, padding=10)
-        info_box.pack(fill="both", expand=True)
-
-        detalles = (
-            "👤 AUTOR:\n"
-            "Yeshua Chavez\n\n"
-            "🤖 ARQUITECTURA CONCEPTUAL COOPERATIVA SMA-ML/DL:\n"
-            "El sistema se compone de 5 agentes informáticos especializados que cooperan de manera secuencial y asíncrona:\n\n"
-            "1. AGENTE DE RECOLECCIÓN (Agente 1):\n"
-            "   * Ingesta de forma dirigida casos de dengue (OpenDengue), clima satelital (NASA POWER), agua básica (JMP) y "
-            "población a partir de Censos Gubernamentales locales.\n\n"
-            "2. AGENTE DE PREPROCESAMIENTO (Agente 2):\n"
-            "   * Encargado del cruzamiento y normalización de la tasa de incidencia (casos por 100k hab.).\n"
-            "   * Aplica rezagos temporales (lags 1, 2 y 3 meses) simétricos para clima e incidencia, y genera el dataset maestro "
-            "'dataset_maestro_mensual_latam.csv'.\n\n"
-            "3. AGENTE PREDICCIÓN MACHINE LEARNING (Agente 3):\n"
-            "   * Entrena el algoritmo LightGBM (Gradient Boosting de hoja a hoja) con hiperparámetros calibrados "
-            "(n_estimators=400, lr=0.04, num_leaves=63, min_child_samples=20).\n"
-            "   * Integra una capa nativa de explicabilidad algorítmica (XAI) mediante el cálculo de valores SHAP (TreeSHAP).\n\n"
-            "4. AGENTE DE PREDICCIÓN DEEP LEARNING (Agente 4):\n"
-            "   * Implementa una red LSTM (Long Short-Term Memory) en PyTorch con secuencias de 12 meses, capas apiladas "
-            "(hidden_dim=64, num_layers=2, dropout=0.2) y optimizador Adam (lr=0.003, 80 épocas).\n\n"
-            "5. AGENTE DE ALERTAS Y SÍNTESIS (Agente 5):\n"
-            "   * Unifica los pronósticos de LightGBM y LSTM PyTorch en una salida robusta promedio (Ensemble).\n"
-            "   * Clasifica los escenarios epidemiológicos territoriales en 4 niveles de riesgo (Normal, Vigilancia, Alerta, Epidemia) y provee "
-            "la consola interactiva."
+    def obtener_top_departamentos(self, n=5):
+        """Retorna los n departamentos con mayor incidencia media histórica."""
+        grp = (
+            self.df_master
+            .groupby(['adm_1_name', 'iso_a0', 'pais'])['incidencia_dengue']
+            .agg(mean_incidencia='mean', max_incidencia='max')
+            .reset_index()
+            .nlargest(n, 'mean_incidencia')
         )
+        max_mean = float(grp['mean_incidencia'].max()) or 1.0
+        result = []
+        for _, row in grp.iterrows():
+            result.append({
+                "name":            f"{row['adm_1_name'].title()} ({row['iso_a0']})",
+                "adm_1_name":      row['adm_1_name'],
+                "iso_a0":          row['iso_a0'],
+                "pais":            row['pais'],
+                "mean_incidencia": round(float(row['mean_incidencia']), 1),
+                "max_incidencia":  round(float(row['max_incidencia']), 1),
+                "pct":             round(float(row['mean_incidencia']) / max_mean * 100, 1),
+            })
+        return result
 
-        txt_widget = tk.Text(info_box, font=("Segoe UI", 10), wrap="word", bg="#f8fafc", relief="flat")
-        txt_widget.insert("1.0", detalles)
-        txt_widget.config(state="disabled")
-        
-        scroll_txt = ttk.Scrollbar(info_box, orient="vertical", command=txt_widget.yview)
-        txt_widget.configure(yscrollcommand=scroll_txt.set)
-        
-        txt_widget.pack(side="left", fill="both", expand=True, padx=(0, 5))
-        scroll_txt.pack(side="right", fill="y")
-
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = AgenteAlertasGUI(root)
-    root.mainloop()
+    def obtener_shap_global(self):
+        """Retorna las importancias SHAP globales (Agente 3)."""
+        return self.agente_ml.shap_importance

@@ -265,6 +265,63 @@ class AgentePrediccionDL:
         }
 
 
+    # ─────────────────────────────────────────────────────────────
+    # MODO INFERENCIA — carga modelo pre-entrenado desde disco
+    # ─────────────────────────────────────────────────────────────
+
+    @classmethod
+    def cargar_modelo(cls, model_dir, base_dir=None):
+        """Carga LSTM PyTorch serializado para inferencia sin reentrenar."""
+        import pickle
+        import json
+        agente = cls(base_dir=base_dir)
+        with open(os.path.join(model_dir, "lstm_config.json"), "r") as f:
+            config = json.load(f)
+        with open(os.path.join(model_dir, "lstm_features.pkl"), "rb") as f:
+            agente.lstm_features = pickle.load(f)
+        with open(os.path.join(model_dir, "escalador_lstm.pkl"), "rb") as f:
+            agente.escalador_lstm = pickle.load(f)
+        agente.lstm_seq_len = config.get("seq_len", LSTM_SEQ_LEN)
+        agente.modelo_lstm = DengueLSTMModel(
+            input_dim=config.get("input_dim", len(agente.lstm_features))
+        )
+        agente.modelo_lstm.load_state_dict(
+            torch.load(os.path.join(model_dir, "lstm_model.pth"),
+                       map_location=torch.device('cpu'))
+        )
+        agente.modelo_lstm.eval()
+        print(f"   [Agente 4] LSTM PyTorch cargado — seq_len={agente.lstm_seq_len}, input_dim={len(agente.lstm_features)}.")
+        return agente
+
+    def predecir_secuencia(self, df_dept, ref_idx, clima_overrides=None):
+        """Inferencia LSTM usando historial temporal del departamento (expm1 de salida)."""
+        start = max(0, ref_idx - self.lstm_seq_len + 1)
+        hist = df_dept.iloc[start:ref_idx + 1]
+        feat_arr = hist[self.lstm_features].values.copy().astype(float)
+
+        if len(feat_arr) < self.lstm_seq_len:
+            pad = np.zeros((self.lstm_seq_len - len(feat_arr), len(self.lstm_features)))
+            feat_arr = np.vstack([pad, feat_arr])
+
+        if clima_overrides:
+            override_map = {f: i for i, f in enumerate(self.lstm_features)}
+            for feat_name, feat_i in override_map.items():
+                if feat_name in clima_overrides:
+                    feat_arr[-1, feat_i] = float(clima_overrides[feat_name])
+            if 'incidencia_lag1' in clima_overrides and 'incidencia_dengue' in self.lstm_features:
+                inc_idx = self.lstm_features.index('incidencia_dengue')
+                feat_arr[-1, inc_idx] = float(clima_overrides['incidencia_lag1'])
+
+        flat = feat_arr.reshape(-1, len(self.lstm_features))
+        scaled = self.escalador_lstm.transform(flat).reshape(
+            1, self.lstm_seq_len, len(self.lstm_features)
+        )
+        x_tensor = torch.tensor(scaled, dtype=torch.float32)
+        with torch.no_grad():
+            pred_log = float(self.modelo_lstm(x_tensor).numpy()[0][0])
+        return max(0.0, np.expm1(pred_log))
+
+
 if __name__ == "__main__":
     agente = AgentePrediccionDL()
     resultados = agente.entrenar_modelo()
