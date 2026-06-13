@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar directorios necesarios
 COPY backend /app/backend
+COPY agentes /app/agentes
 COPY Base?de?Datos /app/Base_de_Datos
 RUN ln -s /app/Base_de_Datos "/app/Base de Datos"
 
