@@ -30,13 +30,15 @@ class RiskLevel(BaseModel):
     color: str = Field(..., description="Color hexadecimal para renderizado en frontend")
 
 class PredictionResponse(BaseModel):
-    prediccion_ml: float = Field(..., description="Predicción del Agente 3 (XGBoost)")
-    riesgo_ml: RiskLevel = Field(..., description="Nivel de riesgo estimado por XGBoost")
-    prediccion_dl: float = Field(..., description="Predicción del Agente 4 (PyTorch MLP)")
+    prediccion_ml: float = Field(..., description="Predicción del Agente ML (LightGBM)")
+    riesgo_ml: RiskLevel = Field(..., description="Nivel de riesgo estimado por LightGBM")
+    prediccion_dl: float = Field(..., description="Predicción del Agente DL (PyTorch MLP)")
     riesgo_dl: RiskLevel = Field(..., description="Nivel de riesgo estimado por la MLP")
-    prediccion_ensemble: float = Field(..., description="Predicción promediada del Agente 5 (Ensemble)")
-    riesgo_ensemble: RiskLevel = Field(..., description="Nivel de riesgo de la predicción final")
-    features_usadas: Optional[Dict[str, float]] = Field(None, description="Características reales o medianas utilizadas como entrada")
+    prediccion_lstm: Optional[float] = Field(None, description="Predicción del Agente LSTM (PyTorch LSTM secuencial)")
+    riesgo_lstm: Optional[RiskLevel] = Field(None, description="Nivel de riesgo estimado por el LSTM")
+    prediccion_ensemble: float = Field(..., description="Predicción del Ensemble promediado (3 modelos)")
+    riesgo_ensemble: RiskLevel = Field(..., description="Nivel de riesgo de la predicción final del Ensemble")
+    features_usadas: Optional[Dict[str, float]] = Field(None, description="Características utilizadas como entrada al modelo")
     percentiles_locales: Optional[Dict[str, float]] = Field(None, description="Percentiles locales de incidencia (p25, p50, p90)")
 
 class HistoricalRecord(BaseModel):

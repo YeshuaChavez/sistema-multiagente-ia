@@ -146,6 +146,18 @@ def predict_raw(req: RawPredictionRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al procesar predicción cruda: {str(e)}")
 
+@app.get("/api/metrics", tags=["General"])
+def get_metrics():
+    import json as _json
+    metrics_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "Base de Datos", "modelos", "metrics.json"
+    )
+    if not os.path.exists(metrics_path):
+        raise HTTPException(status_code=404, detail="Archivo de métricas no encontrado.")
+    with open(metrics_path, "r") as f:
+        return _json.load(f)
+
 @app.get("/api/explain/global", tags=["Explicabilidad XAI"])
 def explain_global():
     if prediction_service.shap_importance is None:

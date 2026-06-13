@@ -10,7 +10,7 @@ const riskStyles = {
   Epidemia: { bg: "bg-[#ba1a1a]/10", text: "text-[#ba1a1a]", border: "border-[#ba1a1a]/20", label: "Epidemia", icon: "emergency", ensemble: "bg-[#ba1a1a]" },
 };
 
-// Configuration of ranges, labels, and steps for all 24 model features
+// Configuration of ranges, labels, and steps for model features
 const FEATURE_DEFS = {
   // Principal variables
   agua_basica: { label: "Acceso Agua Potable Básica (%)", min: 0, max: 100, step: 0.1, unit: "%", section: "principal" },
@@ -19,7 +19,7 @@ const FEATURE_DEFS = {
   precipitacion: { label: "Precipitación Acumulada (mm)", min: 0, max: 500, step: 0.5, unit: " mm", section: "principal" },
   humedad_promedio: { label: "Humedad Relativa Promedio (%)", min: 0, max: 100, step: 1, unit: "%", section: "principal" },
   incidencia_lag1: { label: "Incidencia Dengue Mes Anterior (t-1)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "principal" },
-  
+
   // Advanced variables
   densidad_poblacion: { label: "Densidad de Población (hab/km²)", min: 0, max: 1000, step: 1, unit: " hab/km²", section: "advanced" },
   tmax_lag1: { label: "Temp. Máxima Lag 1 (t-1)", min: 15, max: 45, step: 0.1, unit: "°C", section: "advanced" },
@@ -36,6 +36,9 @@ const FEATURE_DEFS = {
   humedad_lag3: { label: "Humedad Lag 3 (t-3)", min: 0, max: 100, step: 1, unit: "%", section: "advanced" },
   incidencia_lag2: { label: "Incidencia Dengue Lag 2 (t-2)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
   incidencia_lag3: { label: "Incidencia Dengue Lag 3 (t-3)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
+  incidencia_lag4: { label: "Incidencia Dengue Lag 4 (t-4)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
+  incidencia_lag5: { label: "Incidencia Dengue Lag 5 (t-5)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
+  incidencia_lag6: { label: "Incidencia Dengue Lag 6 (t-6)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
   incidencia_vecinos_lag1: { label: "Incidencia Vecina Lag 1 (t-1)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
   incidencia_vecinos_lag2: { label: "Incidencia Vecina Lag 2 (t-2)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
   incidencia_vecinos_lag3: { label: "Incidencia Vecina Lag 3 (t-3)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
@@ -100,33 +103,32 @@ const runMockPrediction = (values, country, dept) => {
   
   const pred_ml = baseInc * (0.94 + Math.sin(tmax) * 0.04);
   const pred_dl = baseInc * (1.06 + Math.cos(precip) * 0.04);
-  const pred_ens = (pred_ml + pred_dl) / 2.0;
+  const pred_lstm = baseInc * (1.0 + Math.sin(tmax + precip * 0.01) * 0.03);
+  const pred_ens = (pred_ml + pred_dl + pred_lstm) / 3.0;
 
   const isLowRiskDept = dept && dept.toUpperCase() === "AGUASCALIENTES";
   const p25 = 0.0;
   const p50 = isLowRiskDept ? 0.05 : 2.8;
   const p90 = isLowRiskDept ? 0.8 : 64.0;
-  
+
   const getMockRisk = (val) => {
     if (val <= p25) return { nivel: "Normal", codigo: "normal", color: "#10b981" };
     if (val <= p50) return { nivel: "Vigilancia", codigo: "vigilancia", color: "#eab308" };
     if (val <= p90) return { nivel: "Alerta", codigo: "alerta", color: "#f97316" };
     return { nivel: "Epidemia", codigo: "epidemia", color: "#ef4444" };
   };
-  
+
   return {
     prediccion_ml: pred_ml,
     riesgo_ml: getMockRisk(pred_ml),
     prediccion_dl: pred_dl,
     riesgo_dl: getMockRisk(pred_dl),
+    prediccion_lstm: pred_lstm,
+    riesgo_lstm: getMockRisk(pred_lstm),
     prediccion_ensemble: pred_ens,
     riesgo_ensemble: getMockRisk(pred_ens),
     features_usadas: values,
-    percentiles_locales: {
-      p25,
-      p50,
-      p90
-    }
+    percentiles_locales: { p25, p50, p90 }
   };
 };
 
@@ -323,13 +325,16 @@ export default function PredictorView({
 
   const getRisk = (r) => riskStyles[r?.nivel] || riskStyles.Normal;
 
-  // Ensemble statistics
-  const ensembleVariance = result
-    ? (Math.abs(result.prediccion_ml - result.prediccion_dl) / 2).toFixed(1)
+  // Ensemble statistics (3-model)
+  const allPreds = result
+    ? [result.prediccion_ml, result.prediccion_dl, result.prediccion_lstm].filter(v => v != null)
+    : [];
+  const ensembleVariance = allPreds.length > 1
+    ? (Math.max(...allPreds) - Math.min(...allPreds)).toFixed(1)
     : "—";
 
-  const confidence = result
-    ? Math.max(70, 100 - (Math.abs(result.prediccion_ml - result.prediccion_dl) / Math.max(result.prediccion_ensemble, 1)) * 50).toFixed(1)
+  const confidence = result && allPreds.length > 0
+    ? Math.max(65, 100 - (parseFloat(ensembleVariance) / Math.max(result.prediccion_ensemble, 1)) * 40).toFixed(1)
     : "—";
 
   // Filter keys by section
@@ -460,7 +465,7 @@ export default function PredictorView({
                 >
                   <span className="flex items-center gap-sm">
                     <span className="material-symbols-outlined text-[18px]">history</span>
-                    Rezagos Avanzados y Lags ({showAdvanced ? "Ocultar" : "Mostrar"} 18 variables)
+                    Rezagos Avanzados y Lags ({showAdvanced ? "Ocultar" : "Mostrar"} {advancedKeys.length} variables)
                   </span>
                   <span className="material-symbols-outlined text-[20px]">
                     {showAdvanced ? "expand_less" : "expand_more"}
@@ -537,30 +542,43 @@ export default function PredictorView({
             {/* PLACEHOLDER */}
             {!result && !loading && !error && (
               <div className="flex flex-col gap-md">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 opacity-50">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Predicción Agente ML</p>
-                        <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
+                        <p className="text-label-md text-on-surface-variant">Agente ML</p>
+                        <h4 className="text-headline-sm text-primary font-bold">LightGBM</h4>
                       </div>
                       <span className="material-symbols-outlined text-outline">analytics</span>
                     </div>
                     <div className="flex items-end justify-between">
-                      <span className="text-[48px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
+                      <span className="text-[40px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
                       <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
                     </div>
                   </div>
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 opacity-50">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Predicción Agente DL</p>
-                        <h4 className="text-headline-md text-primary font-bold">MLP PyTorch</h4>
+                        <p className="text-label-md text-on-surface-variant">Agente DL</p>
+                        <h4 className="text-headline-sm text-primary font-bold">MLP PyTorch</h4>
                       </div>
                       <span className="material-symbols-outlined text-outline">neurology</span>
                     </div>
                     <div className="flex items-end justify-between">
-                      <span className="text-[48px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
+                      <span className="text-[40px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
+                      <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 opacity-50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-label-md text-on-surface-variant">Agente Seq.</p>
+                        <h4 className="text-headline-sm text-primary font-bold">LSTM PyTorch</h4>
+                      </div>
+                      <span className="material-symbols-outlined text-outline">timeline</span>
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <span className="text-[40px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
                       <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
                     </div>
                   </div>
@@ -578,18 +596,18 @@ export default function PredictorView({
             {/* RESULTS RENDERING */}
             {result && !loading && (
               <div className="flex flex-col gap-md animate-fade-in-up">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-                  {/* XGBoost */}
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#ea580c] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
+                  {/* LightGBM */}
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#ea580c] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Predicción Agente ML</p>
-                        <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
+                        <p className="text-label-md text-on-surface-variant">Agente ML</p>
+                        <h4 className="text-headline-sm text-primary font-bold">LightGBM</h4>
                       </div>
                       <span className="material-symbols-outlined text-[#ea580c]">analytics</span>
                     </div>
                     <div className="flex items-end justify-between">
-                      <span className="text-[42px] font-black text-[#ea580c]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                      <span className="text-[38px] font-black text-[#ea580c]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
                         {result.prediccion_ml.toFixed(1)}
                       </span>
                       <span className={`${getRisk(result.riesgo_ml).bg} ${getRisk(result.riesgo_ml).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_ml).border}`}>
@@ -599,16 +617,16 @@ export default function PredictorView({
                   </div>
 
                   {/* MLP PyTorch */}
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#8b5cf6] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#8b5cf6] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Predicción Agente DL</p>
-                        <h4 className="text-headline-md text-primary font-bold">MLP PyTorch</h4>
+                        <p className="text-label-md text-on-surface-variant">Agente DL</p>
+                        <h4 className="text-headline-sm text-primary font-bold">MLP PyTorch</h4>
                       </div>
                       <span className="material-symbols-outlined text-[#8b5cf6]">neurology</span>
                     </div>
                     <div className="flex items-end justify-between">
-                      <span className="text-[42px] font-black text-[#8b5cf6]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                      <span className="text-[38px] font-black text-[#8b5cf6]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
                         {result.prediccion_dl.toFixed(1)}
                       </span>
                       <span className={`${getRisk(result.riesgo_dl).bg} ${getRisk(result.riesgo_dl).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_dl).border}`}>
@@ -616,6 +634,27 @@ export default function PredictorView({
                       </span>
                     </div>
                   </div>
+
+                  {/* LSTM PyTorch */}
+                  {result.prediccion_lstm != null && (
+                    <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#0891b2] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-44 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-label-md text-on-surface-variant">Agente Seq.</p>
+                          <h4 className="text-headline-sm text-primary font-bold">LSTM PyTorch</h4>
+                        </div>
+                        <span className="material-symbols-outlined text-[#0891b2]">timeline</span>
+                      </div>
+                      <div className="flex items-end justify-between">
+                        <span className="text-[38px] font-black text-[#0891b2]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                          {result.prediccion_lstm.toFixed(1)}
+                        </span>
+                        <span className={`${getRisk(result.riesgo_lstm).bg} ${getRisk(result.riesgo_lstm).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_lstm).border}`}>
+                          {getRisk(result.riesgo_lstm).label}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Consensus Hero Card */}
@@ -665,8 +704,7 @@ export default function PredictorView({
                   <div className="space-y-xs">
                     <p className="text-label-md font-bold text-primary">Nota de Verificación</p>
                     <p>
-                      La predicción ensemble se calcula como la media de las proyecciones de XGBoost (ML) y la MLP de PyTorch (DL). La clasificación de riesgo utiliza los percentiles globales calibrados de la serie temporal:
-                      Normal (&lt;25%), Vigilancia (25%-50%), Alerta (50%-90%), Epidemia (&gt;90%).
+                      El ensemble combina 3 agentes: <strong>LightGBM</strong> (gradiente boosting tabular), <strong>MLP PyTorch</strong> (red neuronal feedforward) y <strong>LSTM PyTorch</strong> (red recurrente con 12 meses de lookback). La clasificación de riesgo usa percentiles locales calibrados por departamento: Normal (&lt;p25), Vigilancia (p25–p50), Alerta (p50–p90), Epidemia (&gt;p90).
                     </p>
                   </div>
                 </div>

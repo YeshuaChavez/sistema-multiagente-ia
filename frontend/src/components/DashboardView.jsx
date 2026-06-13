@@ -34,7 +34,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
   ]);
 
   const [backendReady, setBackendReady] = useState(false);
-  const [stats, setStats] = useState({ records: "13,585", r2: "71.86%" });
+  const [stats, setStats] = useState({ records: "15,342", r2: "74.20%" });
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("ALL");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);
@@ -45,6 +45,15 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
         const res = await fetch(`${backendUrl}/api/status`);
         if (res.ok) {
           setBackendReady(true);
+        }
+        // Load real metrics from backend
+        const metricsRes = await fetch(`${backendUrl}/api/metrics`);
+        if (metricsRes.ok) {
+          const m = await metricsRes.json();
+          setStats({
+            records: m.records_procesados?.toLocaleString() ?? "15,663",
+            r2: m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : (m.r2_lgbm != null ? `${(m.r2_lgbm * 100).toFixed(2)}%` : "—"),
+          });
         }
       } catch (err) {
         console.warn("Backend no disponible para Dashboard", err);
@@ -242,11 +251,11 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
               <h5 className="text-label-md font-bold uppercase tracking-wider">Estado del Modelo Híbrido</h5>
             </div>
             <p className="text-body-md opacity-90 leading-relaxed">
-              El motor integra la red <strong>MLP PyTorch</strong> y <strong>XGBoost</strong>. El Ensemble combinado reduce el error absoluto medio (MAE) a <strong>11.36</strong>, capturando picos y mitigando falsos positivos de forma óptima a escala subnacional.
+              El motor integra <strong>LightGBM</strong>, <strong>MLP PyTorch</strong> y <strong>LSTM PyTorch</strong>. El Ensemble de 3 agentes captura patrones tabulares, no lineales y secuenciales, minimizando el MAE y reduciendo falsos positivos a escala subnacional.
             </p>
             <div className="mt-md flex items-center gap-sm flex-wrap">
-              <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">PyTorch (CPU)</span>
-              <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">XGBoost Log</span>
+              <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">LightGBM</span>
+              <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">MLP + LSTM PyTorch</span>
               <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">FastAPI In-Memory</span>
             </div>
           </div>
