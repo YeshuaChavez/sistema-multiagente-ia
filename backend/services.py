@@ -127,17 +127,37 @@ class PredictionService:
                 
         print("SUCCESS: [In-Memory Service] Todos los modelos y datos cargados en la memoria RAM.")
 
-    def calcular_nivel_riesgo(self, pred_val):
-        if pred_val <= self.p25:
-            return {"nivel": "Bajo / Normal", "codigo": "normal", "color": "#10b981"}
-        elif pred_val <= self.p50:
+    def calcular_nivel_riesgo(self, pred_val, iso_a0=None, adm_1_name=None):
+        p25 = self.p25
+        p50 = self.p50
+        p90 = self.p90
+
+        if iso_a0 and adm_1_name:
+            iso_a0_u = iso_a0.strip().upper()
+            adm_1_name_u = adm_1_name.strip().upper()
+            df_dept = self.df_master[
+                (self.df_master['iso_a0'] == iso_a0_u) & 
+                (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
+            ]
+            if not df_dept.empty:
+                # Calcular percentiles locales
+                p25 = float(df_dept["incidencia_dengue"].quantile(0.25))
+                p50 = float(df_dept["incidencia_dengue"].quantile(0.50))
+                p90 = float(df_dept["incidencia_dengue"].quantile(0.90))
+                # Ajustes de sanidad para evitar límites de cero en regiones hiper-sanas
+                p50 = max(p50, 0.5)
+                p90 = max(p90, 5.0)
+
+        if pred_val <= p25:
+            return {"nivel": "Normal", "codigo": "normal", "color": "#10b981"}
+        elif pred_val <= p50:
             return {"nivel": "Vigilancia", "codigo": "vigilancia", "color": "#eab308"}
-        elif pred_val <= self.p90:
+        elif pred_val <= p90:
             return {"nivel": "Alerta", "codigo": "alerta", "color": "#f97316"}
         else:
             return {"nivel": "Epidemia", "codigo": "epidemia", "color": "#ef4444"}
 
-    def realizar_prediccion_vector(self, vector_x):
+    def realizar_prediccion_vector(self, vector_x, iso_a0=None, adm_1_name=None):
         """
         Realiza la predicción basándose en un vector de entrada ordenado (23 features).
         """
@@ -161,9 +181,9 @@ class PredictionService:
         pred_ens = (pred_ml + pred_dl) / 2.0
         
         # Clasificar riesgos
-        riesgo_ml = self.calcular_nivel_riesgo(pred_ml)
-        riesgo_dl = self.calcular_nivel_riesgo(pred_dl)
-        riesgo_ens = self.calcular_nivel_riesgo(pred_ens)
+        riesgo_ml = self.calcular_nivel_riesgo(pred_ml, iso_a0, adm_1_name)
+        riesgo_dl = self.calcular_nivel_riesgo(pred_dl, iso_a0, adm_1_name)
+        riesgo_ens = self.calcular_nivel_riesgo(pred_ens, iso_a0, adm_1_name)
         
         return {
             "prediccion_ml": round(pred_ml, 4),
@@ -257,9 +277,31 @@ class PredictionService:
                 if feat in clima_overrides:
                     vector[i] = float(clima_overrides[feat])
                 
-        # Realizar predicción
-        res = self.realizar_prediccion_vector(vector)
+        # Realizar predicción pasando los datos geográficos para habilitar percentiles locales
+        res = self.realizar_prediccion_vector(vector, iso_a0, adm_1_name)
         res["features_usadas"] = {feat: float(val) for feat, val in zip(self.cols_feat, vector)}
+        
+        # Calcular los percentiles locales del departamento para retornarlos al frontend
+        p25 = self.p25
+        p50 = self.p50
+        p90 = self.p90
+        
+        df_dept = self.df_master[
+            (self.df_master['iso_a0'] == iso_a0) & 
+            (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
+        ]
+        if not df_dept.empty:
+            p25 = float(df_dept["incidencia_dengue"].quantile(0.25))
+            p50 = float(df_dept["incidencia_dengue"].quantile(0.50))
+            p90 = float(df_dept["incidencia_dengue"].quantile(0.90))
+            p50 = max(p50, 0.5)
+            p90 = max(p90, 5.0)
+
+        res["percentiles_locales"] = {
+            "p25": round(p25, 4),
+            "p50": round(p50, 4),
+            "p90": round(p90, 4)
+        }
         return res
 
     def obtener_metadatos_paises(self):

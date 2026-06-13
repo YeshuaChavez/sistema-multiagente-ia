@@ -37,6 +37,7 @@ class PredictionResponse(BaseModel):
     prediccion_ensemble: float = Field(..., description="Predicción promediada del Agente 5 (Ensemble)")
     riesgo_ensemble: RiskLevel = Field(..., description="Nivel de riesgo de la predicción final")
     features_usadas: Optional[Dict[str, float]] = Field(None, description="Características reales o medianas utilizadas como entrada")
+    percentiles_locales: Optional[Dict[str, float]] = Field(None, description="Percentiles locales de incidencia (p25, p50, p90)")
 
 class HistoricalRecord(BaseModel):
     fecha: str

@@ -83,7 +83,7 @@ const generateMockHistory = (country, dept) => {
 };
 
 // Frontend calculation of mock prediction based on feature values
-const runMockPrediction = (values) => {
+const runMockPrediction = (values, country, dept) => {
   const tmax = values.tmax_promedio ?? 30.5;
   const precip = values.precipitacion ?? 120.0;
   const lag1 = values.incidencia_lag1 ?? 35.0;
@@ -101,11 +101,16 @@ const runMockPrediction = (values) => {
   const pred_ml = baseInc * (0.94 + Math.sin(tmax) * 0.04);
   const pred_dl = baseInc * (1.06 + Math.cos(precip) * 0.04);
   const pred_ens = (pred_ml + pred_dl) / 2.0;
+
+  const isLowRiskDept = dept && dept.toUpperCase() === "AGUASCALIENTES";
+  const p25 = 0.0;
+  const p50 = isLowRiskDept ? 0.05 : 2.8;
+  const p90 = isLowRiskDept ? 0.8 : 64.0;
   
   const getMockRisk = (val) => {
-    if (val < 10) return { nivel: "Normal", codigo: "normal", color: "#10b981" };
-    if (val < 35) return { nivel: "Vigilancia", codigo: "vigilancia", color: "#eab308" };
-    if (val < 100) return { nivel: "Alerta", codigo: "alerta", color: "#f97316" };
+    if (val <= p25) return { nivel: "Normal", codigo: "normal", color: "#10b981" };
+    if (val <= p50) return { nivel: "Vigilancia", codigo: "vigilancia", color: "#eab308" };
+    if (val <= p90) return { nivel: "Alerta", codigo: "alerta", color: "#f97316" };
     return { nivel: "Epidemia", codigo: "epidemia", color: "#ef4444" };
   };
   
@@ -116,7 +121,12 @@ const runMockPrediction = (values) => {
     riesgo_dl: getMockRisk(pred_dl),
     prediccion_ensemble: pred_ens,
     riesgo_ensemble: getMockRisk(pred_ens),
-    features_usadas: values
+    features_usadas: values,
+    percentiles_locales: {
+      p25,
+      p50,
+      p90
+    }
   };
 };
 
@@ -275,7 +285,7 @@ export default function PredictorView({
     if (backendStatus === "offline") {
       // Offline fallback: Run client-side mathematical projection model
       setTimeout(() => {
-        const mockResult = runMockPrediction(sliderValues);
+        const mockResult = runMockPrediction(sliderValues, selectedCountry, selectedDept);
         setResult(mockResult);
         setLoading(false);
       }, 500);
@@ -329,6 +339,11 @@ export default function PredictorView({
   // Filter keys by section
   const principalKeys = Object.keys(FEATURE_DEFS).filter(k => FEATURE_DEFS[k].section === "principal");
   const advancedKeys = Object.keys(FEATURE_DEFS).filter(k => FEATURE_DEFS[k].section === "advanced");
+
+  // Local department percentiles (falling back to global ones if not simulated yet)
+  const localP25 = result?.percentiles_locales?.p25 ?? 0.0;
+  const localP50 = result?.percentiles_locales?.p50 ?? 2.8;
+  const localP90 = result?.percentiles_locales?.p90 ?? 64.0;
 
   return (
     <div className="w-full max-w-[1440px] mx-auto space-y-lg">
@@ -733,9 +748,9 @@ export default function PredictorView({
         <div className="grid grid-cols-1 md:grid-cols-12 gap-lg animate-fade-in text-on-surface">
           {/* Risk Level Percentiles Table */}
           <div className="md:col-span-5 bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-lg shadow-sm">
-            <h4 className="text-headline-md font-bold text-primary mb-md">Límites de Alerta Relativa</h4>
+            <h4 className="text-headline-md font-bold text-primary mb-md">Límites de Alerta Local</h4>
             <p className="text-on-surface-variant text-[12px] leading-relaxed mb-lg">
-              Los niveles de riesgo se calibran de acuerdo a los percentiles históricos agregados de Latinoamérica (2014-2022).
+              Los niveles de riesgo están <strong>calibrados localmente</strong> para el departamento de {selectedDept || "seleccionado"} en base a sus percentiles históricos de incidencia (2014-2022).
             </p>
             <div className="space-y-sm">
               <div className="flex justify-between items-center p-sm bg-emerald-50 dark:bg-emerald-950/20 border-l-4 border-emerald-500 rounded">
@@ -743,7 +758,7 @@ export default function PredictorView({
                   <h5 className="text-[13px] font-bold text-emerald-800 dark:text-emerald-300">Normal (&lt;p25)</h5>
                   <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400">Sin alertas. Riesgo endémico bajo.</p>
                 </div>
-                <span className="font-mono text-label-md font-bold text-emerald-800 dark:text-emerald-300">&lt; {(metadata ? 10.5 : 10).toFixed(1)}</span>
+                <span className="font-mono text-label-md font-bold text-emerald-800 dark:text-emerald-300">&lt; {localP25.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center p-sm bg-yellow-50 dark:bg-yellow-950/20 border-l-4 border-yellow-500 rounded">
@@ -751,7 +766,7 @@ export default function PredictorView({
                   <h5 className="text-[13px] font-bold text-yellow-800 dark:text-yellow-300">Vigilancia (p25 - p50)</h5>
                   <p className="text-[11px] text-yellow-700/80 dark:text-yellow-400">Desviaciones leves. Reforzar educación pública.</p>
                 </div>
-                <span className="font-mono text-label-md font-bold text-yellow-800 dark:text-yellow-300">10.5 — 35.2</span>
+                <span className="font-mono text-label-md font-bold text-yellow-800 dark:text-yellow-300">{localP25.toFixed(2)} — {localP50.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center p-sm bg-orange-50 dark:bg-orange-950/20 border-l-4 border-orange-500 rounded">
@@ -759,7 +774,7 @@ export default function PredictorView({
                   <h5 className="text-[13px] font-bold text-orange-800 dark:text-orange-300">Alerta (p50 - p90)</h5>
                   <p className="text-[11px] text-orange-700/80 dark:text-orange-400">Brotes localizados. Fumigaciones selectivas.</p>
                 </div>
-                <span className="font-mono text-label-md font-bold text-orange-800 dark:text-orange-300">35.2 — 98.4</span>
+                <span className="font-mono text-label-md font-bold text-orange-800 dark:text-orange-300">{localP50.toFixed(2)} — {localP90.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center p-sm bg-red-50 dark:bg-red-950/20 border-l-4 border-red-600 rounded">
@@ -767,7 +782,7 @@ export default function PredictorView({
                   <h5 className="text-[13px] font-bold text-red-800 dark:text-red-300">Epidemia (&gt;p90)</h5>
                   <p className="text-[11px] text-red-700/80 dark:text-red-400">Emergencia de salud pública. Acción inmediata.</p>
                 </div>
-                <span className="font-mono text-label-md font-bold text-red-800 dark:text-red-300">&gt; 98.4</span>
+                <span className="font-mono text-label-md font-bold text-red-800 dark:text-red-300">&gt; {localP90.toFixed(2)}</span>
               </div>
             </div>
           </div>
