@@ -8,8 +8,8 @@ const agents = [
     color: "bg-sky-500",
     colorLight: "bg-sky-50",
     description:
-      "Se encarga de la recolección y consolidación automática de datos epidemiológicos (OpenDengue) y climáticos (Open-Meteo). Consulta fuentes externas periódicamente y las estructura en formato tabular estandarizado.",
-    tech: ["OpenDengue API", "Open-Meteo API", "Pandas", "Requests"],
+      "Se encarga de la recolección y consolidación automática de datos epidemiológicos (OpenDengue) y climáticos (NASA POWER). Consulta fuentes externas periódicamente y las estructura en formato tabular estandarizado.",
+    tech: ["OpenDengue API", "NASA POWER API", "Pandas", "Requests"],
     input: "Fuentes externas (APIs REST públicas)",
     output: "CSVs estructurados → datos_crudos/",
   },
@@ -66,7 +66,7 @@ const agents = [
 const techStack = [
   { category: "Backend", items: ["FastAPI", "Python 3.10+", "Uvicorn", "Pydantic"] },
   { category: "ML / DL", items: ["LightGBM", "PyTorch", "Scikit-Learn", "SHAP"] },
-  { category: "Datos", items: ["Pandas", "NumPy", "OpenDengue", "Open-Meteo"] },
+  { category: "Datos", items: ["Pandas", "NumPy", "OpenDengue", "NASA POWER"] },
   { category: "Frontend", items: ["React 19", "Vite", "TailwindCSS", "Leaflet.js"] },
 ];
 
@@ -227,7 +227,7 @@ export default function InfoView() {
           </div>
           <div>
             <p className="font-bold text-secondary-fixed mb-xs">Datos Climáticos</p>
-            <p>Open-Meteo Historical Weather API — Temperatura, precipitación y humedad relativa histórica.</p>
+            <p>NASA POWER API (NASA Langley Research Center) — Temperatura máxima/mínima, precipitación y humedad relativa histórica a nivel subnacional.</p>
           </div>
           <div>
             <p className="font-bold text-secondary-fixed mb-xs">Datos Demográficos</p>
