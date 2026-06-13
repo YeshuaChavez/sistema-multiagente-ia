@@ -73,6 +73,7 @@ class PredictionService:
         self.shap_importance = None
         self.shap_explainer = None
         self.p25 = self.p50 = self.p90 = 0.0
+        self.oni_lookup = {}  # {(ano, mes): {'oni': v, 'oni_lag1': v, ...}}
 
         self.inicializar_servicio()
 
@@ -144,7 +145,18 @@ class PredictionService:
         else:
             print("   -> LSTM no disponible (faltan archivos).")
 
-        # 7. SHAP global
+        # 7. ONI / ENSO lookup
+        oni_path = os.path.join(self.raw_dir, "oni_mensual.csv")
+        if os.path.exists(oni_path):
+            df_oni = pd.read_csv(oni_path)
+            oni_cols = [c for c in ['oni', 'oni_lag1', 'oni_lag2', 'oni_lag3'] if c in df_oni.columns]
+            for _, row in df_oni.iterrows():
+                self.oni_lookup[(int(row['ano']), int(row['mes']))] = {
+                    c: float(row[c]) if pd.notna(row[c]) else 0.0 for c in oni_cols
+                }
+            print(f"   -> ONI cargado: {len(self.oni_lookup)} registros.")
+
+        # 8. SHAP global
         shap_path = os.path.join(self.model_dir, "shap_importance.json")
         if os.path.exists(shap_path):
             with open(shap_path, "r") as f:
@@ -342,6 +354,21 @@ class PredictionService:
                 vector.append(float(np.sin(2 * np.pi * ref_mes / 12)))
             elif feat == "mes_cos":
                 vector.append(float(np.cos(2 * np.pi * ref_mes / 12)))
+            elif feat in ('oni', 'oni_lag1', 'oni_lag2', 'oni_lag3'):
+                ref_ano = int(base_record.get('ano', 2022))
+                if feat == 'oni':
+                    oni_val = self.oni_lookup.get((ref_ano, ref_mes), {}).get('oni', 0.0)
+                else:
+                    lag_num = int(feat.replace('oni_lag', ''))
+                    import datetime
+                    t = datetime.date(ref_ano, ref_mes, 1)
+                    for _ in range(lag_num):
+                        if t.month == 1:
+                            t = t.replace(year=t.year - 1, month=12)
+                        else:
+                            t = t.replace(month=t.month - 1)
+                    oni_val = self.oni_lookup.get((t.year, t.month), {}).get(feat, 0.0)
+                vector.append(oni_val)
             else:
                 vector.append(0.0)
 
