@@ -23,6 +23,7 @@ def _load_agente(module_name: str, rel_path: str):
     return module
 
 
+_s3 = _load_agente("s3_client",             "agentes/s3_client.py")
 _a3 = _load_agente("agente_3_prediccion_ml", "agentes/agente_3_prediccion_ml.py")
 _a4 = _load_agente("agente_4_prediccion_dl", "agentes/agente_4_prediccion_dl.py")
 _a5 = _load_agente("agente_5_alertas",        "agentes/agente_5_alertas.py")
@@ -85,8 +86,31 @@ class PredictionService:
 
     # ─── Inicialización del Sistema Multi-Agente ───
 
+    def _descargar_desde_s3(self):
+        """Descarga modelos y datos desde S3 si no existen localmente."""
+        print("[SMA-ML/DL] Verificando archivos en S3...")
+        modelos = [
+            "lgbm_model.pkl", "imputador_ml.pkl", "escalador_ml.pkl",
+            "cols_feat.pkl", "shap_importance.json",
+            "lstm_model.pth", "lstm_config.json", "lstm_features.pkl",
+            "escalador_lstm.pkl", "metrics.json",
+        ]
+        for fname in modelos:
+            local = os.path.join(self.model_dir, fname)
+            _s3.ensure_local(_s3.PREFIX_MODELOS + fname, local)
+
+        _s3.ensure_local(
+            _s3.PREFIX_PROCESADOS + "dataset_maestro_mensual_latam.csv",
+            os.path.join(self.processed_dir, "dataset_maestro_mensual_latam.csv")
+        )
+        _s3.ensure_local(
+            _s3.PREFIX_CRUDOS + "departamentos_coordenadas.csv",
+            os.path.join(self.raw_dir, "departamentos_coordenadas.csv")
+        )
+
     def inicializar_servicio(self):
         print("[SMA-ML/DL] Iniciando Sistema Multi-Agente...")
+        self._descargar_desde_s3()
 
         # Dataset maestro
         master_path = os.path.join(self.processed_dir, "dataset_maestro_mensual_latam.csv")

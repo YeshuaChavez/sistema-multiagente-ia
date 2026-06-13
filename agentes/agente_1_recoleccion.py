@@ -16,9 +16,13 @@ import requests
 import time
 import urllib.parse
 
-# Configurar consola para caracteres utf-8
 if sys.platform.startswith('win'):
     sys.stdout.reconfigure(encoding='utf-8')
+
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THIS_DIR not in sys.path:
+    sys.path.insert(0, _THIS_DIR)
+import s3_client as s3
 
 class AgenteRecoleccion:
     def __init__(self, base_dir=None):
@@ -397,9 +401,18 @@ class AgenteRecoleccion:
         df_casos = self.recolectar_casos_dengue()
         print(f"   -> Casos de dengue ingestados con éxito: {df_casos.shape}")
         
+        # Subir archivos crudos actualizados a S3
+        print("[Agente 1] Subiendo datos crudos a S3...")
+        crudos_dir = self.raw_dir if hasattr(self, 'raw_dir') else os.path.join(self.db_dir, "datos_crudos")
+        for fname in ["clima_nasa_crudo.csv", "agua_jmp_crudo.csv",
+                      "Temporal_extract_V1_3.csv", "departamentos_coordenadas.csv"]:
+            local = os.path.join(crudos_dir, fname)
+            if os.path.exists(local):
+                s3.upload(local, s3.PREFIX_CRUDOS + fname)
+
         print("SUCCESS: [Agente 1] Ingesta y recolección completada para todos los dominios.")
         print("="*70)
-        
+
         return {
             'clima': df_clima,
             'agua': df_agua,
