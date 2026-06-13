@@ -18,7 +18,7 @@ from xgboost import XGBRegressor
 
 # Definir la arquitectura de la red neuronal MLP (debe coincidir con la de entrenamiento)
 class DengueMLPModel(nn.Module):
-    def __init__(self, input_dim=23, output_dim=1):
+    def __init__(self, input_dim=24, output_dim=1):
         super(DengueMLPModel, self).__init__()
         self.fc = nn.Sequential(
             nn.Linear(input_dim, 64),
@@ -194,84 +194,76 @@ class PredictionService:
             "riesgo_ensemble": riesgo_ens
         }
 
-    def simular_prediccion_departamento(self, iso_a0, adm_1_name, ano, mes, clima_overrides=None):
+    def simular_prediccion_departamento(self, iso_a0, adm_1_name, ano=None, mes=None, clima_overrides=None):
         """
-        Busca el registro departamental y construye dinámicamente los rezagos y vecinos.
+        Construye el vector de features para el departamento dado.
+        Si ano/mes apuntan a un registro existente, lo usa como base.
+        Si no (o si no se proporcionan), usa el último registro disponible del departamento,
+        que es más informativo que una mediana global.
         """
         iso_a0 = iso_a0.strip().upper()
         adm_1_name_u = adm_1_name.strip().upper()
-        
-        # Filtrar el registro del departamento para el año y mes seleccionado
+
         df_dept = self.df_master[
-            (self.df_master['iso_a0'] == iso_a0) & 
+            (self.df_master['iso_a0'] == iso_a0) &
             (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
         ].sort_values(['ano', 'mes']).reset_index(drop=True)
-        
+
         if df_dept.empty:
             raise ValueError(f"No se encontraron registros históricos para {adm_1_name} ({iso_a0})")
-            
-        # Buscar el registro objetivo
-        target_row = df_dept[(df_dept['ano'] == ano) & (df_dept['mes'] == mes)]
-        
+
+        # Determinar el registro de referencia: registro exacto o, si no existe, el último disponible
+        target_row = pd.DataFrame()
+        if ano is not None and mes is not None:
+            target_row = df_dept[(df_dept['ano'] == ano) & (df_dept['mes'] == mes)]
+
         if target_row.empty:
-            # Si no hay registro del mes exacto, usar la mediana histórica de ese departamento
-            mediana_dept = df_dept.median(numeric_only=True).to_dict()
-            base_record = {col: mediana_dept.get(col, 0.0) for col in self.df_master.columns if col not in ['iso_a0', 'pais', 'adm_1_name']}
-            base_record['iso_a0'] = iso_a0
-            base_record['adm_1_name'] = adm_1_name
-            base_record['ano'] = ano
-            base_record['mes'] = mes
-        else:
-            base_record = target_row.iloc[0].to_dict()
-            
-        # Aplicar modificaciones del clima del usuario
+            # Usar el último registro real del departamento como punto de partida
+            target_row = df_dept.iloc[[-1]]
+
+        base_record = target_row.iloc[0].to_dict()
+        idx_target = list(target_row.index)
+        ref_mes = int(base_record.get('mes', 1))
+
+        # Aplicar modificaciones del usuario sobre el registro base
         if clima_overrides:
             for key, val in clima_overrides.items():
                 if key in base_record:
                     base_record[key] = float(val)
-                    
-        # Construir el vector de 23 características (en el orden exacto de cols_feat)
-        # Para simplificar la inferencia en vivo:
-        # Extraemos los valores de lags de la serie temporal del departamento (si existen)
-        idx_target = df_dept[(df_dept['ano'] == ano) & (df_dept['mes'] == mes)].index
-        
+
+        # Construir el vector de características en el orden exacto de cols_feat
         vector = []
         for feat in self.cols_feat:
-            # 1. Si es variable actual
             if feat in base_record:
                 vector.append(base_record[feat])
-            # 2. Si es un rezago temporal (lag1, lag2, lag3)
             elif "_lag" in feat:
                 parts = feat.split("_lag")
                 var_base = parts[0]
                 lag_num = int(parts[1])
-                
-                # Intentar buscar en el histórico real
+
                 val = None
-                if len(idx_target) > 0:
+                if idx_target:
                     idx = idx_target[0]
                     if idx >= lag_num:
-                        # Mapeo de nombres climáticos simplificados
                         map_vars = {
                             "tmax": "tmax_promedio", "tmin": "tmin_promedio",
                             "precipitacion": "precipitacion", "humedad": "humedad_promedio",
-                            "incidencia": "incidencia_dengue", "incidencia_vecinos": "incidencia_dengue" # Simplificado
+                            "incidencia": "incidencia_dengue",
+                            "incidencia_vecinos": "incidencia_dengue",
                         }
                         col_real = map_vars.get(var_base, var_base)
                         if col_real in df_dept.columns:
                             val = df_dept.loc[idx - lag_num, col_real]
-                            
-                # Fallback a la mediana si no hay registro temporal
+
                 if val is None or pd.isna(val):
-                    # Mediana histórica de la variable
-                    val_med = df_dept[df_dept['mes'] == mes].median(numeric_only=True).to_dict()
+                    val_med = df_dept[df_dept['mes'] == ref_mes].median(numeric_only=True).to_dict()
                     val = val_med.get(var_base, 0.0)
-                    
+
                 vector.append(val)
             else:
                 vector.append(0.0)
-                
-        # Aplicar modificaciones en base al nombre exacto de la variable predictora final (lags, agua, clima, etc.)
+
+        # Segunda pasada: los overrides del usuario sobreescriben por nombre de variable exacto
         if clima_overrides:
             for i, feat in enumerate(self.cols_feat):
                 if feat in clima_overrides:

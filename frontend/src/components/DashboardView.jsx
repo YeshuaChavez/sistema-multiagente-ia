@@ -118,7 +118,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           <div>
             <p className="text-label-md font-medium text-on-surface-variant">Rango Temporal</p>
             <h3 className="text-headline-md font-bold text-primary" style={{ fontVariantNumeric: "tabular-nums" }}>
-              2014 — {new Date().getFullYear()}
+              2014 — 2022
             </h3>
           </div>
         </div>

@@ -193,12 +193,10 @@ export default function PredictorView({
           setSliderValues(defaults);
           setResult(null);
         } else {
-          // Query backend with no overrides to obtain baseline features
+          // Query backend without specifying a date — backend returns the latest available record
           const body = {
             iso_a0: isoCode,
             adm_1_name: selectedDept,
-            ano: currentYear,
-            mes: currentMonth,
             clima_overrides: {}
           };
           const res = await fetch(`${API_URL}/api/predict/simulate`, {
@@ -295,8 +293,6 @@ export default function PredictorView({
     const body = {
       iso_a0: isoCode,
       adm_1_name: selectedDept,
-      ano: currentYear,
-      mes: currentMonth,
       clima_overrides: sliderValues,
     };
 
@@ -355,7 +351,7 @@ export default function PredictorView({
         </div>
         <h2 className="text-headline-lg text-primary font-bold">Consola Predictiva — EpiPredict Dengue</h2>
         <p className="text-on-surface-variant text-body-md mt-xs max-w-3xl">
-          Visualización y simulación de brotes para el año en curso <strong className="text-on-surface">{currentYear}</strong>. Alterne entre simulación de variables, el histórico temporal y pautas científicas de alertas preventivas.
+          Configure las variables geoclimáticas y epidemiológicas del departamento de interés para obtener una estimación de riesgo de brote. Alterne entre simulación de variables, el histórico temporal y pautas científicas de alertas preventivas.
         </p>
       </div>
 
@@ -416,7 +412,7 @@ export default function PredictorView({
                 </div>
                 {selectedCountry && selectedDept && (
                   <p className="text-[11px] text-on-surface-variant italic">
-                    Periodo de Alerta Temprana: <strong>{currentMonthName} {currentYear}</strong> (Pre-cargado con medianas históricas departamentales para los rezagos).
+                    Pre-cargado con el último período histórico disponible del departamento. Ajusta los sliders para simular condiciones distintas.
                   </p>
                 )}
               </div>

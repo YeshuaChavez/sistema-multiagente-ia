@@ -17,8 +17,8 @@ class ClimaOverrides(BaseModel):
 class SimulationRequest(BaseModel):
     iso_a0: str = Field(..., example="PER", description="Código ISO del país (3 letras)")
     adm_1_name: str = Field(..., example="LORETO", description="Nombre del departamento/subregión")
-    ano: int = Field(..., example=2022, description="Año de proyección")
-    mes: int = Field(..., example=6, description="Mes de proyección (1-12)")
+    ano: Optional[int] = Field(None, example=2022, description="Año de referencia (opcional; si se omite usa el último registro disponible)")
+    mes: Optional[int] = Field(None, example=6, description="Mes de referencia (1-12, opcional)")
     clima_overrides: Optional[Dict[str, float]] = Field(None, description="Valores simulados por el usuario para cualquier variable")
 
 class RawPredictionRequest(BaseModel):
