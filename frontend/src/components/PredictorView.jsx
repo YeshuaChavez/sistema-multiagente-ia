@@ -672,7 +672,7 @@ export default function PredictorView({
                   <div className="space-y-xs">
                     <p className="text-label-md font-bold text-primary">Nota de Verificación</p>
                     <p>
-                      El ensemble combina los 2 mejores agentes: <strong>LightGBM</strong> (R²=71.6%, gradiente boosting tabular) y <strong>LSTM PyTorch</strong> (R²=74.6%, red recurrente con 12 meses de lookback). El MLP quedó excluido por menor precisión (R²=51%). La clasificación de riesgo usa percentiles locales calibrados por departamento: Normal (&lt;p25), Vigilancia (p25–p50), Alerta (p50–p90), Epidemia (&gt;p90).
+                      El ensemble combina <strong>LightGBM</strong> (R²=71.6%, gradiente boosting tabular) y <strong>LSTM PyTorch</strong> (R²=74.6%, red recurrente con 12 meses de lookback), alcanzando un R² conjunto de <strong>74.20%</strong>. La clasificación de riesgo usa percentiles locales calibrados por departamento: Normal (&lt;p25), Vigilancia (p25–p50), Alerta (p50–p90), Epidemia (&gt;p90).
                     </p>
                   </div>
                 </div>

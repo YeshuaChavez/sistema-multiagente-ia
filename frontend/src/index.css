@@ -113,6 +113,7 @@ html.dark {
     margin: 0;
     padding: 0;
     overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   * {
@@ -332,3 +333,38 @@ html.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.15); }
 html.dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.15); }
 html.dark .bg-purple-50 { background-color: rgba(168, 85, 247, 0.15); }
 html.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.15); }
+
+/* ─── Smooth theme transition ─── */
+html {
+  transition: color-scheme 0.3s ease;
+}
+
+/* ─── Leaflet controls — dark mode ─── */
+html.dark .leaflet-control-zoom a {
+  background-color: rgb(var(--color-surface-container-high)) !important;
+  color: rgb(var(--color-on-surface)) !important;
+  border-color: rgb(var(--color-outline-variant)) !important;
+}
+
+html.dark .leaflet-control-zoom a:hover {
+  background-color: rgb(var(--color-surface-container-highest)) !important;
+}
+
+html.dark .leaflet-control-attribution {
+  background-color: rgb(var(--color-surface-container) / 0.85) !important;
+  color: rgb(var(--color-on-surface-variant)) !important;
+}
+
+html.dark .leaflet-control-attribution a {
+  color: rgb(var(--color-primary)) !important;
+}
+
+/* ─── Fade-in animation ─── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}

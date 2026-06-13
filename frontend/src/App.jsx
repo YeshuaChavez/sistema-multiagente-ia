@@ -95,6 +95,7 @@ export default function App() {
             coordinates={coordinates}
             onSelectDepartment={handleSelectDepartment}
             backendUrl={API_URL}
+            darkMode={darkMode}
           />
         );
       case "predictor":
@@ -119,6 +120,7 @@ export default function App() {
             coordinates={coordinates}
             onSelectDepartment={handleSelectDepartment}
             backendUrl={API_URL}
+            darkMode={darkMode}
           />
         );
     }
@@ -137,11 +139,13 @@ export default function App() {
       {/* Main Content Area */}
       <main className="md:pl-64 flex flex-col min-h-screen bg-background text-on-background">
         {/* TopNavBar */}
-        <Topbar 
-          currentView={currentView} 
-          activeSubtab={activeSubtab} 
+        <Topbar
+          currentView={currentView}
+          activeSubtab={activeSubtab}
           setActiveSubtab={setActiveSubtab}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
         />
 
         {/* Backend Offline Banner */}
@@ -271,8 +275,8 @@ export default function App() {
                 <p className="font-bold text-primary text-label-md">¿Qué significan las métricas?</p>
                 <ul className="text-body-md text-on-surface-variant mt-xs space-y-sm list-disc pl-md">
                   <li><strong>Tasa de Incidencia:</strong> Número de casos registrados de dengue por cada 100,000 habitantes.</li>
-                  <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (~71.86% para el Ensemble).</li>
-                  <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (promedio del error de ~11.36 casos/100k hab.).</li>
+                  <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (~74.20% para el Ensemble LightGBM + LSTM).</li>
+                  <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (~9.90 casos/100k hab. para el Ensemble).</li>
                 </ul>
               </div>
               <div className="border-t border-outline-variant pt-md">

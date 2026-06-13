@@ -27,27 +27,27 @@ const agents = [
   },
   {
     id: 3,
-    name: "Agente de Machine Learning (XGBoost)",
+    name: "Agente de Machine Learning (LightGBM)",
     icon: "precision_manufacturing",
     color: "bg-orange-500",
     colorLight: "bg-orange-50",
     description:
-      "Entrena y ejecuta un modelo XGBoost (Gradient Boosting) para la predicción de la tasa de incidencia de dengue. Incluye búsqueda de hiperparámetros mediante validación cruzada temporal y genera importancias SHAP para explicabilidad.",
-    tech: ["XGBoost", "Scikit-Learn", "SHAP (TreeSHAP)", "Joblib"],
-    input: "Dataset preprocesado + features ingenieriles",
-    output: "Predicción ML + SHAP values globales",
+      "Entrena y ejecuta un modelo LightGBM (Gradient Boosting de hoja a hoja) para la predicción de la tasa de incidencia de dengue. Utiliza hiperparámetros fijos calibrados (n_estimators=400, lr=0.04, num_leaves=63) y genera importancias SHAP locales y globales mediante TreeSHAP.",
+    tech: ["LightGBM", "Scikit-Learn", "SHAP (TreeSHAP)", "Joblib"],
+    input: "Dataset preprocesado + 34 features ingenieriles",
+    output: "Predicción ML (R²=71.64%) + SHAP values",
   },
   {
     id: 4,
-    name: "Agente de Deep Learning (MLP PyTorch)",
+    name: "Agente de Deep Learning (LSTM PyTorch)",
     icon: "neurology",
     color: "bg-purple-600",
     colorLight: "bg-purple-50",
     description:
-      "Implementa una red neuronal MLP (Multi-Layer Perceptron) con PyTorch para capturar relaciones no lineales complejas en los datos epidemiológicos. Utiliza capas densas con activación ReLU, dropout para regularización, y entrenamiento con Adam optimizer.",
-    tech: ["PyTorch (CPU)", "torch.nn", "Adam Optimizer"],
-    input: "Dataset preprocesado estandarizado",
-    output: "Predicción DL (tasa de incidencia)",
+      "Implementa una red neuronal LSTM (Long Short-Term Memory) con PyTorch para capturar dependencias temporales de largo plazo en los datos epidemiológicos. Utiliza 12 meses de lookback, capas recurrentes apiladas con dropout y entrenamiento con Adam optimizer durante 80 épocas.",
+    tech: ["PyTorch (CPU)", "torch.nn (LSTM)", "Adam Optimizer"],
+    input: "Secuencias temporales de 12 meses (clima + incidencia)",
+    output: "Predicción DL (R²=74.56%) con patrón estacional",
   },
   {
     id: 5,
@@ -65,7 +65,7 @@ const agents = [
 
 const techStack = [
   { category: "Backend", items: ["FastAPI", "Python 3.10+", "Uvicorn", "Pydantic"] },
-  { category: "ML / DL", items: ["XGBoost", "PyTorch", "Scikit-Learn", "SHAP"] },
+  { category: "ML / DL", items: ["LightGBM", "PyTorch", "Scikit-Learn", "SHAP"] },
   { category: "Datos", items: ["Pandas", "NumPy", "OpenDengue", "Open-Meteo"] },
   { category: "Frontend", items: ["React 19", "Vite", "TailwindCSS", "Leaflet.js"] },
 ];

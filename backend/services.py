@@ -3,7 +3,7 @@
 SMA-ML/DL - Backend Services
 ----------------------------
 Carga persistente de datos y modelos en RAM.
-Ensemble de 3 modelos: LightGBM + MLP PyTorch + LSTM PyTorch.
+Ensemble LightGBM + LSTM PyTorch.
 """
 
 import os
@@ -15,20 +15,6 @@ import torch
 import torch.nn as nn
 import shap
 import lightgbm  # noqa: F401  (import needed for unpickling LGBMRegressor)
-
-
-class DengueMLPModel(nn.Module):
-    def __init__(self, input_dim=34, output_dim=1):
-        super(DengueMLPModel, self).__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(input_dim, 64), nn.ReLU(), nn.Dropout(0.2),
-            nn.Linear(64, 32),        nn.ReLU(), nn.Dropout(0.2),
-            nn.Linear(32, 16),        nn.ReLU(),
-            nn.Linear(16, output_dim)
-        )
-
-    def forward(self, x):
-        return self.fc(x)
 
 
 class DengueLSTMModel(nn.Module):
@@ -215,7 +201,7 @@ class PredictionService:
         return max(0.0, np.expm1(pred_log))
 
     # ─────────────────────────────────────────────────────────────
-    # PREDICCIÓN PRINCIPAL (LightGBM + MLP, sin LSTM)
+    # PREDICCIÓN PRINCIPAL (LightGBM)
     # ─────────────────────────────────────────────────────────────
 
     def realizar_prediccion_vector(self, vector_x, iso_a0=None, adm_1_name=None, compute_shap=False):
@@ -276,7 +262,7 @@ class PredictionService:
         return result
 
     # ─────────────────────────────────────────────────────────────
-    # SIMULACIÓN COMPLETA (LightGBM + MLP + LSTM = Ensemble 3-way)
+    # SIMULACIÓN COMPLETA (LightGBM + LSTM)
     # ─────────────────────────────────────────────────────────────
 
     def simular_prediccion_departamento(self, iso_a0, adm_1_name, ano=None, mes=None, clima_overrides=None):
@@ -308,7 +294,7 @@ class PredictionService:
                 if key in base_record:
                     base_record[key] = float(val)
 
-        # ─── Construir vector de features para LightGBM + MLP ───
+        # ─── Construir vector de features ───
         vector = []
         for feat in self.cols_feat:
             if feat in base_record:
@@ -358,7 +344,7 @@ class PredictionService:
         pred_lstm = self._predict_lstm_sequence(df_dept, ref_idx, clima_overrides)
 
         if pred_lstm is not None:
-            # Ensemble 2-way: LightGBM + LSTM (MLP excluido por menor R²)
+            # Ensemble 2-way: LightGBM + LSTM
             pred_ens2 = (res["prediccion_ml"] + pred_lstm) / 2.0
             res["prediccion_lstm"] = round(pred_lstm, 4)
             res["riesgo_lstm"] = self.calcular_nivel_riesgo(pred_lstm, iso_a0, adm_1_name)

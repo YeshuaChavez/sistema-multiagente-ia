@@ -7,13 +7,13 @@ const viewSubtabs = {
   info: [],
 };
 
-export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onOpenSettings }) {
+export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onOpenSettings, darkMode, setDarkMode }) {
   const tabs = viewSubtabs[currentView] || [];
   const [showNotifs, setShowNotifs] = useState(false);
 
   const notifications = [
     { id: 1, text: "Backend conectado de forma exitosa.", time: "Hace 2 min", type: "success" },
-    { id: 2, text: "Modelos XGBoost y MLP PyTorch listos.", time: "Hace 5 min", type: "info" },
+    { id: 2, text: "Modelos LightGBM y LSTM PyTorch listos.", time: "Hace 5 min", type: "info" },
     { id: 3, text: "Dataset consolidado con 13,585 registros.", time: "Hace 10 min", type: "info" }
   ];
 
@@ -48,14 +48,25 @@ export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onO
 
         {/* Action buttons */}
         <div className="flex items-center gap-sm text-on-surface-variant">
-          <button 
+          {setDarkMode && (
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              title={darkMode ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+              className="p-sm hover:bg-surface-container rounded-full transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
+                {darkMode ? "light_mode" : "dark_mode"}
+              </span>
+            </button>
+          )}
+          <button
             onClick={() => setShowNotifs(!showNotifs)}
             className="p-sm hover:bg-surface-container rounded-full transition-colors cursor-pointer relative"
           >
             <span className="material-symbols-outlined">notifications</span>
-            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-secondary rounded-full border-2 border-white"></span>
+            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-secondary rounded-full border-2 border-surface"></span>
           </button>
-          <button 
+          <button
             onClick={onOpenSettings}
             className="p-sm hover:bg-surface-container rounded-full transition-colors cursor-pointer"
           >
@@ -68,7 +79,7 @@ export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onO
 
         {/* NOTIFICATIONS DROPDOWN */}
         {showNotifs && (
-          <div className="absolute right-0 top-12 bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl shadow-xl w-72 p-md flex flex-col gap-sm z-50 animate-fade-in">
+          <div className="absolute right-0 top-12 bg-surface-container-low border border-outline-variant rounded-xl shadow-xl w-72 p-md flex flex-col gap-sm z-50 animate-fade-in">
             <div className="flex justify-between items-center border-b border-outline-variant pb-xs">
               <span className="text-[12px] font-bold text-primary uppercase">Notificaciones ({notifications.length})</span>
               <span className="text-[10px] text-on-surface-variant hover:text-primary cursor-pointer" onClick={() => setShowNotifs(false)}>Marcar leído</span>

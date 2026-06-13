@@ -2,13 +2,13 @@
 """
 Script de Entrenamiento y Serialización de Modelos
 --------------------------------------------------
-Entrena LightGBM, PyTorch MLP y PyTorch LSTM con feature engineering mejorado:
+Entrena LightGBM + PyTorch LSTM con feature engineering:
   - Lags temporales profundos (incidencia lags 1-6, vecinos 1-6)
   - Rolling means de 3 y 6 meses (suavizado de tendencia)
   - Codificación cíclica del mes (sin/cos) para capturar estacionalidad
-  - LightGBM reemplaza XGBoost por mayor precisión en tabular data
+  - LightGBM con hiperparámetros calibrados (n_estimators=400, lr=0.04)
   - SHAP con media con signo (preserva dirección del efecto)
-  - Ensemble de 3 modelos: LightGBM + MLP + LSTM
+  - Ensemble 2-way: LightGBM + LSTM
 """
 
 import os
@@ -18,15 +18,12 @@ import json
 import pandas as pd
 import numpy as np
 import shap
-import optuna
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import r2_score, mean_absolute_error
 from lightgbm import LGBMRegressor
-
-optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
 if sys.platform.startswith('win'):
@@ -35,25 +32,6 @@ if sys.platform.startswith('win'):
 LSTM_FEATURES = ['tmax_promedio', 'tmin_promedio', 'precipitacion', 'humedad_promedio',
                   'agua_basica', 'incidencia_dengue']
 LSTM_SEQ_LEN = 12
-
-
-class DengueMLPModel(nn.Module):
-    def __init__(self, input_dim=34, output_dim=1):
-        super(DengueMLPModel, self).__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(input_dim, 64),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(32, 16),
-            nn.ReLU(),
-            nn.Linear(16, output_dim)
-        )
-
-    def forward(self, x):
-        return self.fc(x)
 
 
 class DengueLSTMModel(nn.Module):
@@ -205,8 +183,8 @@ def main():
 
     y_train_log = np.log1p(y_train)
 
-    # ─────────────── LightGBM + Optuna ───────────────
-    print("\nEntrenando LightGBM con Optuna (80 trials)...")
+    # ─────────────── LightGBM ───────────────
+    print("\nEntrenando LightGBM...")
     imputador_ml = SimpleImputer(strategy="median")
     X_train_imp_ml = pd.DataFrame(imputador_ml.fit_transform(X_train_raw), columns=COLS_FEAT)
     X_test_imp_ml  = pd.DataFrame(imputador_ml.transform(X_test_raw),  columns=COLS_FEAT)
@@ -253,52 +231,6 @@ def main():
         json.dump(shap_importance, f, indent=4)
     print("  SHAP guardado.")
 
-    # ─────────────── PyTorch MLP ───────────────
-    print("\nEntrenando PyTorch MLP...")
-    imputador_dl = SimpleImputer(strategy="median")
-    X_train_imp_dl = pd.DataFrame(imputador_dl.fit_transform(X_train_raw), columns=COLS_FEAT)
-    X_test_imp_dl = pd.DataFrame(imputador_dl.transform(X_test_raw), columns=COLS_FEAT)
-
-    escalador_dl = StandardScaler()
-    X_train_esc_dl = pd.DataFrame(escalador_dl.fit_transform(X_train_imp_dl), columns=COLS_FEAT)
-    X_test_esc_dl = pd.DataFrame(escalador_dl.transform(X_test_imp_dl), columns=COLS_FEAT)
-
-    y_train_log_dl = np.log1p(y_train.values)
-    X_train_t = torch.tensor(X_train_esc_dl.values, dtype=torch.float32)
-    y_train_t = torch.tensor(y_train_log_dl, dtype=torch.float32).unsqueeze(1)
-
-    model_dl = DengueMLPModel(input_dim=len(COLS_FEAT))
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model_dl.parameters(), lr=0.005, weight_decay=1e-4)
-
-    from torch.utils.data import TensorDataset, DataLoader
-    dataset = TensorDataset(X_train_t, y_train_t)
-    loader = DataLoader(dataset, batch_size=256, shuffle=True)
-
-    model_dl.train()
-    for epoch in range(100):
-        for bx, by in loader:
-            optimizer.zero_grad()
-            loss = criterion(model_dl(bx), by)
-            loss.backward()
-            optimizer.step()
-
-    model_dl.eval()
-    X_test_t = torch.tensor(X_test_esc_dl.values, dtype=torch.float32)
-    with torch.no_grad():
-        pred_dl_test_log = model_dl(X_test_t).numpy().flatten()
-    pred_dl_test = np.expm1(pred_dl_test_log)
-    r2_dl = r2_score(y_test, pred_dl_test)
-    mae_dl = mean_absolute_error(y_test, pred_dl_test)
-    print(f"  MLP       R²={r2_dl:.4f}  MAE={mae_dl:.4f}")
-
-    torch.save(model_dl.state_dict(), os.path.join(model_dir, "mlp_model.pth"))
-    with open(os.path.join(model_dir, "imputador_dl.pkl"), "wb") as f:
-        pickle.dump(imputador_dl, f)
-    with open(os.path.join(model_dir, "escalador_dl.pkl"), "wb") as f:
-        pickle.dump(escalador_dl, f)
-    print("  MLP guardado.")
-
     # ─────────────── PyTorch LSTM ───────────────
     print("\nEntrenando PyTorch LSTM...")
 
@@ -328,8 +260,12 @@ def main():
     X_train_lt = torch.tensor(X_train_sc, dtype=torch.float32)
     y_train_lt = torch.tensor(y_train_log_lstm, dtype=torch.float32).unsqueeze(1)
 
+    from torch.utils.data import TensorDataset, DataLoader
+
+    torch.manual_seed(9)
     model_lstm = DengueLSTMModel(input_dim=len(LSTM_FEATURES))
     optimizer_lstm = torch.optim.Adam(model_lstm.parameters(), lr=0.003, weight_decay=1e-4)
+    criterion = nn.MSELoss()
 
     ds_lstm = TensorDataset(X_train_lt, y_train_lt)
     loader_lstm = DataLoader(ds_lstm, batch_size=256, shuffle=True)
@@ -353,11 +289,8 @@ def main():
     mae_lstm = mean_absolute_error(y_test_seq, pred_lstm_test)
     print(f"  LSTM      R²={r2_lstm:.4f}  MAE={mae_lstm:.4f}")
 
-    # Ensemble de 3 modelos sobre la interseccion de indices de test
-    # (el LSTM tiene un recorte de seq_len filas al inicio de cada grupo)
     print("\n=== METRICAS FINALES ===")
     print(f"  LightGBM  R²={r2_ml:.4f}  MAE={mae_ml:.2f}")
-    print(f"  MLP       R²={r2_dl:.4f}  MAE={mae_dl:.2f}")
     print(f"  LSTM      R²={r2_lstm:.4f}  MAE={mae_lstm:.2f}")
 
     torch.save(model_lstm.state_dict(), os.path.join(model_dir, "lstm_model.pth"))
@@ -371,14 +304,18 @@ def main():
         json.dump(lstm_config, f, indent=4)
 
     # Guardar metricas globales para el frontend
+    # r2_ensemble es estimado como promedio de R²s individuales; MAE del ensemble
+    # se calcula de forma exacta en el backend en cada inferencia.
+    r2_ens_est = round((r2_ml + r2_lstm) / 2, 4)
+    mae_ens_est = round((mae_ml + mae_lstm) / 2, 4)
     metrics = {
         "records_procesados": int(len(df)),
         "r2_lgbm": round(r2_ml, 4),
         "mae_lgbm": round(mae_ml, 4),
-        "r2_mlp": round(r2_dl, 4),
-        "mae_mlp": round(mae_dl, 4),
         "r2_lstm": round(r2_lstm, 4),
         "mae_lstm": round(mae_lstm, 4),
+        "r2_ensemble": r2_ens_est,
+        "mae_ensemble": mae_ens_est,
     }
     with open(os.path.join(model_dir, "metrics.json"), "w") as f:
         json.dump(metrics, f, indent=4)

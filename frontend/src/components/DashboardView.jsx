@@ -26,7 +26,7 @@ const countryNames = {
   URY: "Uruguay"
 };
 
-export default function DashboardView({ coordinates, onSelectDepartment, backendUrl }) {
+export default function DashboardView({ coordinates, onSelectDepartment, backendUrl, darkMode }) {
   const BAR_COLORS = [
     "bg-gradient-to-r from-red-500 to-red-400",
     "bg-gradient-to-r from-orange-500 to-orange-400",
@@ -244,6 +244,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
                 coordinates={filteredCoords}
                 onSelectDepartment={onSelectDepartment}
                 backendUrl={backendUrl}
+                darkMode={darkMode}
               />
 
               {/* Map Legend */}
@@ -309,7 +310,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
               <h5 className="text-label-md font-bold uppercase tracking-wider">Estado del Modelo Híbrido</h5>
             </div>
             <p className="text-body-md opacity-90 leading-relaxed">
-              El motor ensemble combina los 2 mejores agentes: <strong>LightGBM</strong> (R²=71.6%) y <strong>LSTM PyTorch</strong> (R²=74.6%). El MLP fue descartado por menor precisión. El ensemble alcanza <strong>R²=74.2%</strong> y MAE de 9.90 casos/100k.
+              El motor ensemble combina <strong>LightGBM</strong> (R²=71.6%) y <strong>LSTM PyTorch</strong> (R²=74.6%) mediante promedio simple, alcanzando <strong>R²=74.2%</strong> y MAE de 9.90 casos/100k hab.
             </p>
             <div className="mt-md flex items-center gap-sm flex-wrap">
               <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">LightGBM</span>
