@@ -25,5 +25,5 @@ COPY "Base de Datos" /app/Base de Datos
 # Exponer el puerto
 EXPOSE 8080
 
-# Comando para iniciar la aplicación mediante Uvicorn
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Comando para iniciar la aplicación mediante Uvicorn usando el puerto dinámico de Heroku
+CMD uvicorn backend.main:app --host 0.0.0.0 --port $PORT
