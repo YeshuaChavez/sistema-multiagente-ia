@@ -28,9 +28,6 @@ from lightgbm import LGBMRegressor
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-SEED = 42
-np.random.seed(SEED)
-torch.manual_seed(SEED)
 
 if sys.platform.startswith('win'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -167,19 +164,6 @@ def generar_lags_y_vecinos_dinamico(df, db_dir):
         print("   [Advertencia] No se encontro coordenadas. Vecinos con 0.")
         for lag in [1, 2, 3, 4, 5, 6]:
             df[f'incidencia_vecinos_lag{lag}'] = 0.0
-
-    # 6. ENSO / ONI — índice global, lags computados sobre la serie temporal global
-    oni_path = os.path.join(db_dir, "datos_crudos", "oni_mensual.csv")
-    if os.path.exists(oni_path):
-        df_oni = pd.read_csv(oni_path)[['ano', 'mes', 'oni', 'oni_lag1', 'oni_lag2', 'oni_lag3']]
-        df = df.merge(df_oni, on=['ano', 'mes'], how='left')
-        for c in ['oni', 'oni_lag1', 'oni_lag2', 'oni_lag3']:
-            df[c] = df[c].fillna(0.0)
-        print("   [ENSO] Indice ONI fusionado correctamente.")
-    else:
-        print("   [Advertencia] oni_mensual.csv no encontrado. Ejecuta Scripts/descargar_oni.py primero.")
-        for c in ['oni', 'oni_lag1', 'oni_lag2', 'oni_lag3']:
-            df[c] = 0.0
 
     # Eliminar nulos generados por lags
     cols_lags = [c for c in df.columns if 'lag' in c or 'roll' in c]
