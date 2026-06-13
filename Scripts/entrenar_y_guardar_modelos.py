@@ -28,6 +28,10 @@ from lightgbm import LGBMRegressor
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+SEED = 42
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
 if sys.platform.startswith('win'):
     sys.stdout.reconfigure(encoding='utf-8')
 
