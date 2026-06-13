@@ -31,25 +31,26 @@ export default function ExplainabilityView({ activeSubtab }) {
   const [localResult, setLocalResult] = useState(null); // {prediction, riesgo, shap_local}
 
   // ─── Fetch global SHAP ───
-  useEffect(() => {
-    const fetchShap = async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/explain/global`);
-        if (!response.ok) throw new Error("No se pudo cargar la explicabilidad SHAP");
-        const raw = await response.json();
-        const arr = Object.entries(raw)
-          .map(([feature, importance]) => ({ feature, importance }))
-          .sort((a, b) => Math.abs(b.importance) - Math.abs(a.importance));
-        setShapData(arr);
-      } catch (err) {
-        console.warn("Backend explain offline, usando datos demo...", err.message);
-        setShapData(MOCK_SHAP_GLOBAL);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchShap();
+  const fetchShap = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_URL}/api/explain/global`);
+      if (!response.ok) throw new Error("No se pudo cargar la explicabilidad SHAP");
+      const raw = await response.json();
+      const arr = Object.entries(raw)
+        .map(([feature, importance]) => ({ feature, importance }))
+        .sort((a, b) => Math.abs(b.importance) - Math.abs(a.importance));
+      setShapData(arr);
+    } catch (err) {
+      console.warn("Backend explain offline, usando datos demo...", err.message);
+      setShapData(MOCK_SHAP_GLOBAL);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { fetchShap(); }, [fetchShap]);
 
   // ─── Fetch metadata for local SHAP selectors ───
   useEffect(() => {
@@ -107,9 +108,10 @@ export default function ExplainabilityView({ activeSubtab }) {
     }
   }, [localCountry, localDept, metadata]);
 
-  const handleRecalculate = () => {
+  const handleRecalculate = async () => {
     setRecalculating(true);
-    setTimeout(() => setRecalculating(false), 1500);
+    await fetchShap();
+    setRecalculating(false);
   };
 
   const handleExport = () => {
@@ -122,7 +124,9 @@ export default function ExplainabilityView({ activeSubtab }) {
 
   // Timestamp for display
   const now = new Date();
-  const timeStr = `Hoy, ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")} PM`;
+  const hours12 = now.getHours() % 12 || 12;
+  const ampm = now.getHours() >= 12 ? "PM" : "AM";
+  const timeStr = `Hoy, ${hours12.toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")} ${ampm}`;
 
   return (
     <div className="max-w-[1440px] mx-auto text-on-surface">
