@@ -45,13 +45,15 @@ const FEATURE_DEFS = {
 const generateMockHistory = (country, dept) => {
   const records = [];
   const startYear = 2014;
-  const endYear = 2026;
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
   const hash = (dept || "").length + 7;
   let baseCases = 40 + (hash % 6) * 15;
   
-  for (let year = startYear; year <= endYear; year++) {
+  for (let year = startYear; year <= currentYear; year++) {
     for (let month = 1; month <= 12; month++) {
-      if (year === 2026 && month > 6) break;
+      if (year === currentYear && month > currentMonth) break;
       
       const tmax = 28 + Math.sin(month / 2) * 4 + (year % 3) * 0.5;
       const tmin = 18 + Math.sin(month / 2) * 3 + (year % 2) * 0.3;
@@ -129,6 +131,12 @@ export default function PredictorView({
 }) {
   const [sliderValues, setSliderValues] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+  const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const currentMonthName = monthNames[currentMonth - 1];
   
   // Predictor States
   const [loading, setLoading] = useState(false);
@@ -179,8 +187,8 @@ export default function PredictorView({
           const body = {
             iso_a0: isoCode,
             adm_1_name: selectedDept,
-            ano: 2026,
-            mes: 6,
+            ano: currentYear,
+            mes: currentMonth,
             clima_overrides: {}
           };
           const res = await fetch(`${API_URL}/api/predict/simulate`, {
@@ -277,8 +285,8 @@ export default function PredictorView({
     const body = {
       iso_a0: isoCode,
       adm_1_name: selectedDept,
-      ano: 2026,
-      mes: 6,
+      ano: currentYear,
+      mes: currentMonth,
       clima_overrides: sliderValues,
     };
 
@@ -332,7 +340,7 @@ export default function PredictorView({
         </div>
         <h2 className="text-headline-lg text-primary font-bold">Consola Predictiva — EpiPredict Dengue</h2>
         <p className="text-on-surface-variant text-body-md mt-xs max-w-3xl">
-          Visualización y simulación de brotes para el año en curso <strong className="text-on-surface">2026</strong>. Alterne entre simulación de variables, el histórico temporal y pautas científicas de alertas preventivas.
+          Visualización y simulación de brotes para el año en curso <strong className="text-on-surface">{currentYear}</strong>. Alterne entre simulación de variables, el histórico temporal y pautas científicas de alertas preventivas.
         </p>
       </div>
 
@@ -393,7 +401,7 @@ export default function PredictorView({
                 </div>
                 {selectedCountry && selectedDept && (
                   <p className="text-[11px] text-on-surface-variant italic">
-                    Periodo de Alerta Temprana: <strong>Junio 2026</strong> (Pre-cargado con medianas históricas departamentales para los rezagos).
+                    Periodo de Alerta Temprana: <strong>{currentMonthName} {currentYear}</strong> (Pre-cargado con medianas históricas departamentales para los rezagos).
                   </p>
                 )}
               </div>
