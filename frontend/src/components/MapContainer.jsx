@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -25,6 +25,40 @@ const crearIconoRiesgo = (colorHex) => {
     iconAnchor: [16, 16],
   });
 };
+
+// Componente para re-centrar el mapa dinámicamente con animación
+function ChangeView({ coordinates }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!coordinates || coordinates.length === 0) return;
+    
+    // Si la lista de coordenadas tiene un país específico filtrado (menos de 80 marcadores)
+    // y todos pertenecen al mismo código iso, centramos en el promedio de lat/lon y aplicamos zoom 5
+    const firstIso = coordinates[0].iso_a0;
+    const allSameCountry = coordinates.every(c => c.iso_a0 === firstIso);
+    
+    if (allSameCountry && coordinates.length < 80) {
+      let latSum = 0;
+      let lonSum = 0;
+      let count = 0;
+      coordinates.forEach(c => {
+        if (c.lat && c.lon) {
+          latSum += parseFloat(c.lat);
+          lonSum += parseFloat(c.lon);
+          count++;
+        }
+      });
+      if (count > 0) {
+        const avgLat = latSum / count;
+        const avgLon = lonSum / count;
+        map.setView([avgLat, avgLon], 5, { animate: true, duration: 1.2 });
+      }
+    } else {
+      map.setView([-15.0, -65.0], 3, { animate: true, duration: 1.2 });
+    }
+  }, [coordinates, map]);
+  return null;
+}
 
 export default function Map({ coordinates, onSelectDepartment, backendUrl }) {
   const [mapData, setMapData] = useState([]);
@@ -82,6 +116,7 @@ export default function Map({ coordinates, onSelectDepartment, backendUrl }) {
         scrollWheelZoom={true}
         className="w-full h-full"
       >
+        <ChangeView coordinates={coordinates} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"

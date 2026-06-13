@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 const viewSubtabs = {
   dashboard: [],
@@ -7,8 +7,15 @@ const viewSubtabs = {
   info: [],
 };
 
-export default function Topbar({ currentView }) {
+export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onOpenSettings }) {
   const tabs = viewSubtabs[currentView] || [];
+  const [showNotifs, setShowNotifs] = useState(false);
+
+  const notifications = [
+    { id: 1, text: "Backend conectado de forma exitosa.", time: "Hace 2 min", type: "success" },
+    { id: 2, text: "Modelos XGBoost y MLP PyTorch listos.", time: "Hace 5 min", type: "info" },
+    { id: 3, text: "Dataset consolidado con 13,585 registros.", time: "Hace 10 min", type: "info" }
+  ];
 
   return (
     <header className="h-16 flex justify-between items-center w-full px-lg bg-surface border-b border-outline-variant sticky top-0 z-40">
@@ -16,37 +23,71 @@ export default function Topbar({ currentView }) {
         <span className="text-headline-md font-bold text-primary">EpiPredict Dengue</span>
       </div>
 
-      <div className="flex items-center gap-md">
+      <div className="flex items-center gap-md relative">
         {/* View Tabs */}
         {tabs.length > 0 && (
           <div className="hidden md:flex items-center gap-lg mr-md">
-            {tabs.map((tab, idx) => (
-              <span
-                key={tab}
-                className={`py-1 cursor-pointer transition-colors text-label-md ${
-                  idx === 0
-                    ? "text-primary font-bold border-b-2 border-primary"
-                    : "text-on-surface-variant hover:text-primary"
-                }`}
-              >
-                {tab}
-              </span>
-            ))}
+            {tabs.map((tab) => {
+              const isTabActive = activeSubtab === tab;
+              return (
+                <span
+                  key={tab}
+                  onClick={() => setActiveSubtab(tab)}
+                  className={`py-1 cursor-pointer transition-colors text-label-md ${
+                    isTabActive
+                      ? "text-primary font-bold border-b-2 border-primary"
+                      : "text-on-surface-variant hover:text-primary"
+                  }`}
+                >
+                  {tab}
+                </span>
+              );
+            })}
           </div>
         )}
 
         {/* Action buttons */}
         <div className="flex items-center gap-sm text-on-surface-variant">
-          <button className="p-sm hover:bg-surface-container rounded-full transition-colors cursor-pointer">
+          <button 
+            onClick={() => setShowNotifs(!showNotifs)}
+            className="p-sm hover:bg-surface-container rounded-full transition-colors cursor-pointer relative"
+          >
             <span className="material-symbols-outlined">notifications</span>
+            <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-secondary rounded-full border-2 border-white"></span>
           </button>
-          <button className="p-sm hover:bg-surface-container rounded-full transition-colors cursor-pointer">
+          <button 
+            onClick={onOpenSettings}
+            className="p-sm hover:bg-surface-container rounded-full transition-colors cursor-pointer"
+          >
             <span className="material-symbols-outlined">settings</span>
           </button>
           <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center ml-sm">
             <span className="material-symbols-outlined text-primary text-[20px]">account_circle</span>
           </div>
         </div>
+
+        {/* NOTIFICATIONS DROPDOWN */}
+        {showNotifs && (
+          <div className="absolute right-0 top-12 bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl shadow-xl w-72 p-md flex flex-col gap-sm z-50 animate-fade-in">
+            <div className="flex justify-between items-center border-b border-outline-variant pb-xs">
+              <span className="text-[12px] font-bold text-primary uppercase">Notificaciones ({notifications.length})</span>
+              <span className="text-[10px] text-on-surface-variant hover:text-primary cursor-pointer" onClick={() => setShowNotifs(false)}>Marcar leído</span>
+            </div>
+            <div className="flex flex-col gap-sm">
+              {notifications.map((n) => (
+                <div key={n.id} className="flex gap-sm items-start text-[11px] leading-relaxed p-xs hover:bg-surface-container rounded-lg transition-colors">
+                  <span className={`material-symbols-outlined text-[16px] mt-0.5 ${n.type === "success" ? "text-emerald-500" : "text-sky-500"}`}>
+                    {n.type === "success" ? "check_circle" : "info"}
+                  </span>
+                  <div>
+                    <p className="text-on-background">{n.text}</p>
+                    <span className="text-[9px] text-on-surface-variant">{n.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

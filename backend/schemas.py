@@ -19,7 +19,7 @@ class SimulationRequest(BaseModel):
     adm_1_name: str = Field(..., example="LORETO", description="Nombre del departamento/subregión")
     ano: int = Field(..., example=2022, description="Año de proyección")
     mes: int = Field(..., example=6, description="Mes de proyección (1-12)")
-    clima_overrides: Optional[ClimaOverrides] = Field(None, description="Valores simulados por el usuario")
+    clima_overrides: Optional[Dict[str, float]] = Field(None, description="Valores simulados por el usuario para cualquier variable")
 
 class RawPredictionRequest(BaseModel):
     features: List[float] = Field(..., description="Vector de 23 características ordenadas")
@@ -36,6 +36,7 @@ class PredictionResponse(BaseModel):
     riesgo_dl: RiskLevel = Field(..., description="Nivel de riesgo estimado por la MLP")
     prediccion_ensemble: float = Field(..., description="Predicción promediada del Agente 5 (Ensemble)")
     riesgo_ensemble: RiskLevel = Field(..., description="Nivel de riesgo de la predicción final")
+    features_usadas: Optional[Dict[str, float]] = Field(None, description="Características reales o medianas utilizadas como entrada")
 
 class HistoricalRecord(BaseModel):
     fecha: str

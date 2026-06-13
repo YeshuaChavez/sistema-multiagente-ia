@@ -251,8 +251,16 @@ class PredictionService:
             else:
                 vector.append(0.0)
                 
+        # Aplicar modificaciones en base al nombre exacto de la variable predictora final (lags, agua, clima, etc.)
+        if clima_overrides:
+            for i, feat in enumerate(self.cols_feat):
+                if feat in clima_overrides:
+                    vector[i] = float(clima_overrides[feat])
+                
         # Realizar predicción
-        return self.realizar_prediccion_vector(vector)
+        res = self.realizar_prediccion_vector(vector)
+        res["features_usadas"] = {feat: float(val) for feat, val in zip(self.cols_feat, vector)}
+        return res
 
     def obtener_metadatos_paises(self):
         """

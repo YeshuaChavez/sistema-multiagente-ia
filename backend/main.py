@@ -116,7 +116,7 @@ def predict_simulate(req: SimulationRequest):
     try:
         overrides = None
         if req.clima_overrides:
-            overrides = {k: v for k, v in req.clima_overrides.dict().items() if v is not None}
+            overrides = {k: v for k, v in req.clima_overrides.items() if v is not None}
             
         res = prediction_service.simular_prediccion_departamento(
             iso_a0=req.iso_a0,

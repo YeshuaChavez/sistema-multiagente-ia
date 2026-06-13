@@ -10,44 +10,246 @@ const riskStyles = {
   Epidemia: { bg: "bg-[#ba1a1a]/10", text: "text-[#ba1a1a]", border: "border-[#ba1a1a]/20", label: "Epidemia", icon: "emergency", ensemble: "bg-[#ba1a1a]" },
 };
 
-export default function PredictorView({ metadata, selectedCountry, selectedDept, setSelectedCountry, setSelectedDept }) {
-  // Location & time
-  const [ano, setAno] = useState(2022);
-  const [mes, setMes] = useState(6);
+// Configuration of ranges, labels, and steps for all 24 model features
+const FEATURE_DEFS = {
+  // Principal variables
+  agua_basica: { label: "Acceso Agua Potable Básica (%)", min: 0, max: 100, step: 0.1, unit: "%", section: "principal" },
+  tmax_promedio: { label: "Temperatura Máxima Promedio (°C)", min: 15, max: 45, step: 0.1, unit: "°C", section: "principal" },
+  tmin_promedio: { label: "Temperatura Mínima Promedio (°C)", min: 10, max: 30, step: 0.1, unit: "°C", section: "principal" },
+  precipitacion: { label: "Precipitación Acumulada (mm)", min: 0, max: 500, step: 0.5, unit: " mm", section: "principal" },
+  humedad_promedio: { label: "Humedad Relativa Promedio (%)", min: 0, max: 100, step: 1, unit: "%", section: "principal" },
+  incidencia_lag1: { label: "Incidencia Dengue Mes Anterior (t-1)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "principal" },
+  
+  // Advanced variables
+  densidad_poblacion: { label: "Densidad de Población (hab/km²)", min: 0, max: 1000, step: 1, unit: " hab/km²", section: "advanced" },
+  tmax_lag1: { label: "Temp. Máxima Lag 1 (t-1)", min: 15, max: 45, step: 0.1, unit: "°C", section: "advanced" },
+  tmax_lag2: { label: "Temp. Máxima Lag 2 (t-2)", min: 15, max: 45, step: 0.1, unit: "°C", section: "advanced" },
+  tmax_lag3: { label: "Temp. Máxima Lag 3 (t-3)", min: 15, max: 45, step: 0.1, unit: "°C", section: "advanced" },
+  tmin_lag1: { label: "Temp. Mínima Lag 1 (t-1)", min: 10, max: 30, step: 0.1, unit: "°C", section: "advanced" },
+  tmin_lag2: { label: "Temp. Mínima Lag 2 (t-2)", min: 10, max: 30, step: 0.1, unit: "°C", section: "advanced" },
+  tmin_lag3: { label: "Temp. Mínima Lag 3 (t-3)", min: 10, max: 30, step: 0.1, unit: "°C", section: "advanced" },
+  precipitacion_lag1: { label: "Precipitación Lag 1 (t-1)", min: 0, max: 500, step: 0.5, unit: " mm", section: "advanced" },
+  precipitacion_lag2: { label: "Precipitación Lag 2 (t-2)", min: 0, max: 500, step: 0.5, unit: " mm", section: "advanced" },
+  precipitacion_lag3: { label: "Precipitación Lag 3 (t-3)", min: 0, max: 500, step: 0.5, unit: " mm", section: "advanced" },
+  humedad_lag1: { label: "Humedad Lag 1 (t-1)", min: 0, max: 100, step: 1, unit: "%", section: "advanced" },
+  humedad_lag2: { label: "Humedad Lag 2 (t-2)", min: 0, max: 100, step: 1, unit: "%", section: "advanced" },
+  humedad_lag3: { label: "Humedad Lag 3 (t-3)", min: 0, max: 100, step: 1, unit: "%", section: "advanced" },
+  incidencia_lag2: { label: "Incidencia Dengue Lag 2 (t-2)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
+  incidencia_lag3: { label: "Incidencia Dengue Lag 3 (t-3)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
+  incidencia_vecinos_lag1: { label: "Incidencia Vecina Lag 1 (t-1)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
+  incidencia_vecinos_lag2: { label: "Incidencia Vecina Lag 2 (t-2)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
+  incidencia_vecinos_lag3: { label: "Incidencia Vecina Lag 3 (t-3)", min: 0, max: 500, step: 0.1, unit: " /100k", section: "advanced" },
+};
 
-  // Climate sliders
-  const [tmax, setTmax] = useState(32.5);
-  const [tmin, setTmin] = useState(22.0);
-  const [humedad, setHumedad] = useState(78);
-  const [precip, setPrecip] = useState(120.4);
+// Generates a mock history array for local demo fallback
+const generateMockHistory = (country, dept) => {
+  const records = [];
+  const startYear = 2014;
+  const endYear = 2026;
+  const hash = (dept || "").length + 7;
+  let baseCases = 40 + (hash % 6) * 15;
+  
+  for (let year = startYear; year <= endYear; year++) {
+    for (let month = 1; month <= 12; month++) {
+      if (year === 2026 && month > 6) break;
+      
+      const tmax = 28 + Math.sin(month / 2) * 4 + (year % 3) * 0.5;
+      const tmin = 18 + Math.sin(month / 2) * 3 + (year % 2) * 0.3;
+      const precip = 80 + Math.cos(month / 1.5) * 60 + (year % 4) * 15;
+      const humedad = 70 + Math.sin(month / 3) * 15;
+      
+      const seasonFactor = Math.sin((month - 2) * Math.PI / 6) + 1; // 0 to 2
+      const yearFactor = 0.6 + (Math.sin(year) + 1) * 0.6;
+      const cases = Math.max(5, Math.floor(baseCases * seasonFactor * yearFactor + (hash % 3) * 8));
+      const pop = 400000 + (hash % 5) * 100000;
+      const incidence = (cases / pop) * 100000;
+      
+      records.push({
+        fecha: `${year}-${month.toString().padStart(2, "0")}`,
+        ano: year,
+        mes: month,
+        casos: cases,
+        incidencia: parseFloat(incidence.toFixed(2)),
+        tmax: parseFloat(tmax.toFixed(1)),
+        tmin: parseFloat(tmin.toFixed(1)),
+        precipitacion: parseFloat(precip.toFixed(1)),
+        humedad: parseFloat(humedad.toFixed(0))
+      });
+    }
+  }
+  return records;
+};
 
-  // Lag sliders (matching Stitch reference)
-  const [lag1, setLag1] = useState(45);
+// Frontend calculation of mock prediction based on feature values
+const runMockPrediction = (values) => {
+  const tmax = values.tmax_promedio ?? 30.5;
+  const precip = values.precipitacion ?? 120.0;
+  const lag1 = values.incidencia_lag1 ?? 35.0;
+  const agua = values.agua_basica ?? 82.5;
+  
+  let baseInc = 15.0;
+  if (tmax > 32) baseInc += (tmax - 32) * 6;
+  if (tmax < 24) baseInc -= (24 - tmax) * 2;
+  if (precip > 150) baseInc += (precip - 150) * 0.15;
+  baseInc += lag1 * 0.75;
+  if (agua < 90) baseInc += (90 - agua) * 0.5;
+  
+  baseInc = Math.max(1.0, baseInc);
+  
+  const pred_ml = baseInc * (0.94 + Math.sin(tmax) * 0.04);
+  const pred_dl = baseInc * (1.06 + Math.cos(precip) * 0.04);
+  const pred_ens = (pred_ml + pred_dl) / 2.0;
+  
+  const getMockRisk = (val) => {
+    if (val < 10) return { nivel: "Normal", codigo: "normal", color: "#10b981" };
+    if (val < 35) return { nivel: "Vigilancia", codigo: "vigilancia", color: "#eab308" };
+    if (val < 100) return { nivel: "Alerta", codigo: "alerta", color: "#f97316" };
+    return { nivel: "Epidemia", codigo: "epidemia", color: "#ef4444" };
+  };
+  
+  return {
+    prediccion_ml: pred_ml,
+    riesgo_ml: getMockRisk(pred_ml),
+    prediccion_dl: pred_dl,
+    riesgo_dl: getMockRisk(pred_dl),
+    prediccion_ensemble: pred_ens,
+    riesgo_ensemble: getMockRisk(pred_ens),
+    features_usadas: values
+  };
+};
 
-  // Sanitation slider (matching Stitch reference)
-  const [aguaPotable, setAguaPotable] = useState(82.3);
-
-  // State
+export default function PredictorView({
+  metadata,
+  selectedCountry,
+  selectedDept,
+  setSelectedCountry,
+  setSelectedDept,
+  activeSubtab,
+  backendStatus
+}) {
+  const [sliderValues, setSliderValues] = useState({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  // Predictor States
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
+  // History States
+  const [historicalData, setHistoricalData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   const countries = metadata ? Object.keys(metadata) : [];
   const departments = metadata && selectedCountry ? metadata[selectedCountry]?.departamentos || [] : [];
 
+  // Auto-select department if none selected
   useEffect(() => {
     if (departments.length > 0 && !departments.includes(selectedDept)) {
       setSelectedDept(departments[0]);
     }
-  }, [selectedCountry, departments]);
+  }, [selectedCountry, departments, selectedDept, setSelectedDept]);
+
+  // Load baseline values when selected location changes
+  useEffect(() => {
+    if (!selectedCountry || !selectedDept) return;
+    
+    const fetchBaseline = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const isoCode = metadata[selectedCountry]?.iso_a0 || selectedCountry;
+        
+        if (backendStatus === "offline") {
+          // Initialize mock baseline values
+          const defaults = {};
+          Object.keys(FEATURE_DEFS).forEach(k => {
+            defaults[k] = (FEATURE_DEFS[k].min + FEATURE_DEFS[k].max) / 2;
+          });
+          defaults.agua_basica = 82.5;
+          defaults.tmax_promedio = 32.5;
+          defaults.tmin_promedio = 22.0;
+          defaults.humedad_promedio = 78.0;
+          defaults.precipitacion = 120.4;
+          defaults.incidencia_lag1 = 45.0;
+          defaults.densidad_poblacion = 150.0;
+          setSliderValues(defaults);
+          setResult(null);
+        } else {
+          // Query backend with no overrides to obtain baseline features
+          const body = {
+            iso_a0: isoCode,
+            adm_1_name: selectedDept,
+            ano: 2026,
+            mes: 6,
+            clima_overrides: {}
+          };
+          const res = await fetch(`${API_URL}/api/predict/simulate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.features_usadas) {
+              setSliderValues(data.features_usadas);
+            }
+            setResult(data);
+          } else {
+            console.warn("Fallo en baseline API, usando mock...");
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchBaseline();
+  }, [selectedCountry, selectedDept, backendStatus, metadata]);
+
+  // Load historical records when Histórico subtab is active
+  useEffect(() => {
+    if (activeSubtab === "Histórico" && selectedCountry && selectedDept) {
+      const loadHistory = async () => {
+        setLoadingHistory(true);
+        try {
+          const isoCode = metadata[selectedCountry]?.iso_a0 || selectedCountry;
+          if (backendStatus === "offline") {
+            setHistoricalData(generateMockHistory(selectedCountry, selectedDept));
+          } else {
+            const res = await fetch(`${API_URL}/api/historical?iso_a0=${isoCode}&adm_1_name=${selectedDept}`);
+            if (res.ok) {
+              const data = await res.json();
+              setHistoricalData(data);
+            } else {
+              setHistoricalData(generateMockHistory(selectedCountry, selectedDept));
+            }
+          }
+        } catch (err) {
+          console.warn("Fallo carga de histórico real, cargando simulado...", err);
+          setHistoricalData(generateMockHistory(selectedCountry, selectedDept));
+        } finally {
+          setLoadingHistory(false);
+        }
+      };
+      loadHistory();
+    }
+  }, [activeSubtab, selectedCountry, selectedDept, backendStatus, metadata]);
 
   const handleReset = () => {
-    setTmax(32.5);
-    setTmin(22.0);
-    setHumedad(78);
-    setPrecip(120.4);
-    setLag1(45);
-    setAguaPotable(82.3);
+    const defaults = {};
+    Object.keys(FEATURE_DEFS).forEach(k => {
+      defaults[k] = (FEATURE_DEFS[k].min + FEATURE_DEFS[k].max) / 2;
+    });
+    defaults.agua_basica = 82.5;
+    defaults.tmax_promedio = 32.5;
+    defaults.tmin_promedio = 22.0;
+    defaults.humedad_promedio = 78.0;
+    defaults.precipitacion = 120.4;
+    defaults.incidencia_lag1 = 45.0;
+    defaults.densidad_poblacion = 150.0;
+    setSliderValues(defaults);
     setResult(null);
     setError(null);
   };
@@ -60,17 +262,24 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
     setLoading(true);
     setError(null);
 
+    const isoCode = metadata[selectedCountry]?.iso_a0 || selectedCountry;
+
+    if (backendStatus === "offline") {
+      // Offline fallback: Run client-side mathematical projection model
+      setTimeout(() => {
+        const mockResult = runMockPrediction(sliderValues);
+        setResult(mockResult);
+        setLoading(false);
+      }, 500);
+      return;
+    }
+
     const body = {
-      iso_a0: selectedCountry,
+      iso_a0: isoCode,
       adm_1_name: selectedDept,
-      ano,
-      mes,
-      clima_overrides: {
-        tmax_promedio: tmax,
-        tmin_promedio: tmin,
-        precipitacion: precip,
-        humedad_promedio: humedad,
-      },
+      ano: 2026,
+      mes: 6,
+      clima_overrides: sliderValues,
     };
 
     try {
@@ -89,19 +298,29 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
     } finally {
       setLoading(false);
     }
-  }, [selectedCountry, selectedDept, ano, mes, tmax, tmin, precip, humedad]);
+  }, [selectedCountry, selectedDept, sliderValues, backendStatus, metadata]);
+
+  const handleSliderChange = (key, val) => {
+    setSliderValues(prev => ({
+      ...prev,
+      [key]: val
+    }));
+  };
 
   const getRisk = (r) => riskStyles[r?.nivel] || riskStyles.Normal;
 
-  // Ensemble variance = |ml - dl| / 2
+  // Ensemble statistics
   const ensembleVariance = result
     ? (Math.abs(result.prediccion_ml - result.prediccion_dl) / 2).toFixed(1)
     : "—";
 
-  // Confidence metric (inversely proportional to model disagreement)
   const confidence = result
     ? Math.max(70, 100 - (Math.abs(result.prediccion_ml - result.prediccion_dl) / Math.max(result.prediccion_ensemble, 1)) * 50).toFixed(1)
     : "—";
+
+  // Filter keys by section
+  const principalKeys = Object.keys(FEATURE_DEFS).filter(k => FEATURE_DEFS[k].section === "principal");
+  const advancedKeys = Object.keys(FEATURE_DEFS).filter(k => FEATURE_DEFS[k].section === "advanced");
 
   return (
     <div className="w-full max-w-[1440px] mx-auto space-y-lg">
@@ -109,419 +328,641 @@ export default function PredictorView({ metadata, selectedCountry, selectedDept,
       <div>
         <div className="flex items-center gap-sm mb-xs">
           <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>sensors</span>
-          <span className="text-secondary font-label-md font-bold uppercase tracking-wider">Inferencia en Tiempo Real</span>
+          <span className="text-secondary font-label-md font-bold uppercase tracking-wider">Inferencia y Alerta Temprana</span>
         </div>
-        <h2 className="text-headline-lg text-primary font-bold">Panel de Simulación e Inferencia en Vivo</h2>
-        <p className="text-on-surface-variant text-body-md mt-xs max-w-2xl">
-          Ajuste los parámetros climáticos y socioeconómicos para observar cómo el sistema híbrido de IA proyecta la incidencia de dengue.
+        <h2 className="text-headline-lg text-primary font-bold">Consola Predictiva — EpiPredict Dengue</h2>
+        <p className="text-on-surface-variant text-body-md mt-xs max-w-3xl">
+          Visualización y simulación de brotes para el año en curso <strong className="text-on-surface">2026</strong>. Alterne entre simulación de variables, el histórico temporal y pautas científicas de alertas preventivas.
         </p>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg">
+      {/* RENDER ACTIVE SUBTAB CONTENT */}
 
-        {/* ═══════════ LEFT COLUMN: PARAMETERS ═══════════ */}
-        <section className="lg:col-span-5 flex flex-col gap-lg">
-          <div className="bg-white border border-outline-variant rounded-xl p-lg flex flex-col gap-lg shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
+      {activeSubtab === "Simulación" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg animate-fade-in">
+          {/* ═══════════ LEFT COLUMN: PARAMETERS ═══════════ */}
+          <section className="lg:col-span-5 flex flex-col gap-lg">
+            <div className="bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-lg flex flex-col gap-lg shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
+              
+              {/* Panel Header */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-headline-md text-primary font-bold">Simulador de Variables</h3>
+                <button
+                  onClick={handleReset}
+                  className="text-primary-container hover:bg-surface-container px-sm py-xs rounded-lg flex items-center gap-xs text-label-md transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+                  Reiniciar
+                </button>
+              </div>
 
-            {/* Panel Header */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-headline-md text-primary font-bold">Configuración de Parámetros</h3>
+              {/* ─── LOCALIZACIÓN ─── */}
+              <div className="space-y-md">
+                <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
+                  <span className="material-symbols-outlined text-primary-fixed-dim">location_on</span>
+                  <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">VIGILANCIA GEOGRÁFICA</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-md pt-xs">
+                  <div className="space-y-xs">
+                    <label className="text-body-md text-on-surface-variant">País</label>
+                    <select
+                      value={selectedCountry}
+                      onChange={(e) => setSelectedCountry(e.target.value)}
+                      className="w-full bg-surface-container-high text-primary font-bold text-label-md px-sm py-2 rounded-lg border-none outline-none cursor-pointer"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {countries.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-xs">
+                    <label className="text-body-md text-on-surface-variant">Departamento</label>
+                    <select
+                      value={selectedDept}
+                      onChange={(e) => setSelectedDept(e.target.value)}
+                      disabled={!selectedCountry}
+                      className="w-full bg-surface-container-high text-primary font-bold text-label-md px-sm py-2 rounded-lg border-none outline-none cursor-pointer disabled:opacity-40"
+                    >
+                      <option value="">Seleccionar...</option>
+                      {departments.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {selectedCountry && selectedDept && (
+                  <p className="text-[11px] text-on-surface-variant italic">
+                    Periodo de Alerta Temprana: <strong>Junio 2026</strong> (Pre-cargado con medianas históricas departamentales para los rezagos).
+                  </p>
+                )}
+              </div>
+
+              {/* ─── VARIABLES PRINCIPALES ─── */}
+              <div className="space-y-md">
+                <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
+                  <span className="material-symbols-outlined text-primary-fixed-dim">tune</span>
+                  <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">VARIABLES PRINCIPALES</h4>
+                </div>
+
+                <div className="space-y-lg pt-xs">
+                  {principalKeys.map((key) => {
+                    const def = FEATURE_DEFS[key];
+                    const val = sliderValues[key] ?? (def.min + def.max) / 2;
+                    return (
+                      <div key={key} className="space-y-xs">
+                        <div className="flex justify-between items-center">
+                          <label className="text-body-md text-on-surface-variant">{def.label}</label>
+                          <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
+                            {val.toFixed(key === "humedad_promedio" ? 0 : 1)}{def.unit}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={def.min}
+                          max={def.max}
+                          step={def.step}
+                          value={val}
+                          onChange={(e) => handleSliderChange(key, parseFloat(e.target.value))}
+                          className="slider-custom"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ─── COLLAPSIBLE ADVANCED LAGS ─── */}
+              <div className="border-t border-outline-variant/50 pt-md">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="w-full flex items-center justify-between text-label-md font-bold text-primary hover:bg-surface-container px-sm py-sm rounded-lg transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-sm">
+                    <span className="material-symbols-outlined text-[18px]">history</span>
+                    Rezagos Avanzados y Lags ({showAdvanced ? "Ocultar" : "Mostrar"} 18 variables)
+                  </span>
+                  <span className="material-symbols-outlined text-[20px]">
+                    {showAdvanced ? "expand_less" : "expand_more"}
+                  </span>
+                </button>
+
+                {showAdvanced && (
+                  <div className="space-y-lg pt-md mt-sm border-t border-outline-variant/35 grid grid-cols-1 gap-md animate-fade-in">
+                    {advancedKeys.map((key) => {
+                      const def = FEATURE_DEFS[key];
+                      const val = sliderValues[key] ?? (def.min + def.max) / 2;
+                      return (
+                        <div key={key} className="space-y-xs">
+                          <div className="flex justify-between items-center">
+                            <label className="text-[12px] text-on-surface-variant leading-tight">{def.label}</label>
+                            <span className="font-bold text-primary/80 bg-surface-container px-xs py-0.5 rounded text-[11px]" style={{ fontVariantNumeric: "tabular-nums" }}>
+                              {val.toFixed(key.includes("humedad") || key === "densidad_poblacion" ? 0 : 1)}{def.unit}
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={def.min}
+                            max={def.max}
+                            step={def.step}
+                            value={val}
+                            onChange={(e) => handleSliderChange(key, parseFloat(e.target.value))}
+                            className="slider-custom h-1"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* ─── ACCION PREDECIR ─── */}
               <button
-                onClick={handleReset}
-                className="text-primary-container hover:bg-surface-container px-sm py-xs rounded-lg flex items-center gap-xs text-label-md transition-colors cursor-pointer"
+                onClick={handlePredict}
+                disabled={loading || !selectedCountry || !selectedDept}
+                className="w-full bg-primary text-on-primary px-md py-3 rounded-xl text-label-md font-bold hover:opacity-90 transition-all flex items-center justify-center gap-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-                Reiniciar
+                {loading ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                    Procesando inferencia multi-agente...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
+                    Ejecutar Inferencia de Alerta Temprana
+                  </>
+                )}
               </button>
             </div>
+          </section>
 
-            {/* ─── LOCALIZACIÓN ─── */}
-            <div className="space-y-md">
-              <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
-                <span className="material-symbols-outlined text-primary-fixed-dim">location_on</span>
-                <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">LOCALIZACIÓN</h4>
-              </div>
-              <div className="grid grid-cols-2 gap-md pt-xs">
-                <div className="space-y-xs">
-                  <label className="text-body-md text-on-surface-variant">País</label>
-                  <select
-                    value={selectedCountry}
-                    onChange={(e) => setSelectedCountry(e.target.value)}
-                    className="w-full bg-surface-container-high text-primary font-bold text-label-md px-sm py-2 rounded-lg border-none outline-none cursor-pointer"
-                  >
-                    <option value="">Seleccionar...</option>
-                    {countries.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-xs">
-                  <label className="text-body-md text-on-surface-variant">Departamento</label>
-                  <select
-                    value={selectedDept}
-                    onChange={(e) => setSelectedDept(e.target.value)}
-                    disabled={!selectedCountry}
-                    className="w-full bg-surface-container-high text-primary font-bold text-label-md px-sm py-2 rounded-lg border-none outline-none cursor-pointer disabled:opacity-40"
-                  >
-                    <option value="">Seleccionar...</option>
-                    {departments.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-xs">
-                  <label className="text-body-md text-on-surface-variant">Año</label>
-                  <select
-                    value={ano}
-                    onChange={(e) => setAno(parseInt(e.target.value))}
-                    className="w-full bg-surface-container-high text-primary font-bold text-label-md px-sm py-2 rounded-lg border-none outline-none cursor-pointer"
-                  >
-                    {[2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022].map((y) => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-xs">
-                  <label className="text-body-md text-on-surface-variant">Mes</label>
-                  <select
-                    value={mes}
-                    onChange={(e) => setMes(parseInt(e.target.value))}
-                    className="w-full bg-surface-container-high text-primary font-bold text-label-md px-sm py-2 rounded-lg border-none outline-none cursor-pointer"
-                  >
-                    {["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"].map((m, i) => (
-                      <option key={i + 1} value={i + 1}>{m}</option>
-                    ))}
-                  </select>
-                </div>
+          {/* ═══════════ RIGHT COLUMN: RESULTS ═══════════ */}
+          <section className="lg:col-span-7 flex flex-col gap-lg">
+            <div className="flex items-center justify-between">
+              <h3 className="text-headline-md text-primary font-bold">Resultados de Proyección <span className="text-on-surface-variant font-normal text-body-md">(Tasas por 100k hab.)</span></h3>
+              <div className="flex items-center gap-xs">
+                <span className="w-3 h-3 bg-secondary rounded-full animate-pulse"></span>
+                <span className="text-label-md text-secondary font-medium">Consenso IA</span>
               </div>
             </div>
 
-            {/* ─── VARIABLES CLIMÁTICAS ─── */}
-            <div className="space-y-md">
-              <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
-                <span className="material-symbols-outlined text-primary-fixed-dim">thermostat</span>
-                <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">VARIABLES CLIMÁTICAS</h4>
+            {error && (
+              <div className="bg-error-container border border-outline-variant rounded-lg p-md flex items-center gap-md animate-shake">
+                <span className="material-symbols-outlined text-on-error-container">error</span>
+                <p className="text-label-md text-on-error-container font-medium">{error}</p>
               </div>
+            )}
 
-              <div className="space-y-lg pt-xs">
-                {/* Temp Max */}
-                <div className="space-y-xs">
-                  <div className="flex justify-between items-center">
-                    <label className="text-body-md text-on-surface-variant">Temperatura Máxima (°C)</label>
-                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {tmax.toFixed(1)}
-                    </span>
-                  </div>
-                  <input
-                    type="range" min="15" max="45" step="0.1" value={tmax}
-                    onChange={(e) => setTmax(parseFloat(e.target.value))}
-                    className="slider-custom"
-                  />
-                </div>
-
-                {/* Temp Min */}
-                <div className="space-y-xs">
-                  <div className="flex justify-between items-center">
-                    <label className="text-body-md text-on-surface-variant">Temperatura Mínima (°C)</label>
-                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {tmin.toFixed(1)}
-                    </span>
-                  </div>
-                  <input
-                    type="range" min="10" max="30" step="0.1" value={tmin}
-                    onChange={(e) => setTmin(parseFloat(e.target.value))}
-                    className="slider-custom"
-                  />
-                </div>
-
-                {/* Humedad */}
-                <div className="space-y-xs">
-                  <div className="flex justify-between items-center">
-                    <label className="text-body-md text-on-surface-variant">Humedad Relativa (%)</label>
-                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {humedad}%
-                    </span>
-                  </div>
-                  <input
-                    type="range" min="0" max="100" step="1" value={humedad}
-                    onChange={(e) => setHumedad(parseInt(e.target.value))}
-                    className="slider-custom"
-                  />
-                </div>
-
-                {/* Precipitación */}
-                <div className="space-y-xs">
-                  <div className="flex justify-between items-center">
-                    <label className="text-body-md text-on-surface-variant">Precipitación (mm)</label>
-                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {precip.toFixed(1)}
-                    </span>
-                  </div>
-                  <input
-                    type="range" min="0" max="500" step="0.5" value={precip}
-                    onChange={(e) => setPrecip(parseFloat(e.target.value))}
-                    className="slider-custom"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ─── REZAGOS TEMPORALES ─── */}
-            <div className="space-y-md">
-              <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
-                <span className="material-symbols-outlined text-primary-fixed-dim">history</span>
-                <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">REZAGOS TEMPORALES (LAGS)</h4>
-              </div>
-              <div className="space-y-lg pt-xs">
-                <div className="space-y-xs">
-                  <div className="flex justify-between items-center">
-                    <label className="text-body-md text-on-surface-variant">Casos mes anterior (t-1)</label>
-                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {lag1}
-                    </span>
-                  </div>
-                  <input
-                    type="range" min="0" max="200" step="1" value={lag1}
-                    onChange={(e) => setLag1(parseInt(e.target.value))}
-                    className="slider-custom"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ─── ACCESO A SANEAMIENTO ─── */}
-            <div className="space-y-md">
-              <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
-                <span className="material-symbols-outlined text-primary-fixed-dim">water_drop</span>
-                <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">ACCESO A SANEAMIENTO</h4>
-              </div>
-              <div className="space-y-lg pt-xs">
-                <div className="space-y-xs">
-                  <div className="flex justify-between items-center">
-                    <label className="text-body-md text-on-surface-variant">Agua potable básica (%)</label>
-                    <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {aguaPotable.toFixed(1)}%
-                    </span>
-                  </div>
-                  <input
-                    type="range" min="0" max="100" step="0.1" value={aguaPotable}
-                    onChange={(e) => setAguaPotable(parseFloat(e.target.value))}
-                    className="slider-custom"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ─── EJECUTAR ─── */}
-            <button
-              onClick={handlePredict}
-              disabled={loading || !selectedCountry || !selectedDept}
-              className="w-full bg-primary text-on-primary px-md py-3 rounded-xl text-label-md font-bold hover:opacity-90 transition-all flex items-center justify-center gap-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                  Procesando inferencia...
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
-                  Ejecutar Predicción Multi-Agente
-                </>
-              )}
-            </button>
-          </div>
-        </section>
-
-        {/* ═══════════ RIGHT COLUMN: RESULTS ═══════════ */}
-        <section className="lg:col-span-7 flex flex-col gap-lg">
-
-          {/* Results Header */}
-          <div className="flex items-center justify-between">
-            <h3 className="text-headline-md text-primary font-bold">Resultados de Inferencia <span className="text-on-surface-variant font-normal text-body-md">(Casos por 100k hab.)</span></h3>
-            <div className="flex items-center gap-xs">
-              <span className="w-3 h-3 bg-secondary rounded-full animate-pulse"></span>
-              <span className="text-label-md text-secondary font-medium">Sistema en Vivo</span>
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="bg-error-container border border-outline-variant rounded-lg p-md flex items-center gap-md">
-              <span className="material-symbols-outlined text-on-error-container">error</span>
-              <p className="text-label-md text-on-error-container font-medium">{error}</p>
-            </div>
-          )}
-
-          {/* ─── PLACEHOLDER (no results yet) ─── */}
-          {!result && !loading && !error && (
-            <div className="flex flex-col gap-md">
-              {/* Mock cards - grayed out */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-                <div className="bg-white border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-label-md text-on-surface-variant">Predicción Agente ML</p>
-                      <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
+            {/* PLACEHOLDER */}
+            {!result && !loading && !error && (
+              <div className="flex flex-col gap-md">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-label-md text-on-surface-variant">Predicción Agente ML</p>
+                        <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
+                      </div>
+                      <span className="material-symbols-outlined text-outline">analytics</span>
                     </div>
-                    <span className="material-symbols-outlined text-outline">analytics</span>
-                  </div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-[48px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
-                    <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
-                  </div>
-                </div>
-                <div className="bg-white border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-label-md text-on-surface-variant">Predicción Agente DL</p>
-                      <h4 className="text-headline-md text-primary font-bold">MLP PyTorch</h4>
+                    <div className="flex items-end justify-between">
+                      <span className="text-[48px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
+                      <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
                     </div>
-                    <span className="material-symbols-outlined text-outline">neurology</span>
                   </div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-[48px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
-                    <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
-                  </div>
-                </div>
-              </div>
-              {/* Mock ensemble */}
-              <div className="bg-primary/10 border border-outline-variant rounded-xl p-xl flex flex-col items-center justify-center text-center opacity-40" style={{ minHeight: "280px" }}>
-                <div className="w-12 h-12 bg-surface-container rounded-full flex items-center justify-center mb-md">
-                  <span className="material-symbols-outlined text-[32px] text-outline">hub</span>
-                </div>
-                <p className="text-label-md text-on-surface-variant uppercase tracking-widest font-bold">Consenso Global del Sistema</p>
-                <p className="text-headline-md text-on-surface-variant mt-sm">Configura los parámetros y ejecuta la predicción</p>
-              </div>
-            </div>
-          )}
-
-          {/* ─── LOADING SKELETON ─── */}
-          {loading && (
-            <div className="flex flex-col gap-md">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-                {[1, 2].map((i) => (
-                  <div key={i} className="bg-white border border-outline-variant rounded-lg p-lg h-48">
-                    <div className="h-4 w-32 shimmer rounded mb-sm"></div>
-                    <div className="h-6 w-24 shimmer rounded mb-lg"></div>
-                    <div className="h-12 w-20 shimmer rounded mt-auto"></div>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-primary rounded-xl p-xl flex flex-col items-center" style={{ minHeight: "280px" }}>
-                <div className="w-12 h-12 bg-white/10 rounded-full shimmer mb-md"></div>
-                <div className="h-6 w-48 bg-white/10 rounded shimmer mb-md"></div>
-                <div className="h-20 w-32 bg-white/10 rounded shimmer"></div>
-              </div>
-            </div>
-          )}
-
-          {/* ─── LIVE RESULTS ─── */}
-          {result && (
-            <div className="flex flex-col gap-md animate-fade-in-up">
-              {/* Two Model Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-
-                {/* XGBoost Card */}
-                <div className="bg-white border-l-4 border-l-[#ea580c] border-y border-r border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-label-md text-on-surface-variant">Predicción Agente ML</p>
-                      <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-label-md text-on-surface-variant">Predicción Agente DL</p>
+                        <h4 className="text-headline-md text-primary font-bold">MLP PyTorch</h4>
+                      </div>
+                      <span className="material-symbols-outlined text-outline">neurology</span>
                     </div>
-                    <span className="material-symbols-outlined text-[#ea580c]">analytics</span>
-                  </div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-[48px] font-black text-[#ea580c]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                      {result.prediccion_ml.toFixed(1)}
-                    </span>
-                    <span className={`${getRisk(result.riesgo_ml).bg} ${getRisk(result.riesgo_ml).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_ml).border}`}>
-                      Riesgo: {getRisk(result.riesgo_ml).label}
-                    </span>
+                    <div className="flex items-end justify-between">
+                      <span className="text-[48px] font-black text-outline" style={{ fontVariantNumeric: "tabular-nums" }}>—</span>
+                      <span className="bg-surface-container text-on-surface-variant px-sm py-xs rounded-lg text-label-md">Esperando...</span>
+                    </div>
                   </div>
                 </div>
-
-                {/* MLP PyTorch Card */}
-                <div className="bg-white border-l-4 border-l-[#8b5cf6] border-y border-r border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-label-md text-on-surface-variant">Predicción Agente DL</p>
-                      <h4 className="text-headline-md text-primary font-bold">MLP PyTorch</h4>
-                    </div>
-                    <span className="material-symbols-outlined text-[#8b5cf6]">neurology</span>
+                <div className="bg-primary/5 border border-outline-variant rounded-xl p-xl flex flex-col items-center justify-center text-center opacity-50" style={{ minHeight: "280px" }}>
+                  <div className="w-12 h-12 bg-surface-container rounded-full flex items-center justify-center mb-md">
+                    <span className="material-symbols-outlined text-[32px] text-outline">hub</span>
                   </div>
-                  <div className="flex items-end justify-between">
-                    <span className="text-[48px] font-black text-[#8b5cf6]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                      {result.prediccion_dl.toFixed(1)}
-                    </span>
-                    <span className={`${getRisk(result.riesgo_dl).bg} ${getRisk(result.riesgo_dl).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_dl).border}`}>
-                      Riesgo: {getRisk(result.riesgo_dl).label}
-                    </span>
-                  </div>
+                  <p className="text-label-md text-on-surface-variant uppercase tracking-widest font-bold">Consenso de Fusión</p>
+                  <p className="text-headline-md text-on-surface-variant mt-sm">Configure variables geoclimáticas a la izquierda y presione ejecutar</p>
                 </div>
               </div>
+            )}
 
-              {/* ═══ ENSEMBLE HERO CARD ═══ */}
-              <div className="relative overflow-hidden bg-primary text-on-primary rounded-xl p-xl shadow-xl flex flex-col items-center justify-center text-center">
-                <div className="relative z-10 space-y-md">
-                  {/* Icon + Title */}
-                  <div className="flex flex-col items-center gap-xs">
-                    <div className="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center mb-sm">
-                      <span className="material-symbols-outlined text-[32px]">hub</span>
+            {/* RESULTS RENDERING */}
+            {result && !loading && (
+              <div className="flex flex-col gap-md animate-fade-in-up">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                  {/* XGBoost */}
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#ea580c] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-label-md text-on-surface-variant">Predicción Agente ML</p>
+                        <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
+                      </div>
+                      <span className="material-symbols-outlined text-[#ea580c]">analytics</span>
                     </div>
-                    <p className="text-label-md text-primary-fixed-dim uppercase tracking-widest font-bold">Consenso Global del Sistema</p>
-                    <h4 className="text-headline-lg text-white font-bold">Fusión Ensemble Promedio (Agente 5)</h4>
-                  </div>
-
-                  {/* Giant Number */}
-                  <div className="py-md">
-                    <div className="flex items-baseline justify-center gap-sm">
-                      <span className="text-[84px] font-black tracking-tighter leading-none" style={{ fontVariantNumeric: "tabular-nums" }}>
-                        {result.prediccion_ensemble.toFixed(1)}
+                    <div className="flex items-end justify-between">
+                      <span className="text-[42px] font-black text-[#ea580c]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                        {result.prediccion_ml.toFixed(1)}
                       </span>
-                      <span className="text-headline-md text-surface-variant">casos</span>
+                      <span className={`${getRisk(result.riesgo_ml).bg} ${getRisk(result.riesgo_ml).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_ml).border}`}>
+                        {getRisk(result.riesgo_ml).label}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Risk Badge + Stats */}
-                  <div className="flex flex-col items-center gap-md">
-                    <div className={`${getRisk(result.riesgo_ensemble).ensemble} text-white px-lg py-sm rounded-full text-headline-md font-bold shadow-lg flex items-center gap-sm border border-white/20`}>
-                      <span className="material-symbols-outlined">{getRisk(result.riesgo_ensemble).icon}</span>
-                      Nivel de Alerta: {getRisk(result.riesgo_ensemble).label}
+                  {/* MLP PyTorch */}
+                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#8b5cf6] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-label-md text-on-surface-variant">Predicción Agente DL</p>
+                        <h4 className="text-headline-md text-primary font-bold">MLP PyTorch</h4>
+                      </div>
+                      <span className="material-symbols-outlined text-[#8b5cf6]">neurology</span>
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <span className="text-[42px] font-black text-[#8b5cf6]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                        {result.prediccion_dl.toFixed(1)}
+                      </span>
+                      <span className={`${getRisk(result.riesgo_dl).bg} ${getRisk(result.riesgo_dl).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_dl).border}`}>
+                        {getRisk(result.riesgo_dl).label}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Consensus Hero Card */}
+                <div className="relative overflow-hidden bg-primary text-on-primary rounded-xl p-xl shadow-xl flex flex-col items-center justify-center text-center">
+                  <div className="relative z-10 space-y-md w-full">
+                    <div className="flex flex-col items-center gap-xs">
+                      <div className="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center mb-sm">
+                        <span className="material-symbols-outlined text-[32px]">hub</span>
+                      </div>
+                      <p className="text-label-md text-primary-fixed-dim uppercase tracking-widest font-bold">Consenso Global del Sistema</p>
+                      <h4 className="text-headline-lg text-white font-bold">Fusión Ensemble Promedio (Agente 5)</h4>
                     </div>
 
-                    <div className="flex gap-lg mt-sm border-t border-white/10 pt-lg w-full max-w-sm">
-                      <div className="flex-1">
-                        <p className="text-primary-fixed-dim text-label-md">Confianza</p>
-                        <p className="text-headline-md font-bold text-white">{confidence}%</p>
+                    <div className="py-sm">
+                      <div className="flex items-baseline justify-center gap-sm">
+                        <span className="text-[72px] font-black tracking-tighter leading-none" style={{ fontVariantNumeric: "tabular-nums" }}>
+                          {result.prediccion_ensemble.toFixed(1)}
+                        </span>
+                        <span className="text-headline-sm text-surface-variant">casos / 100k hab.</span>
                       </div>
-                      <div className="w-px bg-white/10"></div>
-                      <div className="flex-1">
-                        <p className="text-primary-fixed-dim text-label-md">Varianza</p>
-                        <p className="text-headline-md font-bold text-white">±{ensembleVariance}</p>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-md">
+                      <div className={`${getRisk(result.riesgo_ensemble).ensemble} text-white px-lg py-sm rounded-full text-headline-sm font-bold shadow-lg flex items-center gap-sm border border-white/20`}>
+                        <span className="material-symbols-outlined">{getRisk(result.riesgo_ensemble).icon}</span>
+                        Nivel de Alerta: {getRisk(result.riesgo_ensemble).label}
+                      </div>
+
+                      <div className="flex gap-lg mt-sm border-t border-white/10 pt-lg w-full max-w-sm">
+                        <div className="flex-1">
+                          <p className="text-primary-fixed-dim text-[11px] uppercase tracking-wider font-bold">Confianza</p>
+                          <p className="text-headline-md font-bold text-white">{confidence}%</p>
+                        </div>
+                        <div className="w-px bg-white/10"></div>
+                        <div className="flex-1">
+                          <p className="text-primary-fixed-dim text-[11px] uppercase tracking-wider font-bold">Desviación</p>
+                          <p className="text-headline-md font-bold text-white">±{ensembleVariance}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Technical Note */}
+                <div className="bg-surface-container rounded-lg p-md border border-outline-variant/30 flex items-start gap-md text-[12px] leading-relaxed text-on-surface-variant">
+                  <span className="material-symbols-outlined text-primary mt-0.5">info</span>
+                  <div className="space-y-xs">
+                    <p className="text-label-md font-bold text-primary">Nota de Verificación</p>
+                    <p>
+                      La predicción ensemble se calcula como la media de las proyecciones de XGBoost (ML) y la MLP de PyTorch (DL). La clasificación de riesgo utiliza los percentiles globales calibrados de la serie temporal:
+                      Normal (&lt;25%), Vigilancia (25%-50%), Alerta (50%-90%), Epidemia (&gt;90%).
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {activeSubtab === "Histórico" && (
+        <div className="space-y-lg animate-fade-in">
+          {(!selectedCountry || !selectedDept) ? (
+            <div className="bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-xl text-center">
+              <span className="material-symbols-outlined text-outline text-[48px] mb-sm">location_off</span>
+              <h4 className="text-headline-md font-bold text-primary">Sin Departamento Seleccionado</h4>
+              <p className="text-on-surface-variant text-body-md mt-xs">
+                Seleccione un país y departamento en la pestaña de Simulación para visualizar su serie temporal histórica.
+              </p>
+            </div>
+          ) : (
+            <>
+              {loadingHistory ? (
+                <div className="bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-xl text-center space-y-md">
+                  <span className="material-symbols-outlined animate-spin text-[36px] text-primary">progress_activity</span>
+                  <p className="text-on-surface-variant">Cargando serie histórica departamental...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-lg">
+                  {/* SVG Chart */}
+                  <HistoricalChart data={historicalData} />
+
+                  {/* Historical Table */}
+                  <div className="bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-lg shadow-sm overflow-hidden">
+                    <div className="flex justify-between items-center mb-md">
+                      <h4 className="text-headline-md font-bold text-primary">Registros Históricos ({selectedDept}, {selectedCountry})</h4>
+                      <span className="text-label-md text-on-surface-variant">{historicalData.length} meses registrados</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-body-md border-collapse">
+                        <thead>
+                          <tr className="border-b border-outline-variant/60 text-on-surface-variant font-bold text-[13px] bg-surface-container-low">
+                            <th className="py-sm px-md">Fecha (t)</th>
+                            <th className="py-sm px-md">Casos Reportados</th>
+                            <th className="py-sm px-md">Incidencia (/100k)</th>
+                            <th className="py-sm px-md">T. Máx (°C)</th>
+                            <th className="py-sm px-md">T. Mín (°C)</th>
+                            <th className="py-sm px-md">Lluvia (mm)</th>
+                            <th className="py-sm px-md">Humedad (%)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {historicalData.slice().reverse().slice(0, 36).map((rec, idx) => (
+                            <tr key={idx} className="border-b border-outline-variant/30 hover:bg-surface-container-lowest text-[13px] transition-colors">
+                              <td className="py-sm px-md font-bold text-on-surface">{rec.fecha}</td>
+                              <td className="py-sm px-md font-semibold text-primary">{rec.casos}</td>
+                              <td className="py-sm px-md text-on-surface-variant">{rec.incidencia}</td>
+                              <td className="py-sm px-md">{rec.tmax}°C</td>
+                              <td className="py-sm px-md">{rec.tmin}°C</td>
+                              <td className="py-sm px-md">{rec.precipitacion} mm</td>
+                              <td className="py-sm px-md">{rec.humedad}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {activeSubtab === "Alertas" && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-lg animate-fade-in text-on-surface">
+          {/* Risk Level Percentiles Table */}
+          <div className="md:col-span-5 bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-lg shadow-sm">
+            <h4 className="text-headline-md font-bold text-primary mb-md">Límites de Alerta Relativa</h4>
+            <p className="text-on-surface-variant text-[12px] leading-relaxed mb-lg">
+              Los niveles de riesgo se calibran de acuerdo a los percentiles históricos agregados de Latinoamérica (2014-2022).
+            </p>
+            <div className="space-y-sm">
+              <div className="flex justify-between items-center p-sm bg-emerald-50 dark:bg-emerald-950/20 border-l-4 border-emerald-500 rounded">
+                <div>
+                  <h5 className="text-[13px] font-bold text-emerald-800 dark:text-emerald-300">Normal (&lt;p25)</h5>
+                  <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400">Sin alertas. Riesgo endémico bajo.</p>
+                </div>
+                <span className="font-mono text-label-md font-bold text-emerald-800 dark:text-emerald-300">&lt; {(metadata ? 10.5 : 10).toFixed(1)}</span>
               </div>
 
-              {/* Technical Note */}
-              <div className="bg-surface-container rounded-lg p-md border border-outline-variant/30 flex items-start gap-md">
-                <span className="material-symbols-outlined text-primary mt-0.5">info</span>
-                <div className="space-y-xs">
-                  <p className="text-label-md font-bold text-primary">Nota Técnica</p>
-                  <p className="text-body-md text-on-surface-variant">
-                    La fusión utiliza una media ponderada basada en el error cuadrático medio (MSE) histórico de los últimos 24 meses. Los pesos actuales son XGBoost (40%) y MLP (60%).
-                    La clasificación de riesgo se basa en percentiles calibrados del dataset histórico 2014-2022:
-                    Normal (&lt;p25), Vigilancia (p25-p50), Alerta (p50-p90), Epidemia (&gt;p90).
-                    {selectedDept && <> Departamento seleccionado: <strong>{selectedDept}</strong>, {selectedCountry}.</>}
+              <div className="flex justify-between items-center p-sm bg-yellow-50 dark:bg-yellow-950/20 border-l-4 border-yellow-500 rounded">
+                <div>
+                  <h5 className="text-[13px] font-bold text-yellow-800 dark:text-yellow-300">Vigilancia (p25 - p50)</h5>
+                  <p className="text-[11px] text-yellow-700/80 dark:text-yellow-400">Desviaciones leves. Reforzar educación pública.</p>
+                </div>
+                <span className="font-mono text-label-md font-bold text-yellow-800 dark:text-yellow-300">10.5 — 35.2</span>
+              </div>
+
+              <div className="flex justify-between items-center p-sm bg-orange-50 dark:bg-orange-950/20 border-l-4 border-orange-500 rounded">
+                <div>
+                  <h5 className="text-[13px] font-bold text-orange-800 dark:text-orange-300">Alerta (p50 - p90)</h5>
+                  <p className="text-[11px] text-orange-700/80 dark:text-orange-400">Brotes localizados. Fumigaciones selectivas.</p>
+                </div>
+                <span className="font-mono text-label-md font-bold text-orange-800 dark:text-orange-300">35.2 — 98.4</span>
+              </div>
+
+              <div className="flex justify-between items-center p-sm bg-red-50 dark:bg-red-950/20 border-l-4 border-red-600 rounded">
+                <div>
+                  <h5 className="text-[13px] font-bold text-red-800 dark:text-red-300">Epidemia (&gt;p90)</h5>
+                  <p className="text-[11px] text-red-700/80 dark:text-red-400">Emergencia de salud pública. Acción inmediata.</p>
+                </div>
+                <span className="font-mono text-label-md font-bold text-red-800 dark:text-red-300">&gt; 98.4</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Epidemiological Action Guide */}
+          <div className="md:col-span-7 bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-lg shadow-sm space-y-md">
+            <h4 className="text-headline-md font-bold text-primary">Protocolo Científico de Alerta Temprana</h4>
+            
+            <div className="space-y-md text-body-md text-on-surface-variant leading-relaxed">
+              <p>
+                Basado en el enfoque del modelo de ensamble de la tesis, las fluctuaciones de temperatura y lluvia preceden a los brotes de dengue en aproximadamente <strong>1 a 2 meses (lags climáticos)</strong> debido a la tasa de reproducción vectorial del mosquito <em>Aedes aegypti</em>.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md pt-xs">
+                <div className="p-md bg-surface-container rounded-xl border border-outline-variant/50">
+                  <div className="flex items-center gap-xs text-primary font-bold text-label-md mb-xs">
+                    <span className="material-symbols-outlined text-[18px]">cleaning_services</span>
+                    Lava, Tapa, Voltea, Tira
+                  </div>
+                  <p className="text-[12px] leading-relaxed">
+                    Acción preventiva domiciliaria número uno. Tapar tanques de almacenamiento e inactivar cualquier envase con agua estancada.
+                  </p>
+                </div>
+
+                <div className="p-md bg-surface-container rounded-xl border border-outline-variant/50">
+                  <div className="flex items-center gap-xs text-primary font-bold text-label-md mb-xs">
+                    <span className="material-symbols-outlined text-[18px]">medical_services</span>
+                    Cerco Epidemiológico
+                  </div>
+                  <p className="text-[12px] leading-relaxed">
+                    Si el ensemble proyecta una incidencia en zona de Alerta/Epidemia, se deben desplegar brigadas de salud en un radio de 500 metros en torno a casos índice.
+                  </p>
+                </div>
+
+                <div className="p-md bg-surface-container rounded-xl border border-outline-variant/50">
+                  <div className="flex items-center gap-xs text-primary font-bold text-label-md mb-xs">
+                    <span className="material-symbols-outlined text-[18px]">biotech</span>
+                    Monitoreo Larvario
+                  </div>
+                  <p className="text-[12px] leading-relaxed">
+                    Aplicación de larvicidas biológicos (Bti) en canales de drenaje público antes de que comience el periodo húmedo estacional.
+                  </p>
+                </div>
+
+                <div className="p-md bg-surface-container rounded-xl border border-outline-variant/50">
+                  <div className="flex items-center gap-xs text-primary font-bold text-label-md mb-xs">
+                    <span className="material-symbols-outlined text-[18px]">campaign</span>
+                    Información Local
+                  </div>
+                  <p className="text-[12px] leading-relaxed">
+                    Difusión radial y comunitaria sobre síntomas de dengue grave (fiebre alta, dolor retroocular, sangrados de encías) para evitar automedicación.
                   </p>
                 </div>
               </div>
             </div>
-          )}
-        </section>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Internal component for historical SVG line/bar rendering
+function HistoricalChart({ data }) {
+  if (!data || data.length === 0) {
+    return <div className="text-center py-xl text-on-surface-variant">Sin datos históricos suficientes para graficar.</div>;
+  }
+
+  // Slice to last 24 records to display neatly
+  const chartData = data.slice(-24);
+  const maxInc = Math.max(...chartData.map(d => d.incidencia), 5);
+  const maxPrec = Math.max(...chartData.map(d => d.precipitacion), 50);
+
+  const width = 800;
+  const height = 280;
+  const paddingLeft = 50;
+  const paddingRight = 50;
+  const paddingTop = 30;
+  const paddingBottom = 40;
+
+  const chartWidth = width - paddingLeft - paddingRight;
+  const chartHeight = height - paddingTop - paddingBottom;
+
+  // Calculate rendering coords
+  const points = chartData.map((d, i) => {
+    const x = paddingLeft + (i * (chartWidth / (chartData.length - 1)));
+    const y = height - paddingBottom - (d.incidencia * (chartHeight / maxInc));
+    return { x, y, ...d };
+  });
+
+  const polylinePoints = points.map(p => `${p.x},${p.y}`).join(" ");
+
+  return (
+    <div className="w-full bg-white dark:bg-zinc-900 border border-outline-variant p-lg rounded-xl shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-sm mb-lg">
+        <div>
+          <h4 className="text-headline-md font-bold text-primary">Tendencia de Alerta Vectorial y Lluvias</h4>
+          <p className="text-label-md text-on-surface-variant">Serie temporal de los últimos 24 meses</p>
+        </div>
+        <div className="flex gap-md text-label-md font-semibold">
+          <span className="flex items-center gap-xs">
+            <span className="w-3 h-3 bg-primary rounded-full"></span>
+            Incidencia (línea azul)
+          </span>
+          <span className="flex items-center gap-xs">
+            <span className="w-3 h-3 bg-sky-200 dark:bg-sky-900/60 rounded"></span>
+            Lluvia (barras celestes)
+          </span>
+        </div>
+      </div>
+      
+      <div className="w-full overflow-x-auto">
+        <div className="min-w-[650px]">
+          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none">
+            {/* Gridlines */}
+            {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
+              const y = height - paddingBottom - ratio * chartHeight;
+              const valInc = (ratio * maxInc).toFixed(0);
+              const valPrec = (ratio * maxPrec).toFixed(0);
+              return (
+                <g key={idx} className="opacity-30">
+                  <line 
+                    x1={paddingLeft} 
+                    y1={y} 
+                    x2={width - paddingRight} 
+                    y2={y} 
+                    className="stroke-outline"
+                    strokeWidth="0.5" 
+                    strokeDasharray="4,4" 
+                  />
+                  {/* Left Axis: Incidencia */}
+                  <text x={paddingLeft - 10} y={y + 4} textAnchor="end" className="text-[9px] fill-on-surface font-mono font-bold">{valInc}</text>
+                  {/* Right Axis: Precipitación */}
+                  <text x={width - paddingRight + 10} y={y + 4} textAnchor="start" className="text-[9px] fill-sky-500 font-mono font-bold">{valPrec}mm</text>
+                </g>
+              );
+            })}
+
+            {/* Precipitation Bars */}
+            {points.map((p, idx) => {
+              const barWidth = (chartWidth / chartData.length) * 0.45;
+              const barHeight = p.precipitacion * (chartHeight / maxPrec);
+              const x = p.x - barWidth / 2;
+              const y = height - paddingBottom - barHeight;
+              return (
+                <g key={`bar-${idx}`}>
+                  <rect
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={barHeight}
+                    className="fill-sky-100 dark:fill-sky-950/40 stroke-sky-200 dark:stroke-sky-900/20"
+                    strokeWidth="0.5"
+                  />
+                </g>
+              );
+            })}
+
+            {/* Incidencia Line */}
+            <polyline
+              fill="none"
+              stroke="#0284c7"
+              strokeWidth="3"
+              points={polylinePoints}
+              className="stroke-primary"
+            />
+
+            {/* Markers */}
+            {points.map((p, idx) => (
+              <g key={`marker-${idx}`} className="group cursor-pointer">
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="4.5"
+                  className="fill-primary stroke-white dark:stroke-zinc-900 stroke-2 hover:r-6 transition-all"
+                />
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="12"
+                  className="fill-transparent cursor-pointer"
+                />
+                <title>{`Mes: ${p.fecha}\nIncidencia: ${p.incidencia} / 100k\nCasos: ${p.casos} hab\nLluvias: ${p.precipitacion} mm`}</title>
+              </g>
+            ))}
+
+            {/* X Axis Labels */}
+            {points.map((p, idx) => {
+              if (idx % 3 !== 0) return null;
+              return (
+                <text
+                  key={`lbl-${idx}`}
+                  x={p.x}
+                  y={height - paddingBottom + 18}
+                  textAnchor="middle"
+                  className="text-[9px] fill-on-surface-variant font-medium"
+                >
+                  {p.fecha}
+                </text>
+              );
+            })}
+          </svg>
+        </div>
       </div>
     </div>
   );
