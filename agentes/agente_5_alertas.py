@@ -453,14 +453,15 @@ class AgenteOrquestador:
         )
 
         # Percentiles sobre medias departamentales → comparación continental justa
+        # Se redondean a 1 decimal para evitar que valores ~0 queden mal clasificados
         means = grp['incidencia_dengue']
-        p25 = float(means.quantile(0.25))
-        p50 = float(means.quantile(0.50))
-        p90 = float(means.quantile(0.90))
+        p25 = round(float(means.quantile(0.25)), 1)
+        p50 = round(float(means.quantile(0.50)), 1)
+        p90 = round(float(means.quantile(0.90)), 1)
 
         result = []
         for row in grp.itertuples():
-            m = float(row.incidencia_dengue)
+            m = round(float(row.incidencia_dengue), 1)
             if m <= p25:
                 nivel, color = "Normal",     "#10b981"
             elif m <= p50:
@@ -473,7 +474,7 @@ class AgenteOrquestador:
             result.append({
                 "iso_a0":          row.iso_a0,
                 "adm_1_name":      row.adm_1_name,
-                "mean_incidencia": round(m, 2),
+                "mean_incidencia": m,
                 "nivel":           nivel,
                 "color":           color,
             })
