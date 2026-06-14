@@ -55,7 +55,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           const m = await metricsRes.json();
           setStats({
             records: m.records_procesados?.toLocaleString() ?? "15,342",
-            r2: m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : (m.r2_lgbm != null ? `${(m.r2_lgbm * 100).toFixed(2)}%` : "—"),
+            r2: m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : (m.r2_xgb != null ? `${(m.r2_xgb * 100).toFixed(2)}%` : "—"),
           });
         }
         // Load real top departments
@@ -96,7 +96,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
       doc.text("EpiPredict Dengue", 14, 18);
       doc.setFontSize(11);
       doc.setTextColor(100, 100, 100);
-      doc.text("Reporte Epidemiológico — Sistema Multi-Agente (LightGBM + LSTM)", 14, 26);
+      doc.text("Reporte Epidemiológico — Sistema Multi-Agente (XGBoost + LSTM)", 14, 26);
       doc.text(`Generado: ${fecha}`, 14, 32);
 
       setReportProgress(40);
@@ -108,7 +108,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           ["Registros consolidados", stats.records + " obs."],
           ["Rango temporal", "2014 — 2022"],
           ["Precisión del sistema (R² Ensemble)", stats.r2],
-          ["LightGBM R²", "71.64%"],
+          ["XGBoost R²", "72.18%"],
           ["LSTM PyTorch R²", "76.50%"],
           ["MAE Ensemble", "9.87 casos/100k"],
         ],
@@ -310,10 +310,10 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
               <h5 className="text-label-md font-bold uppercase tracking-wider">Estado del Modelo Híbrido</h5>
             </div>
             <p className="text-body-md opacity-90 leading-relaxed">
-              El motor ensemble combina <strong>LightGBM</strong> (R²=71.6%) y <strong>LSTM PyTorch</strong> (R²=76.5%) mediante promedio simple, alcanzando <strong>R²=75.4%</strong> y MAE de 9.87 casos/100k hab.
+              El motor ensemble combina <strong>XGBoost</strong> (R²=72.2%) y <strong>LSTM PyTorch</strong> (R²=76.5%) mediante promedio simple, alcanzando <strong>R²=75.57%</strong> y MAE de 9.84 casos/100k hab.
             </p>
             <div className="mt-md flex items-center gap-sm flex-wrap">
-              <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">LightGBM</span>
+              <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">XGBoost</span>
               <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">LSTM PyTorch</span>
               <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">FastAPI In-Memory</span>
             </div>

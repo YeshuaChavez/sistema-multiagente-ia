@@ -27,15 +27,15 @@ const agents = [
   },
   {
     id: 3,
-    name: "Agente de Machine Learning (LightGBM)",
+    name: "Agente de Machine Learning (XGBoost)",
     icon: "precision_manufacturing",
     color: "bg-orange-500",
     colorLight: "bg-orange-50",
     description:
-      "Entrena y ejecuta un modelo LightGBM (Gradient Boosting de hoja a hoja) para la predicción de la tasa de incidencia de dengue. Utiliza hiperparámetros fijos calibrados (n_estimators=400, lr=0.04, num_leaves=63) y genera importancias SHAP locales y globales mediante TreeSHAP.",
-    tech: ["LightGBM", "Scikit-Learn", "SHAP (TreeSHAP)", "Joblib"],
-    input: "Dataset preprocesado + 34 features ingenieriles",
-    output: "Predicción ML (R²=71.64%) + SHAP values",
+      "Entrena y ejecuta un modelo XGBoost (Gradient Boosting basado en árboles) para la predicción de la tasa de incidencia de dengue. Utiliza hiperparámetros fijos calibrados (n_estimators=400, lr=0.04, max_depth=6) y genera importancias SHAP locales y globales mediante TreeSHAP.",
+    tech: ["XGBoost", "Scikit-Learn", "SHAP (TreeSHAP)", "Joblib"],
+    input: "Dataset preprocesado + 31 features ingenieriles",
+    output: "Predicción ML (R²=72.18%) + SHAP values",
   },
   {
     id: 4,
@@ -65,7 +65,7 @@ const agents = [
 
 const techStack = [
   { category: "Backend", items: ["FastAPI", "Python 3.10+", "Uvicorn", "Pydantic"] },
-  { category: "ML / DL", items: ["LightGBM", "PyTorch", "Scikit-Learn", "SHAP"] },
+  { category: "ML / DL", items: ["XGBoost", "PyTorch", "Scikit-Learn", "SHAP"] },
   { category: "Datos", items: ["Pandas", "NumPy", "OpenDengue", "NASA POWER"] },
   { category: "Frontend", items: ["React 19", "Vite", "TailwindCSS", "Leaflet.js"] },
 ];

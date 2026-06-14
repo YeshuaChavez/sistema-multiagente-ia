@@ -93,14 +93,14 @@ export default function App() {
     doc.text(`Generado: ${fecha}`, 14, 31);
 
     // Métricas del sistema
-    let metrics = { records: "15,342", r2_lgbm: "71.64%", r2_lstm: "76.50%", r2_ens: "75.41%", mae: "9.87" };
+    let metrics = { records: "15,342", r2_xgb: "72.18%", r2_lstm: "76.50%", r2_ens: "75.57%", mae: "9.84" };
     try {
       const r = await fetch(`${API_URL}/api/metrics`);
       if (r.ok) {
         const m = await r.json();
         metrics = {
           records:  m.records_procesados?.toLocaleString() ?? metrics.records,
-          r2_lgbm:  m.r2_lgbm  != null ? `${(m.r2_lgbm  * 100).toFixed(2)}%` : metrics.r2_lgbm,
+          r2_xgb:   m.r2_xgb   != null ? `${(m.r2_xgb   * 100).toFixed(2)}%` : metrics.r2_xgb,
           r2_lstm:  m.r2_lstm  != null ? `${(m.r2_lstm  * 100).toFixed(2)}%` : metrics.r2_lstm,
           r2_ens:   m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : metrics.r2_ens,
           mae:      m.mae_ensemble != null ? m.mae_ensemble.toFixed(2) : metrics.mae,
@@ -117,7 +117,7 @@ export default function App() {
       body: [
         ["Registros históricos procesados", `${metrics.records} obs. (2014–2022)`],
         ["Países en América Latina", "18 países"],
-        ["R² — Agente 3 (LightGBM)", metrics.r2_lgbm],
+        ["R² — Agente 3 (XGBoost)", metrics.r2_xgb],
         ["R² — Agente 4 (LSTM PyTorch)", metrics.r2_lstm],
         ["R² — Ensemble Final (Agentes 3+4)", metrics.r2_ens],
         ["MAE Ensemble", `${metrics.mae} casos/100k hab.`],
@@ -163,7 +163,7 @@ export default function App() {
       body: [
         ["Agente 1", "Recolección de datos",          "OpenDengue + NASA POWER API"],
         ["Agente 2", "Preprocesamiento",              "Pandas, NumPy, Scikit-Learn"],
-        ["Agente 3", "Predicción ML",                 "LightGBM + SHAP (TreeSHAP)"],
+        ["Agente 3", "Predicción ML",                 "XGBoost + SHAP (TreeSHAP)"],
         ["Agente 4", "Predicción DL (series de tiempo)", "LSTM PyTorch (2 capas, 12-mes lookback)"],
         ["Agente 5", "Orquestación y alertas",        "Ensemble averaging + percentiles calibrados"],
       ],
@@ -400,7 +400,7 @@ export default function App() {
                 <p className="font-bold text-primary text-label-md">¿Qué significan las métricas?</p>
                 <ul className="text-body-md text-on-surface-variant mt-xs space-y-sm list-disc pl-md">
                   <li><strong>Tasa de Incidencia:</strong> Número de casos registrados de dengue por cada 100,000 habitantes.</li>
-                  <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (~75.41% para el Ensemble LightGBM + LSTM).</li>
+                  <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (~75.57% para el Ensemble XGBoost + LSTM).</li>
                   <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (~9.87 casos/100k hab. para el Ensemble).</li>
                 </ul>
               </div>

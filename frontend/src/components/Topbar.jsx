@@ -13,7 +13,7 @@ export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onO
 
   const notifications = [
     { id: 1, text: "Backend conectado de forma exitosa.", time: "Hace 2 min", type: "success" },
-    { id: 2, text: "Modelos LightGBM y LSTM PyTorch listos.", time: "Hace 5 min", type: "info" },
+    { id: 2, text: "Modelos XGBoost y LSTM PyTorch listos.", time: "Hace 5 min", type: "info" },
     { id: 3, text: "Dataset consolidado con 15,342 registros.", time: "Hace 10 min", type: "info" }
   ];
 
