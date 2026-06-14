@@ -37,7 +37,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
   const [topDepts, setTopDepts] = useState([]);
 
   const [backendReady, setBackendReady] = useState(false);
-  const [stats, setStats] = useState({ records: "15,342", r2: "75.62%" });
+  const [stats, setStats] = useState({ records: "12,180", r2: "75.62%" });
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("ALL");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);

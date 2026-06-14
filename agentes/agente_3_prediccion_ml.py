@@ -142,8 +142,15 @@ class AgentePrediccionML:
         print("SUCCESS: [Agente 3] XGBoost entrenado y subido a S3.")
         print("=" * 70)
 
+        # Lookup de predicciones XGBoost en test: (iso_a0, adm_upper, ano, mes) → pred
+        xgb_test_lookup = {
+            (r.iso_a0.strip().upper(), r.adm_1_name.strip().upper(), int(r.ano), int(r.mes)): float(p)
+            for r, p in zip(df_test.itertuples(), pred)
+        }
+
         return {"r2_xgb": round(r2, 4), "mae_xgb": round(mae, 4),
-                "n_train": len(df_train), "n_test": len(df_test)}
+                "n_train": len(df_train), "n_test": len(df_test),
+                "xgb_test_lookup": xgb_test_lookup}
 
     # ─────────────────────────────────────────────────────────────
     # MODO INFERENCIA

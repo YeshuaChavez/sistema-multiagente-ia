@@ -49,8 +49,8 @@ class DengueLSTMModel(nn.Module):
 
 
 def _build_sequences(df_sorted, features, seq_len):
-    """Construye tensores de secuencias y años por departamento."""
-    X_seqs, y_vals, anos = [], [], []
+    """Construye tensores de secuencias, años e identificadores (iso_a0, adm, ano, mes)."""
+    X_seqs, y_vals, anos, ids = [], [], [], []
     for _, grp in df_sorted.groupby(['iso_a0', 'adm_1_name']):
         grp = grp.sort_values(['ano', 'mes'])
         if len(grp) < seq_len + 1:
@@ -58,11 +58,15 @@ def _build_sequences(df_sorted, features, seq_len):
         feat = grp[features].values.astype(np.float32)
         tgt  = grp['incidencia_dengue'].values.astype(np.float32)
         yr   = grp['ano'].values
+        ms   = grp['mes'].values
+        iso  = str(grp['iso_a0'].iloc[0]).strip().upper()
+        adm  = str(grp['adm_1_name'].iloc[0]).strip().upper()
         for i in range(seq_len, len(grp)):
             X_seqs.append(feat[i - seq_len:i])
             y_vals.append(tgt[i])
             anos.append(yr[i])
-    return np.array(X_seqs), np.array(y_vals), np.array(anos)
+            ids.append((iso, adm, int(yr[i]), int(ms[i])))
+    return np.array(X_seqs), np.array(y_vals), np.array(anos), ids
 
 
 class AgentePrediccionDL:
@@ -110,15 +114,16 @@ class AgentePrediccionDL:
         df = df[yearly > 100].reset_index(drop=True)
 
         # Construir secuencias usando solo LSTM_FEATURES (6 variables)
-        X_seq, y_seq, anos_seq = _build_sequences(df, LSTM_FEATURES, LSTM_SEQ_LEN)
+        X_seq, y_seq, anos_seq, seq_ids = _build_sequences(df, LSTM_FEATURES, LSTM_SEQ_LEN)
 
         train_mask = anos_seq <= 2020
         test_mask  = anos_seq >= 2021
 
-        X_train = X_seq[train_mask]
-        y_train = y_seq[train_mask]
-        X_test  = X_seq[test_mask]
-        y_test  = y_seq[test_mask]
+        X_train   = X_seq[train_mask]
+        y_train   = y_seq[train_mask]
+        X_test    = X_seq[test_mask]
+        y_test    = y_seq[test_mask]
+        test_ids  = [seq_ids[i] for i, m in enumerate(test_mask) if m]
 
         print(f"   [LSTM] Secuencias — Train: {len(X_train)} | Test: {len(X_test)}")
 
@@ -180,14 +185,32 @@ class AgentePrediccionDL:
         mae_ml = metricas_ml.get("mae_xgb", 0.0) if metricas_ml else 0.0
         n_rec  = metricas_ml.get("n_train", len(df)) if metricas_ml else len(df)
 
+        # Ensemble R² honesto: promedio de predicciones en filas comunes del test set
+        xgb_lookup = metricas_ml.get("xgb_test_lookup", {}) if metricas_ml else {}
+        ens_preds, ens_y = [], []
+        for seq_id, lstm_p, y_val in zip(test_ids, pred, y_test):
+            xgb_p = xgb_lookup.get(seq_id)
+            if xgb_p is not None:
+                ens_preds.append((lstm_p + xgb_p) / 2.0)
+                ens_y.append(y_val)
+        if len(ens_y) >= 10:
+            r2_ens  = r2_score(ens_y, ens_preds)
+            mae_ens = mean_absolute_error(ens_y, ens_preds)
+            print(f"   [Ensemble] R²={r2_ens*100:.2f}%  MAE={mae_ens:.4f} "
+                  f"(sobre {len(ens_y)} filas comunes)")
+        else:
+            r2_ens  = (r2_ml + r2) / 2
+            mae_ens = (mae_ml + mae) / 2
+            print("   [Ensemble] Fallback: promedio de R² individuales")
+
         metrics = {
             "records_procesados": int(n_rec),
-            "r2_xgb":      round(r2_ml, 4),
-            "mae_xgb":     round(mae_ml, 4),
-            "r2_lstm":     round(r2, 4),
-            "mae_lstm":    round(mae, 4),
-            "r2_ensemble": round((r2_ml + r2) / 2, 4),
-            "mae_ensemble": round((mae_ml + mae) / 2, 4),
+            "r2_xgb":       round(r2_ml, 4),
+            "mae_xgb":      round(mae_ml, 4),
+            "r2_lstm":      round(r2, 4),
+            "mae_lstm":     round(mae, 4),
+            "r2_ensemble":  round(r2_ens, 4),
+            "mae_ensemble": round(mae_ens, 4),
         }
         with open(os.path.join(self.model_dir, "metrics.json"), "w") as f:
             json.dump(metrics, f, indent=4)

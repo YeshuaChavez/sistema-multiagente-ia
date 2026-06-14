@@ -93,7 +93,7 @@ export default function App() {
     doc.text(`Generado: ${fecha}`, 14, 31);
 
     // Métricas del sistema
-    let metrics = { records: "15,342", r2_xgb: "71.93%", r2_lstm: "76.50%", r2_ens: "75.62%", mae: "9.86" };
+    let metrics = { records: "12,180", r2_xgb: "71.93%", r2_lstm: "76.50%", r2_ens: "75.62%", mae: "9.86" };
     try {
       const r = await fetch(`${API_URL}/api/metrics`);
       if (r.ok) {
