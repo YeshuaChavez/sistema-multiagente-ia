@@ -1,9 +1,9 @@
 {
-    "records_procesados": 15342,
-    "r2_lgbm": 0.7164,
-    "mae_lgbm": 10.1633,
+    "records_procesados": 12180,
+    "r2_xgb": 0.7218,
+    "mae_xgb": 10.1186,
     "r2_lstm": 0.765,
     "mae_lstm": 10.2201,
-    "r2_ensemble": 0.7541,
-    "mae_ensemble": 9.8692
+    "r2_ensemble": 0.7557,
+    "mae_ensemble": 9.8423
 }
