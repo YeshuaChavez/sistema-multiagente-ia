@@ -37,7 +37,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
   const [topDepts, setTopDepts] = useState([]);
 
   const [backendReady, setBackendReady] = useState(false);
-  const [stats, setStats] = useState({ records: "15,342", r2: "75.41%" });
+  const [stats, setStats] = useState({ records: "15,342", r2: "75.62%" });
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("ALL");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);
@@ -108,7 +108,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           ["Registros consolidados", stats.records + " obs."],
           ["Rango temporal", "2014 — 2022"],
           ["Precisión del sistema (R² Ensemble)", stats.r2],
-          ["XGBoost R²", "72.18%"],
+          ["XGBoost R²", "71.93%"],
           ["LSTM PyTorch R²", "76.50%"],
           ["MAE Ensemble", "9.87 casos/100k"],
         ],
