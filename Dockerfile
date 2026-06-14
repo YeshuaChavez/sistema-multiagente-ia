@@ -1,5 +1,5 @@
 # Usar una imagen oficial de Python slim como base
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 # Evitar que Python escriba archivos .pyc y habilitar modo unbuffered
 ENV PYTHONDONTWRITEBYTECODE=1
