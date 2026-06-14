@@ -34,7 +34,7 @@ const agents = [
     description:
       "Entrena y ejecuta un modelo XGBoost (Gradient Boosting basado en árboles) para la predicción de la tasa de incidencia de dengue. Utiliza hiperparámetros fijos calibrados (n_estimators=400, lr=0.04, max_depth=6) y genera importancias SHAP locales y globales mediante TreeSHAP.",
     tech: ["XGBoost", "Scikit-Learn", "SHAP (TreeSHAP)", "Joblib"],
-    input: "Dataset preprocesado + 31 features ingenieriles",
+    input: "Dataset preprocesado + 34 features ingenieriles",
     output: "Predicción ML (R²=71.93%) + SHAP values",
   },
   {

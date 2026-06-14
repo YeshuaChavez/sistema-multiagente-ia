@@ -55,8 +55,38 @@ class AgenteOrquestador:
         self.p50 = float(df_master["incidencia_dengue"].quantile(0.50))
         self.p90 = float(df_master["incidencia_dengue"].quantile(0.90))
 
+        # Mapa de vecinos espaciales: (iso_a0, adm_upper) → [3 adm_upper más cercanos]
+        self._neighbor_map = {}
+        if df_coords is not None:
+            df_c = df_coords.copy()
+            df_c['iso_a0']     = df_c['iso_a0'].astype(str).str.strip().str.upper()
+            df_c['adm_1_name'] = df_c['adm_1_name'].astype(str).str.strip().str.upper()
+            for country in df_c['iso_a0'].unique():
+                cc = df_c[df_c['iso_a0'] == country]
+                depts  = cc['adm_1_name'].values
+                coords = cc[['lat', 'lon']].values
+                for i, d_i in enumerate(depts):
+                    dists = sorted(
+                        [(depts[j], np.sqrt((coords[i, 0] - coords[j, 0])**2 +
+                                            (coords[i, 1] - coords[j, 1])**2))
+                         for j in range(len(depts)) if j != i],
+                        key=lambda x: x[1]
+                    )
+                    self._neighbor_map[(country, d_i)] = [d[0] for d in dists[:3]]
+
+        # Tabla de lookup: (iso_a0, adm_upper, ano, mes) → incidencia_dengue
+        df_lu = df_master.copy()
+        df_lu['_iso_u'] = df_lu['iso_a0'].astype(str).str.strip().str.upper()
+        df_lu['_adm_u'] = df_lu['adm_1_name'].astype(str).str.strip().str.upper()
+        self._inc_lookup = {
+            (r._iso_u, r._adm_u, int(r.ano), int(r.mes)): float(r.incidencia_dengue)
+            for r in df_lu.itertuples()
+        }
+
         print(f"   [Agente 5] Orquestador listo — percentiles globales: "
               f"p25={self.p25:.2f}, p50={self.p50:.2f}, p90={self.p90:.2f}")
+        print(f"   [Agente 5] Vecinos espaciales pre-computados para "
+              f"{len(self._neighbor_map)} departamentos.")
 
     # ─────────────────────────────────────────────────────────────
     # CLASIFICACIÓN DE RIESGO EPIDEMIOLÓGICO
@@ -95,7 +125,7 @@ class AgenteOrquestador:
 
         Pasos:
           1. Recupera el historial del departamento.
-          2. Construye el vector de 31 features para Agente 3 (XGBoost).
+          2. Construye el vector de 34 features para Agente 3 (XGBoost).
           3. Agente 3 → predicción ML + SHAP local.
           4. Agente 4 → predicción LSTM con secuencia de 12 meses.
           5. Ensemble = (ML + LSTM) / 2.
@@ -145,15 +175,29 @@ class AgenteOrquestador:
                 lag_num = int(parts[1])
                 lag_val = None
                 if ref_idx >= lag_num:
-                    map_vars = {
-                        "tmax": "tmax_promedio", "tmin": "tmin_promedio",
-                        "precipitacion": "precipitacion", "humedad": "humedad_promedio",
-                        "incidencia": "incidencia_dengue",
-                        "incidencia_vecinos": "incidencia_dengue",
-                    }
-                    col_real = map_vars.get(var_base, var_base)
-                    if col_real in df_dept.columns:
-                        lag_val = df_dept.loc[ref_idx - lag_num, col_real]
+                    if var_base == "incidencia_vecinos":
+                        lag_row  = df_dept.iloc[ref_idx - lag_num]
+                        lag_ano  = int(lag_row['ano'])
+                        lag_mes  = int(lag_row['mes'])
+                        nbrs = self._neighbor_map.get((iso_a0, adm_1_name_u), [])
+                        vals = [self._inc_lookup.get((iso_a0, n, lag_ano, lag_mes))
+                                for n in nbrs]
+                        vals = [v for v in vals if v is not None and not np.isnan(v)]
+                        if vals:
+                            lag_val = float(np.mean(vals))
+                        else:
+                            # Fallback: propia incidencia (idéntico a Agente 2)
+                            lag_val = self._inc_lookup.get(
+                                (iso_a0, adm_1_name_u, lag_ano, lag_mes))
+                    else:
+                        map_vars = {
+                            "tmax": "tmax_promedio", "tmin": "tmin_promedio",
+                            "precipitacion": "precipitacion", "humedad": "humedad_promedio",
+                            "incidencia": "incidencia_dengue",
+                        }
+                        col_real = map_vars.get(var_base, var_base)
+                        if col_real in df_dept.columns:
+                            lag_val = df_dept.loc[ref_idx - lag_num, col_real]
                 if lag_val is None or (isinstance(lag_val, float) and np.isnan(lag_val)):
                     med = df_dept[df_dept['mes'] == ref_mes].median(numeric_only=True).to_dict()
                     lag_val = med.get(var_base, 0.0)
