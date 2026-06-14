@@ -133,8 +133,17 @@ class PredictionService:
         # Agente 4: LSTM PyTorch
         agente_dl = AgentePrediccionDL.cargar_modelo(self.model_dir, self.base_dir)
 
+        # Cargar pesos del ensemble desde metrics.json
+        import json as _json
+        metrics_path = os.path.join(self.model_dir, "metrics.json")
+        metrics_data = {}
+        if os.path.exists(metrics_path):
+            with open(metrics_path) as _f:
+                metrics_data = _json.load(_f)
+
         # Agente 5: Orquestador de Consenso (Ensemble + Alertas)
-        self.orquestador = AgenteOrquestador(agente_ml, agente_dl, df_master, df_coords)
+        self.orquestador = AgenteOrquestador(agente_ml, agente_dl, df_master, df_coords,
+                                             metrics=metrics_data)
 
         print("SUCCESS: [SMA-ML/DL] Sistema Multi-Agente listo — Agentes 3, 4 y 5 activos.")
 

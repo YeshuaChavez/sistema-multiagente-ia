@@ -37,18 +37,23 @@ class AgenteOrquestador:
         "epidemia":   {"nivel": "Epidemia",   "codigo": "epidemia",   "color": "#ef4444"},
     }
 
-    def __init__(self, agente_ml, agente_dl, df_master, df_coords=None):
+    def __init__(self, agente_ml, agente_dl, df_master, df_coords=None, metrics=None):
         """
         Args:
             agente_ml:  AgentePrediccionML cargado en modo inferencia (cargar_modelo).
             agente_dl:  AgentePrediccionDL cargado en modo inferencia (cargar_modelo).
             df_master:  DataFrame maestro mensual (dataset_maestro_mensual_latam.csv).
             df_coords:  DataFrame de coordenadas departamentales (opcional).
+            metrics:    Dict con métricas de entrenamiento, incluye ensemble_w_xgb/lstm (opcional).
         """
         self.agente_ml = agente_ml
         self.agente_dl = agente_dl
         self.df_master = df_master
         self.df_coords = df_coords
+
+        # Pesos del ensemble: cargados desde metrics.json si están disponibles
+        self._w_xgb  = float((metrics or {}).get("ensemble_w_xgb",  0.5))
+        self._w_lstm = float((metrics or {}).get("ensemble_w_lstm", 0.5))
 
         # Percentiles globales como fallback cuando el departamento no tiene historial suficiente
         self.p25 = float(df_master["incidencia_dengue"].quantile(0.25))
@@ -234,8 +239,11 @@ class AgenteOrquestador:
         # ── Agente 4: LSTM PyTorch ──
         pred_lstm = self.agente_dl.predecir_secuencia(df_dept, ref_idx, clima_overrides)
 
-        # ── Agente 5: Ensemble ──
-        pred_ens = (pred_ml + pred_lstm) / 2.0 if pred_lstm is not None else pred_ml
+        # ── Agente 5: Ensemble con pesos óptimos ──
+        if pred_lstm is not None:
+            pred_ens = self._w_xgb * pred_ml + self._w_lstm * pred_lstm
+        else:
+            pred_ens = pred_ml
 
         result = {
             "prediccion_ml":       round(pred_ml, 4),

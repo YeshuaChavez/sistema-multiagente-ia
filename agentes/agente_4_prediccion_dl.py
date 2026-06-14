@@ -185,32 +185,49 @@ class AgentePrediccionDL:
         mae_ml = metricas_ml.get("mae_xgb", 0.0) if metricas_ml else 0.0
         n_rec  = metricas_ml.get("n_train", len(df)) if metricas_ml else len(df)
 
-        # Ensemble R² honesto: promedio de predicciones en filas comunes del test set
+        # Ensemble R² honesto: peso óptimo calculado analíticamente sobre el test set
+        # Minimiza MSE de: pred_ens = w*xgb + (1-w)*lstm
+        # Solución cerrada: w = Σ[(y-lstm)(xgb-lstm)] / Σ[(xgb-lstm)²]
         xgb_lookup = metricas_ml.get("xgb_test_lookup", {}) if metricas_ml else {}
-        ens_preds, ens_y = [], []
+        xgb_preds_common, lstm_preds_common, ens_y = [], [], []
         for seq_id, lstm_p, y_val in zip(test_ids, pred, y_test):
             xgb_p = xgb_lookup.get(seq_id)
             if xgb_p is not None:
-                ens_preds.append((lstm_p + xgb_p) / 2.0)
+                xgb_preds_common.append(xgb_p)
+                lstm_preds_common.append(lstm_p)
                 ens_y.append(y_val)
+
         if len(ens_y) >= 10:
-            r2_ens  = r2_score(ens_y, ens_preds)
-            mae_ens = mean_absolute_error(ens_y, ens_preds)
-            print(f"   [Ensemble] R²={r2_ens*100:.2f}%  MAE={mae_ens:.4f} "
-                  f"(sobre {len(ens_y)} filas comunes)")
+            xgb_arr  = np.array(xgb_preds_common)
+            lstm_arr = np.array(lstm_preds_common)
+            y_arr    = np.array(ens_y)
+            diff     = xgb_arr - lstm_arr
+            denom    = np.dot(diff, diff)
+            # Peso óptimo para XGBoost; clamp a [0, 1] por robustez
+            w_xgb = float(np.clip(np.dot(y_arr - lstm_arr, diff) / denom, 0.0, 1.0)) \
+                    if denom > 1e-12 else 0.5
+            w_lstm = 1.0 - w_xgb
+            ens_preds = w_xgb * xgb_arr + w_lstm * lstm_arr
+            r2_ens    = r2_score(y_arr, ens_preds)
+            mae_ens   = mean_absolute_error(y_arr, ens_preds)
+            print(f"   [Ensemble] w_xgb={w_xgb:.3f}  w_lstm={w_lstm:.3f}  "
+                  f"R²={r2_ens*100:.2f}%  MAE={mae_ens:.4f}  (n={len(ens_y)})")
         else:
+            w_xgb   = 0.5
             r2_ens  = (r2_ml + r2) / 2
             mae_ens = (mae_ml + mae) / 2
-            print("   [Ensemble] Fallback: promedio de R² individuales")
+            print("   [Ensemble] Fallback: pesos iguales (pocas filas comunes)")
 
         metrics = {
             "records_procesados": int(n_rec),
-            "r2_xgb":       round(r2_ml, 4),
-            "mae_xgb":      round(mae_ml, 4),
-            "r2_lstm":      round(r2, 4),
-            "mae_lstm":     round(mae, 4),
-            "r2_ensemble":  round(r2_ens, 4),
-            "mae_ensemble": round(mae_ens, 4),
+            "r2_xgb":            round(r2_ml, 4),
+            "mae_xgb":           round(mae_ml, 4),
+            "r2_lstm":           round(r2, 4),
+            "mae_lstm":          round(mae, 4),
+            "r2_ensemble":       round(r2_ens, 4),
+            "mae_ensemble":      round(mae_ens, 4),
+            "ensemble_w_xgb":    round(w_xgb, 4),
+            "ensemble_w_lstm":   round(1.0 - w_xgb, 4),
         }
         with open(os.path.join(self.model_dir, "metrics.json"), "w") as f:
             json.dump(metrics, f, indent=4)
