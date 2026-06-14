@@ -136,7 +136,8 @@ export default function PredictorView({
   setSelectedCountry,
   setSelectedDept,
   activeSubtab,
-  backendStatus
+  backendStatus,
+  onSimulationComplete,
 }) {
   const [sliderValues, setSliderValues] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -300,13 +301,23 @@ export default function PredictorView({
         const d = await res.json();
         throw new Error(d.detail || "Error en simulación");
       }
-      setResult(await res.json());
+      const data = await res.json();
+      setResult(data);
+      if (onSimulationComplete) {
+        onSimulationComplete({
+          iso_a0: isoCode,
+          adm_1_name: selectedDept,
+          country: selectedCountry,
+          mes: targetMes,
+          clima_overrides: sliderValues,
+        });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [selectedCountry, selectedDept, sliderValues, backendStatus, metadata]);
+  }, [selectedCountry, selectedDept, sliderValues, targetMes, backendStatus, metadata, onSimulationComplete]);
 
   const handleSliderChange = (key, val) => {
     setSliderValues(prev => ({

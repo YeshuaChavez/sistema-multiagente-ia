@@ -17,7 +17,9 @@ const MOCK_SHAP_GLOBAL = [
   { feature: "precipitacion_lag1", importance: 0.024 },
 ];
 
-export default function ExplainabilityView({ activeSubtab }) {
+const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+export default function ExplainabilityView({ activeSubtab, lastSimulation }) {
   // ─── Global SHAP state ───
   const [shapData, setShapData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,12 +27,12 @@ export default function ExplainabilityView({ activeSubtab }) {
   const [recalculating, setRecalculating] = useState(false);
 
   // ─── Local SHAP state ───
-  const [metadata, setMetadata] = useState({});       // {pais: {iso_a0, departamentos}}
-  const [localCountry, setLocalCountry] = useState(""); // pais name
-  const [localDept, setLocalDept] = useState("");
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState(null);
-  const [localResult, setLocalResult] = useState(null); // {prediction, riesgo, shap_local}
+  const [localResult, setLocalResult] = useState(null);
+
+  // Reset local result when simulation context changes
+  useEffect(() => { setLocalResult(null); }, [lastSimulation]);
 
   // ─── Fetch global SHAP ───
   const fetchShap = useCallback(async () => {
@@ -54,33 +56,8 @@ export default function ExplainabilityView({ activeSubtab }) {
 
   useEffect(() => { fetchShap(); }, [fetchShap]);
 
-  // ─── Fetch metadata for local SHAP selectors ───
-  useEffect(() => {
-    fetch(`${API_URL}/api/metadata`)
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then((data) => {
-        setMetadata(data);
-        const firstCountry = Object.keys(data)[0] ?? "";
-        setLocalCountry(firstCountry);
-        setLocalDept(data[firstCountry]?.departamentos?.[0] ?? "");
-      })
-      .catch(() => {});
-  }, []);
-
-  const countryOptions = Object.keys(metadata);
-  const deptOptions = localCountry ? (metadata[localCountry]?.departamentos ?? []) : [];
-
-  const handleCountryChange = (e) => {
-    const c = e.target.value;
-    setLocalCountry(c);
-    setLocalDept(metadata[c]?.departamentos?.[0] ?? "");
-    setLocalResult(null);
-  };
-
   const handleAnalyzeLocal = useCallback(async () => {
-    if (!localCountry || !localDept) return;
-    const iso_a0 = metadata[localCountry]?.iso_a0;
-    if (!iso_a0) return;
+    if (!lastSimulation) return;
     setLocalLoading(true);
     setLocalError(null);
     setLocalResult(null);
@@ -88,12 +65,17 @@ export default function ExplainabilityView({ activeSubtab }) {
       const res = await fetch(`${API_URL}/api/predict/simulate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ iso_a0, adm_1_name: localDept, include_shap: true }),
+        body: JSON.stringify({
+          iso_a0: lastSimulation.iso_a0,
+          adm_1_name: lastSimulation.adm_1_name,
+          mes: lastSimulation.mes,
+          clima_overrides: lastSimulation.clima_overrides,
+          include_shap: true,
+        }),
       });
       if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
       const data = await res.json();
       if (!data.shap_local) throw new Error("El backend no retornó valores SHAP locales.");
-      // Convert shap_local dict to sorted array (top 12 by |value|)
       const shapArr = Object.entries(data.shap_local)
         .map(([feature, value]) => ({ feature, value }))
         .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
@@ -108,7 +90,7 @@ export default function ExplainabilityView({ activeSubtab }) {
     } finally {
       setLocalLoading(false);
     }
-  }, [localCountry, localDept, metadata]);
+  }, [lastSimulation]);
 
   const handleRecalculate = async () => {
     setRecalculating(true);
@@ -131,12 +113,13 @@ export default function ExplainabilityView({ activeSubtab }) {
 
     if (activeSubtab === "Local SHAP") {
       if (!localResult) {
-        alert("Primero analiza un departamento en la pestaña Local SHAP.");
+        alert("Primero ejecuta una simulación en el Predictor y luego haz clic en 'Explicar simulación'.");
         return;
       }
+      const deptLabel = lastSimulation ? `${lastSimulation.adm_1_name} (${lastSimulation.country})` : "—";
       doc.setFontSize(13);
       doc.setTextColor(...PRIMARY);
-      doc.text(`SHAP Local — ${localDept} (${localCountry})`, 14, 36);
+      doc.text(`SHAP Local — ${deptLabel}`, 14, 36);
       doc.setFontSize(10);
       doc.setTextColor(...GRAY);
       doc.text(
@@ -329,39 +312,39 @@ export default function ExplainabilityView({ activeSubtab }) {
         {activeSubtab === "Local SHAP" && (
           <div className="bg-white dark:bg-zinc-900 border border-outline-variant p-lg rounded-xl shadow-[0px_4px_20px_rgba(30,58,95,0.04)] max-w-4xl mx-auto w-full flex flex-col animate-fade-in">
             <div className="mb-lg">
-              <h3 className="text-headline-md text-on-surface font-bold">SHAP Local — Descomposición por Departamento</h3>
+              <h3 className="text-headline-md text-on-surface font-bold">SHAP Local — Explicación de la Última Simulación</h3>
               <p className="text-label-md text-on-surface-variant mt-xs">
-                Selecciona un país y departamento para ver la contribución de cada variable a la predicción de ese lugar.
+                Descompone por qué el ensemble predijo ese resultado: qué variables contribuyeron más y en qué dirección.
               </p>
             </div>
 
-            {/* Selectors */}
-            <div className="flex flex-col sm:flex-row gap-md mb-lg">
-              <select
-                value={localCountry}
-                onChange={handleCountryChange}
-                className="flex-1 bg-surface-container border border-outline-variant text-label-md rounded-lg py-xs px-md focus:ring-primary outline-none cursor-pointer text-on-surface"
-              >
-                {countryOptions.length === 0 && <option value="">Cargando países...</option>}
-                {countryOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select
-                value={localDept}
-                onChange={(e) => { setLocalDept(e.target.value); setLocalResult(null); }}
-                className="flex-1 bg-surface-container border border-outline-variant text-label-md rounded-lg py-xs px-md focus:ring-primary outline-none cursor-pointer text-on-surface"
-              >
-                {deptOptions.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-              <button
-                onClick={handleAnalyzeLocal}
-                disabled={localLoading || !localDept}
-                className="px-lg py-xs bg-primary text-on-primary rounded-lg text-label-md font-bold hover:bg-primary/90 transition-colors flex items-center gap-sm cursor-pointer disabled:opacity-55"
-              >
-                {localLoading
-                  ? <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Analizando...</>
-                  : <><span className="material-symbols-outlined text-[16px]">analytics</span> Analizar</>}
-              </button>
-            </div>
+            {/* Contexto de la simulación + botón */}
+            {lastSimulation ? (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-md mb-lg p-md rounded-xl border border-outline-variant bg-surface-container-low">
+                <div className="flex-1 space-y-xs">
+                  <p className="text-label-md font-bold text-on-surface">
+                    {lastSimulation.country} · {lastSimulation.adm_1_name}
+                  </p>
+                  <p className="text-[12px] text-on-surface-variant">
+                    Mes objetivo: <strong>{MONTH_NAMES[(lastSimulation.mes ?? 1) - 1]}</strong> · {Object.keys(lastSimulation.clima_overrides ?? {}).length} variables configuradas
+                  </p>
+                </div>
+                <button
+                  onClick={handleAnalyzeLocal}
+                  disabled={localLoading}
+                  className="px-lg py-sm bg-primary text-on-primary rounded-lg text-label-md font-bold hover:bg-primary/90 transition-colors flex items-center gap-sm cursor-pointer disabled:opacity-55 whitespace-nowrap"
+                >
+                  {localLoading
+                    ? <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Analizando...</>
+                    : <><span className="material-symbols-outlined text-[16px]">analytics</span> Explicar simulación</>}
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-xl text-on-surface-variant gap-md mb-lg border border-dashed border-outline-variant rounded-xl">
+                <span className="material-symbols-outlined text-[40px] opacity-30">sensors</span>
+                <p className="text-label-md text-center">Primero ejecuta una simulación en el <strong className="text-primary">Predictor</strong> y luego vuelve aquí para explicarla.</p>
+              </div>
+            )}
 
             {/* Error */}
             {localError && (
@@ -371,11 +354,11 @@ export default function ExplainabilityView({ activeSubtab }) {
               </div>
             )}
 
-            {/* Empty state */}
-            {!localResult && !localLoading && !localError && (
-              <div className="flex flex-col items-center justify-center py-2xl text-on-surface-variant gap-md">
+            {/* Empty state post-sim */}
+            {!localResult && !localLoading && !localError && lastSimulation && (
+              <div className="flex flex-col items-center justify-center py-lg text-on-surface-variant gap-md">
                 <span className="material-symbols-outlined text-[48px] opacity-30">bar_chart_4_bars</span>
-                <p className="text-label-md">Selecciona un departamento y haz clic en Analizar</p>
+                <p className="text-label-md">Haz clic en "Explicar simulación" para analizar</p>
               </div>
             )}
 

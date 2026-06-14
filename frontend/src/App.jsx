@@ -21,6 +21,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [lastSimulation, setLastSimulation] = useState(null);
 
   // Cargar metadatos y coordenadas al montar
   useEffect(() => {
@@ -232,10 +233,11 @@ export default function App() {
             setSelectedDept={setSelectedDept}
             activeSubtab={activeSubtab}
             backendStatus={backendStatus}
+            onSimulationComplete={setLastSimulation}
           />
         );
       case "explain":
-        return <ExplainabilityView activeSubtab={activeSubtab} />;
+        return <ExplainabilityView activeSubtab={activeSubtab} lastSimulation={lastSimulation} />;
       case "info":
         return <InfoView />;
       default:
