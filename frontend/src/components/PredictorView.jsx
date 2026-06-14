@@ -396,7 +396,12 @@ export default function PredictorView({
                     <label className="text-body-md text-on-surface-variant">País</label>
                     <select
                       value={selectedCountry}
-                      onChange={(e) => setSelectedCountry(e.target.value)}
+                      onChange={(e) => {
+                        const newCountry = e.target.value;
+                        const firstDept = metadata?.[newCountry]?.departamentos?.[0] ?? "";
+                        setSelectedCountry(newCountry);
+                        setSelectedDept(firstDept);
+                      }}
                       className="w-full bg-surface-container-high text-primary font-bold text-label-md px-sm py-2 rounded-lg border-none outline-none cursor-pointer"
                     >
                       <option value="">Seleccionar...</option>
