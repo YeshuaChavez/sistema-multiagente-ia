@@ -149,6 +149,7 @@ export default function PredictorView({
   
   // Predictor States
   const [loading, setLoading] = useState(false);
+  const [loadingBaseline, setLoadingBaseline] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
@@ -171,7 +172,7 @@ export default function PredictorView({
     if (!selectedCountry || !selectedDept) return;
     
     const fetchBaseline = async () => {
-      setLoading(true);
+      setLoadingBaseline(true);
       setError(null);
       try {
         const isoCode = metadata[selectedCountry]?.iso_a0 || selectedCountry;
@@ -216,10 +217,10 @@ export default function PredictorView({
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        setLoadingBaseline(false);
       }
     };
-    
+
     fetchBaseline();
   }, [selectedCountry, selectedDept, backendStatus, metadata]);
 
@@ -508,6 +509,11 @@ export default function PredictorView({
                   <>
                     <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
                     Procesando inferencia multi-agente...
+                  </>
+                ) : loadingBaseline ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                    Cargando datos del departamento...
                   </>
                 ) : (
                   <>
