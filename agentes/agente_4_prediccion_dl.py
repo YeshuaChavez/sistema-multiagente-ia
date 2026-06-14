@@ -262,12 +262,35 @@ class AgentePrediccionDL:
             feat_arr = np.vstack([pad, feat_arr])
 
         if clima_overrides:
+            # Posición -1: mes actual — variables climáticas directas
             for i, fname in enumerate(self.lstm_features):
                 if fname in clima_overrides:
                     feat_arr[-1, i] = float(clima_overrides[fname])
-            if 'incidencia_lag1' in clima_overrides and 'incidencia_dengue' in self.lstm_features:
-                feat_arr[-1, self.lstm_features.index('incidencia_dengue')] = \
-                    float(clima_overrides['incidencia_lag1'])
+
+            # Mapear lags de incidencia a posiciones anteriores de la secuencia
+            # lag1 → pos -1 (mes actual), lag2 → pos -2, ..., lag6 → pos -6
+            if 'incidencia_dengue' in self.lstm_features:
+                inc_idx = self.lstm_features.index('incidencia_dengue')
+                for lag in range(1, 7):
+                    key = f'incidencia_lag{lag}'
+                    if key in clima_overrides and len(feat_arr) >= lag:
+                        feat_arr[-lag, inc_idx] = float(clima_overrides[key])
+
+            # Mapear lags climáticos a posiciones anteriores de la secuencia
+            # lag1 → pos -2 (mes anterior), lag2 → pos -3, lag3 → pos -4
+            climate_lag_map = {
+                'tmax_promedio':   'tmax_lag',
+                'tmin_promedio':   'tmin_lag',
+                'precipitacion':   'precipitacion_lag',
+                'humedad_promedio':'humedad_lag',
+            }
+            for feat_name, lag_prefix in climate_lag_map.items():
+                if feat_name in self.lstm_features:
+                    feat_idx = self.lstm_features.index(feat_name)
+                    for lag in range(1, 4):
+                        key = f'{lag_prefix}{lag}'
+                        if key in clima_overrides and len(feat_arr) >= lag + 1:
+                            feat_arr[-(lag + 1), feat_idx] = float(clima_overrides[key])
 
         flat   = feat_arr.reshape(-1, len(self.lstm_features))
         scaled = self.escalador_lstm.transform(flat).reshape(1, self.lstm_seq_len, len(self.lstm_features))
