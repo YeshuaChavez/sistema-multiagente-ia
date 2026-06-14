@@ -452,11 +452,7 @@ class AgenteOrquestador:
         )
         result = []
         for row in grp.itertuples():
-            riesgo = self.calcular_nivel_riesgo(
-                row.incidencia_dengue,
-                iso_a0=row.iso_a0,
-                adm_1_name=row.adm_1_name,
-            )
+            riesgo = self.calcular_nivel_riesgo(row.incidencia_dengue)  # percentiles globales para comparación continental
             result.append({
                 "iso_a0":          row.iso_a0,
                 "adm_1_name":      row.adm_1_name,
