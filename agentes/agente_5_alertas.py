@@ -463,13 +463,13 @@ class AgenteOrquestador:
         for row in grp.itertuples():
             m = round(float(row.incidencia_dengue), 1)
             if m <= p25:
-                nivel, color = "Normal",     "#10b981"
+                nivel, color = "Bajo",      "#10b981"
             elif m <= p50:
-                nivel, color = "Vigilancia", "#eab308"
+                nivel, color = "Moderado",  "#eab308"
             elif m <= p90:
-                nivel, color = "Alerta",     "#f97316"
+                nivel, color = "Alto",      "#f97316"
             else:
-                nivel, color = "Epidemia",   "#ef4444"
+                nivel, color = "Muy Alto",  "#ef4444"
 
             result.append({
                 "iso_a0":          row.iso_a0,

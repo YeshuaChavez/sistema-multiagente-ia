@@ -129,12 +129,15 @@ export default function Map({ coordinates, onSelectDepartment, backendUrl, darkM
                   <p className="text-[11px] text-on-surface-variant m-0 uppercase font-semibold">
                     {dept.iso_a0}
                   </p>
+                  <p className="text-[11px] text-on-surface-variant m-0 mb-1">
+                    Perfil endémico histórico:
+                  </p>
                   <p className="text-[12px] my-1 font-bold" style={{ color: dept.color }}>
                     {dept.nivel}
                   </p>
                   {dept.mean_incidencia != null && (
                     <p className="text-[11px] text-on-surface-variant m-0">
-                      Incidencia media: <strong>{dept.mean_incidencia} casos/100k</strong>
+                      Media 2014–2022: <strong>{dept.mean_incidencia} casos/100k</strong>
                     </p>
                   )}
                   <button

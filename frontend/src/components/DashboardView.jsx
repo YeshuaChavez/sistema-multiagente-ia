@@ -252,13 +252,14 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
                 className="absolute bottom-md left-md bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-md rounded-lg border border-outline-variant/30 max-w-[240px] shadow-[0px_4px_20px_rgba(30,58,95,0.04)]"
                 style={{ zIndex: 1000 }}
               >
-                <p className="text-label-md font-bold text-primary mb-sm">Escala de Alerta</p>
+                <p className="text-label-md font-bold text-primary mb-xs">Perfil Endémico Histórico</p>
+                <p className="text-[10px] text-on-surface-variant mb-sm">Incidencia media 2014–2022</p>
                 <div className="h-2 w-full map-gradient rounded-full mb-xs"></div>
                 <div className="flex justify-between text-[10px] font-bold text-on-surface-variant">
                   <span>Bajo</span>
-                  <span>Vigilancia</span>
-                  <span>Alerta</span>
-                  <span>Epidemia</span>
+                  <span>Moderado</span>
+                  <span>Alto</span>
+                  <span>Muy Alto</span>
                 </div>
               </div>
             </div>
