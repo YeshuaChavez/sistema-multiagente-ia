@@ -310,7 +310,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
               <h5 className="text-label-md font-bold uppercase tracking-wider">Estado del Modelo Híbrido</h5>
             </div>
             <p className="text-body-md opacity-90 leading-relaxed">
-              El motor ensemble combina <strong>XGBoost</strong> (R²=72.2%) y <strong>LSTM PyTorch</strong> (R²=76.5%) mediante promedio simple, alcanzando <strong>R²=75.57%</strong> y MAE de 9.84 casos/100k hab.
+              El motor ensemble combina <strong>XGBoost</strong> (R²=71.9%) y <strong>LSTM PyTorch</strong> (R²=76.5%) mediante promedio simple, alcanzando <strong>R²=75.62%</strong> y MAE de 9.86 casos/100k hab.
             </p>
             <div className="mt-md flex items-center gap-sm flex-wrap">
               <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">XGBoost</span>
