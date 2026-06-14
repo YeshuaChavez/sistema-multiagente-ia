@@ -19,7 +19,7 @@ const MOCK_SHAP_GLOBAL = [
 
 const MONTH_NAMES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-export default function ExplainabilityView({ activeSubtab, lastSimulation }) {
+export default function ExplainabilityView({ activeSubtab, simulationHistory = [], onClearHistory }) {
   // ─── Global SHAP state ───
   const [shapData, setShapData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,12 +27,17 @@ export default function ExplainabilityView({ activeSubtab, lastSimulation }) {
   const [recalculating, setRecalculating] = useState(false);
 
   // ─── Local SHAP state ───
+  const [selectedIdx, setSelectedIdx] = useState(0);
   const [localLoading, setLocalLoading] = useState(false);
   const [localError, setLocalError] = useState(null);
   const [localResult, setLocalResult] = useState(null);
 
-  // Reset local result when simulation context changes
-  useEffect(() => { setLocalResult(null); }, [lastSimulation]);
+  const lastSimulation = simulationHistory[selectedIdx] ?? null;
+
+  // Reset result when selected simulation changes
+  useEffect(() => { setLocalResult(null); setLocalError(null); }, [selectedIdx]);
+  // Always point to newest when a new simulation arrives
+  useEffect(() => { setSelectedIdx(0); }, [simulationHistory.length]);
 
   // ─── Fetch global SHAP ───
   const fetchShap = useCallback(async () => {
@@ -310,118 +315,181 @@ export default function ExplainabilityView({ activeSubtab, lastSimulation }) {
 
         {/* ═══ TAB CONTENT: LOCAL SHAP ═══ */}
         {activeSubtab === "Local SHAP" && (
-          <div className="bg-white dark:bg-zinc-900 border border-outline-variant p-lg rounded-xl shadow-[0px_4px_20px_rgba(30,58,95,0.04)] max-w-4xl mx-auto w-full flex flex-col animate-fade-in">
-            <div className="mb-lg">
-              <h3 className="text-headline-md text-on-surface font-bold">SHAP Local — Explicación de la Última Simulación</h3>
-              <p className="text-label-md text-on-surface-variant mt-xs">
-                Descompone por qué el ensemble predijo ese resultado: qué variables contribuyeron más y en qué dirección.
-              </p>
+          <div className="max-w-4xl mx-auto w-full flex flex-col gap-lg animate-fade-in">
+
+            {/* ── Historial de simulaciones ── */}
+            <div className="bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl shadow-[0px_4px_20px_rgba(30,58,95,0.04)] overflow-hidden">
+              <div className="flex items-center justify-between px-lg py-md border-b border-outline-variant">
+                <div>
+                  <h3 className="text-headline-md text-on-surface font-bold">Historial de Simulaciones</h3>
+                  <p className="text-label-md text-on-surface-variant mt-xs">
+                    Selecciona una simulación para explicar con SHAP
+                  </p>
+                </div>
+                {simulationHistory.length > 0 && (
+                  <button
+                    onClick={onClearHistory}
+                    className="text-label-md text-error hover:underline flex items-center gap-xs cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">delete_sweep</span> Limpiar
+                  </button>
+                )}
+              </div>
+
+              {simulationHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-xl text-on-surface-variant gap-md">
+                  <span className="material-symbols-outlined text-[40px] opacity-30">sensors</span>
+                  <p className="text-label-md text-center">
+                    Primero ejecuta una simulación en el <strong className="text-primary">Predictor</strong> y vuelve aquí para explicarla.
+                  </p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-outline-variant max-h-64 overflow-y-auto">
+                  {simulationHistory.map((sim, idx) => {
+                    const isSelected = idx === selectedIdx;
+                    const timeLabel = sim.timestamp
+                      ? sim.timestamp.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
+                      : "";
+                    return (
+                      <li
+                        key={sim.id}
+                        onClick={() => setSelectedIdx(idx)}
+                        className={`flex items-center gap-md px-lg py-sm cursor-pointer transition-colors ${
+                          isSelected
+                            ? "bg-primary/8 border-l-4 border-l-primary"
+                            : "hover:bg-surface-container-low border-l-4 border-l-transparent"
+                        }`}
+                      >
+                        <span className={`material-symbols-outlined text-[20px] ${isSelected ? "text-primary" : "text-on-surface-variant"}`}>
+                          {isSelected ? "radio_button_checked" : "radio_button_unchecked"}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-label-md font-bold truncate ${isSelected ? "text-primary" : "text-on-surface"}`}>
+                            {sim.adm_1_name} <span className="font-normal text-on-surface-variant">({sim.country})</span>
+                          </p>
+                          <p className="text-[12px] text-on-surface-variant">
+                            Mes: <strong>{MONTH_NAMES[(sim.mes ?? 1) - 1]}</strong> · {Object.keys(sim.clima_overrides ?? {}).length} variables
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-xs flex-shrink-0">
+                          {idx === 0 && (
+                            <span className="px-xs py-[2px] bg-primary/10 text-primary text-[10px] font-bold rounded-full">ÚLTIMA</span>
+                          )}
+                          <span className="text-[11px] text-on-surface-variant">{timeLabel}</span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
 
-            {/* Contexto de la simulación + botón */}
-            {lastSimulation ? (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-md mb-lg p-md rounded-xl border border-outline-variant bg-surface-container-low">
-                <div className="flex-1 space-y-xs">
-                  <p className="text-label-md font-bold text-on-surface">
-                    {lastSimulation.country} · {lastSimulation.adm_1_name}
-                  </p>
-                  <p className="text-[12px] text-on-surface-variant">
-                    Mes objetivo: <strong>{MONTH_NAMES[(lastSimulation.mes ?? 1) - 1]}</strong> · {Object.keys(lastSimulation.clima_overrides ?? {}).length} variables configuradas
+            {/* ── Panel de explicación ── */}
+            {lastSimulation && (
+              <div className="bg-white dark:bg-zinc-900 border border-outline-variant p-lg rounded-xl shadow-[0px_4px_20px_rgba(30,58,95,0.04)] flex flex-col">
+                <div className="mb-lg">
+                  <h3 className="text-headline-md text-on-surface font-bold">SHAP Local — Explicación de Simulación</h3>
+                  <p className="text-label-md text-on-surface-variant mt-xs">
+                    Descompone qué variables contribuyeron más a la predicción y en qué dirección.
                   </p>
                 </div>
-                <button
-                  onClick={handleAnalyzeLocal}
-                  disabled={localLoading}
-                  className="px-lg py-sm bg-primary text-on-primary rounded-lg text-label-md font-bold hover:bg-primary/90 transition-colors flex items-center gap-sm cursor-pointer disabled:opacity-55 whitespace-nowrap"
-                >
-                  {localLoading
-                    ? <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Analizando...</>
-                    : <><span className="material-symbols-outlined text-[16px]">analytics</span> Explicar simulación</>}
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-xl text-on-surface-variant gap-md mb-lg border border-dashed border-outline-variant rounded-xl">
-                <span className="material-symbols-outlined text-[40px] opacity-30">sensors</span>
-                <p className="text-label-md text-center">Primero ejecuta una simulación en el <strong className="text-primary">Predictor</strong> y luego vuelve aquí para explicarla.</p>
-              </div>
-            )}
 
-            {/* Error */}
-            {localError && (
-              <div className="bg-error-container p-md rounded-lg flex items-center gap-md mb-md">
-                <span className="material-symbols-outlined text-on-error-container">error</span>
-                <p className="text-label-md text-on-error-container font-medium">{localError}</p>
-              </div>
-            )}
-
-            {/* Empty state post-sim */}
-            {!localResult && !localLoading && !localError && lastSimulation && (
-              <div className="flex flex-col items-center justify-center py-lg text-on-surface-variant gap-md">
-                <span className="material-symbols-outlined text-[48px] opacity-30">bar_chart_4_bars</span>
-                <p className="text-label-md">Haz clic en "Explicar simulación" para analizar</p>
-              </div>
-            )}
-
-            {/* Results */}
-            {localResult && (
-              <div className="animate-fade-in">
-                {/* Prediction summary */}
-                <div className="flex items-center gap-lg mb-lg p-md rounded-lg border border-outline-variant bg-surface-container-low">
-                  <div>
-                    <p className="text-label-md text-on-surface-variant">Predicción Ensemble</p>
-                    <p className="text-headline-lg font-bold text-primary" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {localResult.prediction?.toFixed(1)} <span className="text-label-md font-normal opacity-60">casos/100k</span>
+                {/* Contexto + botón */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-md mb-lg p-md rounded-xl border border-outline-variant bg-surface-container-low">
+                  <div className="flex-1 space-y-xs">
+                    <p className="text-label-md font-bold text-on-surface">
+                      {lastSimulation.country} · {lastSimulation.adm_1_name}
+                    </p>
+                    <p className="text-[12px] text-on-surface-variant">
+                      Mes objetivo: <strong>{MONTH_NAMES[(lastSimulation.mes ?? 1) - 1]}</strong> · {Object.keys(lastSimulation.clima_overrides ?? {}).length} variables configuradas
                     </p>
                   </div>
-                  <div
-                    className="px-md py-xs rounded-full text-label-md font-bold text-white"
-                    style={{ backgroundColor: localResult.riesgo?.color ?? "#10b981" }}
+                  <button
+                    onClick={handleAnalyzeLocal}
+                    disabled={localLoading}
+                    className="px-lg py-sm bg-primary text-on-primary rounded-lg text-label-md font-bold hover:bg-primary/90 transition-colors flex items-center gap-sm cursor-pointer disabled:opacity-55 whitespace-nowrap"
                   >
-                    {localResult.riesgo?.nivel ?? "—"}
-                  </div>
+                    {localLoading
+                      ? <><span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span> Analizando...</>
+                      : <><span className="material-symbols-outlined text-[16px]">analytics</span> Explicar simulación</>}
+                  </button>
                 </div>
 
-                {/* SHAP bars */}
-                <p className="text-label-md font-bold text-on-surface-variant uppercase tracking-wider mb-md">
-                  Top {localResult.shapArr.length} variables por impacto SHAP
-                </p>
-                <div className="space-y-md">
-                  {(() => {
-                    const maxAbs = Math.max(...localResult.shapArr.map((f) => Math.abs(f.value)), 0.001);
-                    return localResult.shapArr.map((feat) => {
-                      const pct = (Math.abs(feat.value) / maxAbs) * 100;
-                      const isNeg = feat.value < 0;
-                      return (
-                        <div key={feat.feature} className="space-y-xs">
-                          <div className="flex justify-between items-center" style={{ fontVariantNumeric: "tabular-nums" }}>
-                            <span className="text-label-md text-on-surface font-medium">{feat.feature}</span>
-                            <span className={`text-label-md font-bold ${isNeg ? "text-blue-600" : "text-orange-500"}`}>
-                              {feat.value > 0 ? "+" : ""}{feat.value.toFixed(4)}
-                            </span>
-                          </div>
-                          <div className="w-full bg-surface-container-low h-3.5 rounded-full overflow-hidden">
-                            <div
-                              className={`chart-bar h-full rounded-full bg-gradient-to-r ${isNeg ? "from-blue-600 to-blue-400" : "from-orange-400 to-orange-600"}`}
-                              style={{ width: `${Math.max(pct, 3)}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
+                {/* Error */}
+                {localError && (
+                  <div className="bg-error-container p-md rounded-lg flex items-center gap-md mb-md">
+                    <span className="material-symbols-outlined text-on-error-container">error</span>
+                    <p className="text-label-md text-on-error-container font-medium">{localError}</p>
+                  </div>
+                )}
 
-                {/* Legend */}
-                <div className="mt-lg flex justify-between items-center border-t border-outline-variant pt-md">
-                  <div className="flex items-center gap-sm">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Reduce riesgo (SHAP &lt; 0)</span>
+                {/* Empty state */}
+                {!localResult && !localLoading && !localError && (
+                  <div className="flex flex-col items-center justify-center py-lg text-on-surface-variant gap-md">
+                    <span className="material-symbols-outlined text-[48px] opacity-30">bar_chart_4_bars</span>
+                    <p className="text-label-md">Haz clic en "Explicar simulación" para analizar</p>
                   </div>
-                  <div className="flex items-center gap-sm">
-                    <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Aumenta riesgo (SHAP &gt; 0)</span>
-                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                )}
+
+                {/* Results */}
+                {localResult && (
+                  <div className="animate-fade-in">
+                    <div className="flex items-center gap-lg mb-lg p-md rounded-lg border border-outline-variant bg-surface-container-low">
+                      <div>
+                        <p className="text-label-md text-on-surface-variant">Predicción Ensemble</p>
+                        <p className="text-headline-lg font-bold text-primary" style={{ fontVariantNumeric: "tabular-nums" }}>
+                          {localResult.prediction?.toFixed(1)} <span className="text-label-md font-normal opacity-60">casos/100k</span>
+                        </p>
+                      </div>
+                      <div
+                        className="px-md py-xs rounded-full text-label-md font-bold text-white"
+                        style={{ backgroundColor: localResult.riesgo?.color ?? "#10b981" }}
+                      >
+                        {localResult.riesgo?.nivel ?? "—"}
+                      </div>
+                    </div>
+
+                    <p className="text-label-md font-bold text-on-surface-variant uppercase tracking-wider mb-md">
+                      Top {localResult.shapArr.length} variables por impacto SHAP
+                    </p>
+                    <div className="space-y-md">
+                      {(() => {
+                        const maxAbs = Math.max(...localResult.shapArr.map((f) => Math.abs(f.value)), 0.001);
+                        return localResult.shapArr.map((feat) => {
+                          const pct = (Math.abs(feat.value) / maxAbs) * 100;
+                          const isNeg = feat.value < 0;
+                          return (
+                            <div key={feat.feature} className="space-y-xs">
+                              <div className="flex justify-between items-center" style={{ fontVariantNumeric: "tabular-nums" }}>
+                                <span className="text-label-md text-on-surface font-medium">{feat.feature}</span>
+                                <span className={`text-label-md font-bold ${isNeg ? "text-blue-600" : "text-orange-500"}`}>
+                                  {feat.value > 0 ? "+" : ""}{feat.value.toFixed(4)}
+                                </span>
+                              </div>
+                              <div className="w-full bg-surface-container-low h-3.5 rounded-full overflow-hidden">
+                                <div
+                                  className={`chart-bar h-full rounded-full bg-gradient-to-r ${isNeg ? "from-blue-600 to-blue-400" : "from-orange-400 to-orange-600"}`}
+                                  style={{ width: `${Math.max(pct, 3)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+
+                    <div className="mt-lg flex justify-between items-center border-t border-outline-variant pt-md">
+                      <div className="flex items-center gap-sm">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Reduce riesgo (SHAP &lt; 0)</span>
+                      </div>
+                      <div className="flex items-center gap-sm">
+                        <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Aumenta riesgo (SHAP &gt; 0)</span>
+                        <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>

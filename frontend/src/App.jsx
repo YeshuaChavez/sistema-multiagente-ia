@@ -21,7 +21,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [lastSimulation, setLastSimulation] = useState(null);
+  const [simulationHistory, setSimulationHistory] = useState([]);
 
   // Cargar metadatos y coordenadas al montar
   useEffect(() => {
@@ -233,11 +233,13 @@ export default function App() {
             setSelectedDept={setSelectedDept}
             activeSubtab={activeSubtab}
             backendStatus={backendStatus}
-            onSimulationComplete={setLastSimulation}
+            onSimulationComplete={(sim) =>
+              setSimulationHistory((prev) => [{ ...sim, id: Date.now(), timestamp: new Date() }, ...prev])
+            }
           />
         );
       case "explain":
-        return <ExplainabilityView activeSubtab={activeSubtab} lastSimulation={lastSimulation} />;
+        return <ExplainabilityView activeSubtab={activeSubtab} simulationHistory={simulationHistory} onClearHistory={() => setSimulationHistory([])} />;
       case "info":
         return <InfoView />;
       default:
