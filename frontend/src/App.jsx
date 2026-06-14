@@ -285,14 +285,14 @@ export default function App() {
         )}
 
         {/* Scrollable Content */}
-        <section className="flex-1 overflow-y-auto px-lg pt-lg pb-xl">
+        <section className="flex-1 overflow-y-auto px-sm sm:px-lg pt-md sm:pt-lg pb-24 md:pb-xl">
           <div className="max-w-[1440px] mx-auto">
             {renderView()}
           </div>
         </section>
 
-        {/* Footer */}
-        <footer className="border-t border-outline-variant px-lg py-md flex flex-col sm:flex-row justify-between items-center gap-md text-on-surface-variant text-label-md">
+        {/* Footer — oculto en móvil para no competir con bottom nav */}
+        <footer className="hidden md:flex border-t border-outline-variant px-lg py-md flex-col sm:flex-row justify-between items-center gap-md text-on-surface-variant text-label-md">
           <p>© {new Date().getFullYear()} EpiPredict Dengue — Unidad de Análisis SMA-ML/DL</p>
           <div className="flex gap-lg">
             <span className="hover:text-primary transition-colors cursor-pointer" onClick={() => setIsSupportOpen(true)}>Documentación</span>
@@ -303,28 +303,30 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-outline-variant md:hidden flex justify-around py-sm z-50">
+      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-outline-variant md:hidden flex justify-around items-center py-xs z-50">
         {[
-          { id: "dashboard", icon: "dashboard", label: "Home" },
-          { id: "predictor", icon: "query_stats", label: "Predicción" },
+          { id: "dashboard", icon: "dashboard", label: "Inicio" },
+          { id: "predictor", icon: "query_stats", label: "Predictor" },
           { id: "explain", icon: "psychology", label: "XAI" },
-          { id: "info", icon: "settings", label: "Más" },
+          { id: "info", icon: "menu_book", label: "Info" },
         ].map((item) => (
-          <div
+          <button
             key={item.id}
             onClick={() => setCurrentView(item.id)}
-            className={`flex flex-col items-center gap-xs cursor-pointer ${
-              currentView === item.id ? "text-primary font-bold" : "text-on-surface-variant"
+            className={`flex flex-col items-center gap-[2px] py-xs px-md cursor-pointer transition-colors rounded-lg ${
+              currentView === item.id ? "text-primary" : "text-on-surface-variant"
             }`}
           >
             <span
-              className="material-symbols-outlined"
+              className="material-symbols-outlined text-[22px]"
               style={currentView === item.id ? { fontVariationSettings: "'FILL' 1" } : {}}
             >
               {item.icon}
             </span>
-            <span className="text-[10px]">{item.label}</span>
-          </div>
+            <span className={`text-[10px] font-medium ${currentView === item.id ? "font-bold" : ""}`}>
+              {item.label}
+            </span>
+          </button>
         ))}
       </nav>
 
