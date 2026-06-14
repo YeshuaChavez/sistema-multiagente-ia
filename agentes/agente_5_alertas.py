@@ -169,9 +169,11 @@ class AgenteOrquestador:
 
         # ── Vector de features para Agente 3 ──
         cols_feat = self.agente_ml.cols_feat
+        # Estas features se recalculan siempre; no deben venir del CSV ni de clima_overrides
+        _ALWAYS_COMPUTED = {"mes_sin", "mes_cos", "incidencia_roll3", "incidencia_roll6"}
         vector = []
         for feat in cols_feat:
-            val = base_record.get(feat)
+            val = None if feat in _ALWAYS_COMPUTED else base_record.get(feat)
             if val is not None and not (isinstance(val, float) and np.isnan(val)):
                 vector.append(val)
             elif "_lag" in feat:
@@ -222,7 +224,7 @@ class AgenteOrquestador:
 
         if clima_overrides:
             for i, feat in enumerate(cols_feat):
-                if feat in clima_overrides:
+                if feat in clima_overrides and feat not in _ALWAYS_COMPUTED:
                     vector[i] = float(clima_overrides[feat])
 
         # ── Agente 3: XGBoost ──
@@ -300,9 +302,10 @@ class AgenteOrquestador:
         ref_mes = int(base_record.get('mes', 1))
 
         cols_feat = self.agente_ml.cols_feat
+        _ALWAYS_COMPUTED = {"mes_sin", "mes_cos", "incidencia_roll3", "incidencia_roll6"}
         vector = []
         for feat in cols_feat:
-            val = base_record.get(feat)
+            val = None if feat in _ALWAYS_COMPUTED else base_record.get(feat)
             if val is not None and not (isinstance(val, float) and np.isnan(val)):
                 vector.append(val)
             elif "_lag" in feat:

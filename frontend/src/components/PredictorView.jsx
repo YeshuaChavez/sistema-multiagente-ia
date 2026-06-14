@@ -284,11 +284,13 @@ export default function PredictorView({
       return;
     }
 
+    // Excluir features que siempre se recalculan en el backend
+    const { mes_sin, mes_cos, incidencia_roll3, incidencia_roll6, ...cleanOverrides } = sliderValues;
     const body = {
       iso_a0: isoCode,
       adm_1_name: selectedDept,
       mes: targetMes,
-      clima_overrides: sliderValues,
+      clima_overrides: cleanOverrides,
     };
 
     try {

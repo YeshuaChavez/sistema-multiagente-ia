@@ -69,7 +69,7 @@ export default function ExplainabilityView({ activeSubtab, lastSimulation }) {
           iso_a0: lastSimulation.iso_a0,
           adm_1_name: lastSimulation.adm_1_name,
           mes: lastSimulation.mes,
-          clima_overrides: lastSimulation.clima_overrides,
+          clima_overrides: lastSimulation.clima_overrides, // ya viene sin mes_sin/mes_cos/rolls
           include_shap: true,
         }),
       });
