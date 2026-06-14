@@ -60,52 +60,40 @@ function ChangeView({ coordinates }) {
   return null;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 export default function Map({ coordinates, onSelectDepartment, backendUrl, darkMode }) {
   const [mapData, setMapData] = useState([]);
 
-  // Centrar mapa en el centro geográfico aproximado de Latinoamérica
   const defaultPosition = [-15.0, -65.0];
   const defaultZoom = 3;
 
   useEffect(() => {
     if (!coordinates || coordinates.length === 0) return;
 
-    // Para cada departamento, cargar su nivel de riesgo actual de forma asíncrona
-    // o simular un nivel de riesgo basado en sus coordenadas si el endpoint falla,
-    // pero idealmente llamamos a la API para cada depto
-    const fetchIncidences = async () => {
-      const updatedData = [];
-      
-      // Para optimizar en el prototipo, cargamos las coordenadas y les asignamos un riesgo aleatorio inicial
-      // o el riesgo basado en sus datos reales si consultamos
-      for (let coord of coordinates) {
-        // Por defecto, color verde para riesgo normal
-        let color = "#10b981"; 
-        let nivel = "Bajo / Normal";
-        
-        // Simular algunos focos de calor realistas para la visualización del mapa
-        const hash = coord.adm_1_name.length + coord.lat + coord.lon;
-        if (hash % 7 === 0) {
-          color = "#ef4444"; // Epidemia (rojo)
-          nivel = "Epidemia";
-        } else if (hash % 5 === 0) {
-          color = "#f97316"; // Alerta (naranja)
-          nivel = "Alerta";
-        } else if (hash % 3 === 0) {
-          color = "#eab308"; // Vigilancia (amarillo)
-          nivel = "Vigilancia";
+    const fetchRiskData = async () => {
+      // Clave de lookup: "ISO_A0|ADM_NAME" → {color, nivel, mean_incidencia}
+      let riskLookup = {};
+      try {
+        const res = await fetch(`${API_URL}/api/map-summary`);
+        if (res.ok) {
+          const summary = await res.json();
+          for (const entry of summary) {
+            const key = `${entry.iso_a0.trim().toUpperCase()}|${entry.adm_1_name.trim().toUpperCase()}`;
+            riskLookup[key] = { color: entry.color, nivel: entry.nivel, mean_incidencia: entry.mean_incidencia };
+          }
         }
+      } catch (_) {}
 
-        updatedData.push({
-          ...coord,
-          color,
-          nivel
-        });
-      }
+      const updatedData = coordinates.map((coord) => {
+        const key = `${String(coord.iso_a0 ?? "").trim().toUpperCase()}|${String(coord.adm_1_name ?? "").trim().toUpperCase()}`;
+        const risk = riskLookup[key] ?? { color: "#10b981", nivel: "Normal", mean_incidencia: null };
+        return { ...coord, ...risk };
+      });
       setMapData(updatedData);
     };
 
-    fetchIncidences();
+    fetchRiskData();
   }, [coordinates]);
 
   return (
@@ -136,19 +124,24 @@ export default function Map({ coordinates, onSelectDepartment, backendUrl, darkM
               icon={crearIconoRiesgo(dept.color)}
             >
               <Popup>
-                <div className="text-on-surface p-1">
+                <div className="text-on-surface p-1 min-w-[160px]">
                   <h4 className="font-bold text-[14px] m-0">{dept.adm_1_name}</h4>
                   <p className="text-[11px] text-on-surface-variant m-0 uppercase font-semibold">
-                    País: {dept.iso_a0}
+                    {dept.iso_a0}
                   </p>
-                  <p className="text-[12px] my-1" style={{ color: dept.color }}>
-                    <strong>Riesgo: {dept.nivel}</strong>
+                  <p className="text-[12px] my-1 font-bold" style={{ color: dept.color }}>
+                    {dept.nivel}
                   </p>
+                  {dept.mean_incidencia != null && (
+                    <p className="text-[11px] text-on-surface-variant m-0">
+                      Incidencia media: <strong>{dept.mean_incidencia} casos/100k</strong>
+                    </p>
+                  )}
                   <button
                     onClick={() => onSelectDepartment(dept.iso_a0, dept.adm_1_name)}
-                    className="mt-2 w-full text-[11px] bg-primary-container text-on-primary font-bold py-1 px-2 rounded hover:bg-primary transition-colors cursor-pointer"
+                    className="mt-2 w-full text-[11px] bg-primary text-white font-bold py-1 px-2 rounded hover:opacity-90 transition-colors cursor-pointer"
                   >
-                    Simular Predictor 🔮
+                    Abrir en Predictor
                   </button>
                 </div>
               </Popup>

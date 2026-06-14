@@ -167,3 +167,6 @@ class PredictionService:
 
     def obtener_features_departamento(self, iso_a0, adm_1_name, ano=None, mes=None):
         return self.orquestador.obtener_features_departamento(iso_a0, adm_1_name, ano, mes)
+
+    def obtener_resumen_mapa(self):
+        return self.orquestador.obtener_resumen_mapa()

@@ -439,3 +439,29 @@ class AgenteOrquestador:
     def obtener_shap_global(self):
         """Retorna las importancias SHAP globales (Agente 3)."""
         return self.agente_ml.shap_importance
+
+    def obtener_resumen_mapa(self):
+        """
+        Devuelve incidencia histórica media y nivel de riesgo real por departamento.
+        Usado por el frontend para colorear los marcadores del mapa con datos reales.
+        """
+        grp = (
+            self.df_master
+            .groupby(['iso_a0', 'adm_1_name'], as_index=False)['incidencia_dengue']
+            .mean()
+        )
+        result = []
+        for row in grp.itertuples():
+            riesgo = self.calcular_nivel_riesgo(
+                row.incidencia_dengue,
+                iso_a0=row.iso_a0,
+                adm_1_name=row.adm_1_name,
+            )
+            result.append({
+                "iso_a0":          row.iso_a0,
+                "adm_1_name":      row.adm_1_name,
+                "mean_incidencia": round(float(row.incidencia_dengue), 2),
+                "nivel":           riesgo["nivel"],
+                "color":           riesgo["color"],
+            })
+        return result

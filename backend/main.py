@@ -166,6 +166,14 @@ def get_top_departments(n: int = Query(5, ge=1, le=20, description="Número de d
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener top departamentos: {str(e)}")
 
+@app.get("/api/map-summary", tags=["Datos"])
+def get_map_summary():
+    """Devuelve incidencia histórica media y nivel de riesgo real por departamento para el mapa."""
+    try:
+        return prediction_service.obtener_resumen_mapa()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener resumen del mapa: {str(e)}")
+
 @app.get("/api/features", tags=["Datos"])
 def get_features(
     iso_a0: str = Query(..., description="Código ISO del país (ej. PER)"),
