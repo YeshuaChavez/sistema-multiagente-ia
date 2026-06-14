@@ -90,7 +90,7 @@ class PredictionService:
         """Descarga modelos y datos desde S3 si no existen localmente."""
         print("[SMA-ML/DL] Verificando archivos en S3...")
         modelos = [
-            "lgbm_model.pkl", "imputador_ml.pkl", "escalador_ml.pkl",
+            "xgb_model.pkl", "imputador_ml.pkl", "escalador_ml.pkl",
             "cols_feat.pkl", "shap_importance.json",
             "lstm_model.pth", "lstm_config.json", "lstm_features.pkl",
             "escalador_lstm.pkl", "metrics.json",
@@ -127,7 +127,7 @@ class PredictionService:
             df_coords['iso_a0'] = df_coords['iso_a0'].astype(str).str.strip().str.upper()
             df_coords['adm_1_name'] = df_coords['adm_1_name'].astype(str).str.strip().str.upper()
 
-        # Agente 3: LightGBM
+        # Agente 3: XGBoost
         agente_ml = AgentePrediccionML.cargar_modelo(self.model_dir, self.base_dir)
 
         # Agente 4: LSTM PyTorch

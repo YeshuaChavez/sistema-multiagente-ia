@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
-Agente 3: Predicción Machine Learning (LightGBM)
---------------------------------------------------
-Responsabilidad: Entrenar el modelo LightGBM sobre el dataset de features
+Agente 3: Predicción Machine Learning (XGBoost)
+-------------------------------------------------
+Responsabilidad: Entrenar el modelo XGBoost sobre el dataset de features
 generado por el Agente 2, calcular SHAP y serializar todos los artefactos
 en S3. En modo inferencia, cargar el modelo serializado para predicción online.
 """
@@ -18,7 +18,7 @@ import shap
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, r2_score
-from lightgbm import LGBMRegressor
+from xgboost import XGBRegressor
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
@@ -47,12 +47,12 @@ class AgentePrediccionML:
 
     def entrenar_modelo(self):
         """
-        Descarga dataset_features_latam.csv de S3, entrena LightGBM con
+        Descarga dataset_features_latam.csv de S3, entrena XGBoost con
         transformación log1p, calcula SHAP con media con signo y sube
         todos los artefactos a S3/modelos/.
         """
         print("=" * 70)
-        print("  ENTRENANDO — AGENTE 3: LightGBM")
+        print("  ENTRENANDO — AGENTE 3: XGBoost")
         print("=" * 70)
 
         os.makedirs(self.model_dir, exist_ok=True)
@@ -95,16 +95,15 @@ class AgentePrediccionML:
         # Transformación logarítmica del target (igual que en producción)
         y_train_log = np.log1p(y_train)
 
-        # Entrenamiento LightGBM
-        print("   [ML] Entrenando LightGBM...")
-        modelo = LGBMRegressor(
+        # Entrenamiento XGBoost
+        print("   [ML] Entrenando XGBoost...")
+        modelo = XGBRegressor(
             n_estimators=400,
             learning_rate=0.04,
-            num_leaves=63,
-            min_child_samples=20,
+            max_depth=6,
             random_state=self.semilla,
             n_jobs=-1,
-            verbose=-1
+            verbosity=0
         )
         modelo.fit(X_train, y_train_log)
 
@@ -113,7 +112,7 @@ class AgentePrediccionML:
         pred     = np.expm1(pred_log)
         r2  = r2_score(y_test, pred)
         mae = mean_absolute_error(y_test, pred)
-        print(f"   [ML] R²={r2*100:.2f}%  MAE={mae:.4f}")
+        print(f"   [XGBoost] R²={r2*100:.2f}%  MAE={mae:.4f}")
 
         # SHAP con media con signo (preserva dirección del efecto)
         print("   [SHAP] Calculando TreeSHAP...")
@@ -128,7 +127,7 @@ class AgentePrediccionML:
         ))
 
         # Serializar artefactos localmente
-        with open(os.path.join(self.model_dir, "lgbm_model.pkl"),    "wb") as f: pickle.dump(modelo,     f)
+        with open(os.path.join(self.model_dir, "xgb_model.pkl"),    "wb") as f: pickle.dump(modelo,     f)
         with open(os.path.join(self.model_dir, "imputador_ml.pkl"),  "wb") as f: pickle.dump(imputador,  f)
         with open(os.path.join(self.model_dir, "escalador_ml.pkl"),  "wb") as f: pickle.dump(escalador,  f)
         with open(os.path.join(self.model_dir, "cols_feat.pkl"),     "wb") as f: pickle.dump(COLS_FEAT,  f)
@@ -136,14 +135,14 @@ class AgentePrediccionML:
             json.dump(shap_dict, f, indent=4)
 
         # Subir a S3
-        for fname in ["lgbm_model.pkl", "imputador_ml.pkl", "escalador_ml.pkl",
+        for fname in ["xgb_model.pkl", "imputador_ml.pkl", "escalador_ml.pkl",
                       "cols_feat.pkl", "shap_importance.json"]:
             s3.upload(os.path.join(self.model_dir, fname), s3.PREFIX_MODELOS + fname)
 
-        print("SUCCESS: [Agente 3] LightGBM entrenado y subido a S3.")
+        print("SUCCESS: [Agente 3] XGBoost entrenado y subido a S3.")
         print("=" * 70)
 
-        return {"r2_lgbm": round(r2, 4), "mae_lgbm": round(mae, 4),
+        return {"r2_xgb": round(r2, 4), "mae_xgb": round(mae, 4),
                 "n_train": len(df_train), "n_test": len(df_test)}
 
     # ─────────────────────────────────────────────────────────────
@@ -152,9 +151,9 @@ class AgentePrediccionML:
 
     @classmethod
     def cargar_modelo(cls, model_dir, base_dir=None):
-        """Carga LightGBM serializado para inferencia sin reentrenar."""
+        """Carga XGBoost serializado para inferencia sin reentrenar."""
         agente = cls(base_dir=base_dir)
-        with open(os.path.join(model_dir, "lgbm_model.pkl"),   "rb") as f: agente.modelo    = pickle.load(f)
+        with open(os.path.join(model_dir, "xgb_model.pkl"),   "rb") as f: agente.modelo    = pickle.load(f)
         with open(os.path.join(model_dir, "imputador_ml.pkl"), "rb") as f: agente.imputador = pickle.load(f)
         with open(os.path.join(model_dir, "escalador_ml.pkl"), "rb") as f: agente.escalador = pickle.load(f)
         with open(os.path.join(model_dir, "cols_feat.pkl"),    "rb") as f: agente.cols_feat = pickle.load(f)
@@ -162,7 +161,7 @@ class AgentePrediccionML:
         shap_path = os.path.join(model_dir, "shap_importance.json")
         agente.shap_importance = json.load(open(shap_path)) if os.path.exists(shap_path) else {}
         agente._shap_explainer = shap.TreeExplainer(agente.modelo)
-        print(f"   [Agente 3] LightGBM cargado — {len(agente.cols_feat)} features.")
+        print(f"   [Agente 3] XGBoost cargado — {len(agente.cols_feat)} features.")
         return agente
 
     def predecir(self, vector, compute_shap=False):

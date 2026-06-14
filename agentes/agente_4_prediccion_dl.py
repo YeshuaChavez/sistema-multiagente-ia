@@ -5,7 +5,7 @@ Agente 4: Predicción Deep Learning (LSTM PyTorch)
 --------------------------------------------------
 Responsabilidad: Entrenar el modelo LSTM sobre el dataset de features generado
 por el Agente 2, serializar artefactos y subirlos a S3. También genera el
-metrics.json combinado (LightGBM + LSTM) para el endpoint /api/metrics.
+metrics.json combinado (XGBoost + LSTM) para el endpoint /api/metrics.
 En modo inferencia, carga el modelo serializado para predicción online.
 """
 
@@ -88,10 +88,10 @@ class AgentePrediccionDL:
         """
         Descarga dataset_features_latam.csv de S3, entrena LSTM PyTorch con
         transformación log1p, serializa artefactos y los sube a S3.
-        Genera el metrics.json combinado (LightGBM + LSTM).
+        Genera el metrics.json combinado (XGBoost + LSTM).
 
         Args:
-            metricas_ml: dict con r2_lgbm, mae_lgbm, n_train, n_test del Agente 3.
+            metricas_ml: dict con r2_xgb, mae_xgb, n_train, n_test del Agente 3.
         """
         print("=" * 70)
         print("  ENTRENANDO — AGENTE 4: LSTM PyTorch")
@@ -175,15 +175,15 @@ class AgentePrediccionDL:
         with open(os.path.join(self.model_dir, "lstm_config.json"), "w") as f:
             json.dump(lstm_config, f, indent=4)
 
-        # Metrics combinadas (LightGBM + LSTM)
-        r2_ml  = metricas_ml.get("r2_lgbm",  0.0) if metricas_ml else 0.0
-        mae_ml = metricas_ml.get("mae_lgbm", 0.0) if metricas_ml else 0.0
+        # Metrics combinadas (XGBoost + LSTM)
+        r2_ml  = metricas_ml.get("r2_xgb",  0.0) if metricas_ml else 0.0
+        mae_ml = metricas_ml.get("mae_xgb", 0.0) if metricas_ml else 0.0
         n_rec  = metricas_ml.get("n_train", len(df)) if metricas_ml else len(df)
 
         metrics = {
             "records_procesados": int(n_rec),
-            "r2_lgbm":     round(r2_ml, 4),
-            "mae_lgbm":    round(mae_ml, 4),
+            "r2_xgb":      round(r2_ml, 4),
+            "mae_xgb":     round(mae_ml, 4),
             "r2_lstm":     round(r2, 4),
             "mae_lstm":    round(mae, 4),
             "r2_ensemble": round((r2_ml + r2) / 2, 4),

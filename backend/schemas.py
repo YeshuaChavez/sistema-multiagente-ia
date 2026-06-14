@@ -30,8 +30,8 @@ class RiskLevel(BaseModel):
     color: str = Field(..., description="Color hexadecimal para renderizado en frontend")
 
 class PredictionResponse(BaseModel):
-    prediccion_ml: float = Field(..., description="Predicción del Agente ML (LightGBM)")
-    riesgo_ml: RiskLevel = Field(..., description="Nivel de riesgo estimado por LightGBM")
+    prediccion_ml: float = Field(..., description="Predicción del Agente ML (XGBoost)")
+    riesgo_ml: RiskLevel = Field(..., description="Nivel de riesgo estimado por XGBoost")
     prediccion_lstm: Optional[float] = Field(None, description="Predicción del Agente LSTM (PyTorch LSTM secuencial)")
     riesgo_lstm: Optional[RiskLevel] = Field(None, description="Nivel de riesgo estimado por el LSTM")
     prediccion_ensemble: float = Field(..., description="Predicción del Ensemble promediado (3 modelos)")

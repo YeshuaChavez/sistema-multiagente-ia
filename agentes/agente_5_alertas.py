@@ -3,7 +3,7 @@
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 5: Orquestador de Consenso (Ensemble + Alertas)
 --------------------------------------------------
-Responsabilidad: Unifica las predicciones del Agente 3 (LightGBM) y el Agente 4
+Responsabilidad: Unifica las predicciones del Agente 3 (XGBoost) y el Agente 4
 (LSTM PyTorch) mediante promedio de ensemble, clasifica el nivel de riesgo
 epidemiológico con percentiles históricos calibrados por departamento, y coordina
 la respuesta final del sistema multi-agente.
@@ -19,7 +19,7 @@ class AgenteOrquestador:
     Agente 5 — Orquestador del Sistema Multi-Agente SMA-ML/DL.
 
     Flujo de inferencia:
-      Agente 3 (LightGBM) ─┐
+      Agente 3 (XGBoost)  ─┐
                              ├─► Ensemble (promedio) ─► Nivel de Riesgo
       Agente 4 (LSTM)     ─┘
 
@@ -95,7 +95,7 @@ class AgenteOrquestador:
 
         Pasos:
           1. Recupera el historial del departamento.
-          2. Construye el vector de 34 features para Agente 3 (LightGBM).
+          2. Construye el vector de 31 features para Agente 3 (XGBoost).
           3. Agente 3 → predicción ML + SHAP local.
           4. Agente 4 → predicción LSTM con secuencia de 12 meses.
           5. Ensemble = (ML + LSTM) / 2.
@@ -176,7 +176,7 @@ class AgenteOrquestador:
                 if feat in clima_overrides:
                     vector[i] = float(clima_overrides[feat])
 
-        # ── Agente 3: LightGBM ──
+        # ── Agente 3: XGBoost ──
         res_ml = self.agente_ml.predecir(vector, compute_shap=True)
         pred_ml = res_ml["prediccion_ml"]
 
