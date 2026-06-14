@@ -193,25 +193,17 @@ export default function PredictorView({
           setSliderValues(defaults);
           setResult(null);
         } else {
-          // Query backend without specifying a date — backend returns the latest available record
-          const body = {
-            iso_a0: isoCode,
-            adm_1_name: selectedDept,
-            clima_overrides: {}
-          };
-          const res = await fetch(`${API_URL}/api/predict/simulate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
+          // Endpoint ligero: solo devuelve features sin correr ningún modelo
+          const params = new URLSearchParams({ iso_a0: isoCode, adm_1_name: selectedDept });
+          const res = await fetch(`${API_URL}/api/features?${params}`);
           if (res.ok) {
             const data = await res.json();
-            if (data.features_usadas) {
-              setSliderValues(data.features_usadas);
+            if (data.features) {
+              setSliderValues(data.features);
             }
-            setResult(data);
+            setResult(null);
           } else {
-            console.warn("Fallo en baseline API, usando mock...");
+            console.warn("Fallo en /api/features, usando valores por defecto...");
           }
         }
       } catch (err) {

@@ -164,3 +164,6 @@ class PredictionService:
 
     def obtener_top_departamentos(self, n=5):
         return self.orquestador.obtener_top_departamentos(n)
+
+    def obtener_features_departamento(self, iso_a0, adm_1_name, ano=None, mes=None):
+        return self.orquestador.obtener_features_departamento(iso_a0, adm_1_name, ano, mes)

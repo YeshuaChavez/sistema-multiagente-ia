@@ -261,6 +261,112 @@ class AgenteOrquestador:
         return result
 
     # ─────────────────────────────────────────────────────────────
+    # FEATURES SIN INFERENCIA (para pre-carga de sliders)
+    # ─────────────────────────────────────────────────────────────
+
+    def obtener_features_departamento(self, iso_a0, adm_1_name, ano=None, mes=None):
+        """
+        Construye el vector de 34 features para un departamento sin correr
+        ningún modelo (ni XGBoost ni LSTM). Usado por el frontend para
+        pre-poblar los sliders al seleccionar un departamento.
+
+        Returns:
+            dict con 'features' (dict feature→valor) y 'percentiles_locales'.
+        """
+        iso_a0 = iso_a0.strip().upper()
+        adm_1_name_u = adm_1_name.strip().upper()
+
+        df_dept = self.df_master[
+            (self.df_master['iso_a0'] == iso_a0) &
+            (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
+        ].sort_values(['ano', 'mes']).reset_index(drop=True)
+
+        if df_dept.empty:
+            raise ValueError(f"No se encontraron registros para {adm_1_name} ({iso_a0})")
+
+        target_row = pd.DataFrame()
+        if ano is not None and mes is not None:
+            target_row = df_dept[(df_dept['ano'] == ano) & (df_dept['mes'] == mes)]
+        if target_row.empty:
+            target_row = df_dept.iloc[[-1]]
+
+        base_record = target_row.iloc[0].to_dict()
+        ref_idx = list(target_row.index)[0]
+        ref_mes = int(base_record.get('mes', 1))
+
+        cols_feat = self.agente_ml.cols_feat
+        vector = []
+        for feat in cols_feat:
+            val = base_record.get(feat)
+            if val is not None and not (isinstance(val, float) and np.isnan(val)):
+                vector.append(val)
+            elif "_lag" in feat:
+                parts = feat.split("_lag")
+                var_base = parts[0]
+                lag_num = int(parts[1])
+                lag_val = None
+                if ref_idx >= lag_num:
+                    if var_base == "incidencia_vecinos":
+                        lag_row = df_dept.iloc[ref_idx - lag_num]
+                        lag_ano = int(lag_row['ano'])
+                        lag_mes = int(lag_row['mes'])
+                        nbrs = self._neighbor_map.get((iso_a0, adm_1_name_u), [])
+                        vals = [self._inc_lookup.get((iso_a0, n, lag_ano, lag_mes))
+                                for n in nbrs]
+                        vals = [v for v in vals if v is not None and not np.isnan(v)]
+                        if vals:
+                            lag_val = float(np.mean(vals))
+                        else:
+                            lag_val = self._inc_lookup.get(
+                                (iso_a0, adm_1_name_u, lag_ano, lag_mes))
+                    else:
+                        map_vars = {
+                            "tmax": "tmax_promedio", "tmin": "tmin_promedio",
+                            "precipitacion": "precipitacion", "humedad": "humedad_promedio",
+                            "incidencia": "incidencia_dengue",
+                        }
+                        col_real = map_vars.get(var_base, var_base)
+                        if col_real in df_dept.columns:
+                            lag_val = df_dept.loc[ref_idx - lag_num, col_real]
+                if lag_val is None or (isinstance(lag_val, float) and np.isnan(lag_val)):
+                    med = df_dept[df_dept['mes'] == ref_mes].median(numeric_only=True).to_dict()
+                    lag_val = med.get(var_base, 0.0)
+                vector.append(lag_val)
+            elif feat == "incidencia_roll3":
+                vals = df_dept['incidencia_dengue'].iloc[max(0, ref_idx - 3):ref_idx].values
+                vector.append(float(np.mean(vals)) if len(vals) > 0 else 0.0)
+            elif feat == "incidencia_roll6":
+                vals = df_dept['incidencia_dengue'].iloc[max(0, ref_idx - 6):ref_idx].values
+                vector.append(float(np.mean(vals)) if len(vals) > 0 else 0.0)
+            elif feat == "mes_sin":
+                vector.append(float(np.sin(2 * np.pi * ref_mes / 12)))
+            elif feat == "mes_cos":
+                vector.append(float(np.cos(2 * np.pi * ref_mes / 12)))
+            else:
+                vector.append(0.0)
+
+        features = {f: float(v) for f, v in zip(cols_feat, vector)}
+
+        p25, p50, p90 = self.p25, self.p50, self.p90
+        df_d = self.df_master[
+            (self.df_master['iso_a0'] == iso_a0) &
+            (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
+        ]
+        if not df_d.empty:
+            p25 = float(df_d["incidencia_dengue"].quantile(0.25))
+            p50 = max(float(df_d["incidencia_dengue"].quantile(0.50)), 0.5)
+            p90 = max(float(df_d["incidencia_dengue"].quantile(0.90)), 5.0)
+
+        return {
+            "features": features,
+            "percentiles_locales": {
+                "p25": round(p25, 4),
+                "p50": round(p50, 4),
+                "p90": round(p90, 4),
+            },
+        }
+
+    # ─────────────────────────────────────────────────────────────
     # SERVICIOS DE DATOS
     # ─────────────────────────────────────────────────────────────
 

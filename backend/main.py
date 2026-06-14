@@ -166,6 +166,21 @@ def get_top_departments(n: int = Query(5, ge=1, le=20, description="Número de d
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener top departamentos: {str(e)}")
 
+@app.get("/api/features", tags=["Datos"])
+def get_features(
+    iso_a0: str = Query(..., description="Código ISO del país (ej. PER)"),
+    adm_1_name: str = Query(..., description="Nombre del departamento/subregión"),
+    ano: int = Query(None, description="Año (opcional, usa el último disponible si se omite)"),
+    mes: int = Query(None, description="Mes (opcional, usa el último disponible si se omite)"),
+):
+    """Devuelve el vector de 34 features del último período disponible sin correr ningún modelo."""
+    try:
+        return prediction_service.obtener_features_departamento(iso_a0, adm_1_name, ano, mes)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al obtener features: {str(e)}")
+
 @app.get("/api/explain/global", tags=["Explicabilidad XAI"])
 def explain_global():
     if prediction_service.shap_importance is None:
