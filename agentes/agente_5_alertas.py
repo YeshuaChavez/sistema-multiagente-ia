@@ -157,6 +157,11 @@ class AgenteOrquestador:
         ref_idx = list(target_row.index)[0]
         ref_mes = int(base_record.get('mes', 1))
 
+        # Si el usuario especificó un mes objetivo, usarlo para mes_sin/mes_cos
+        # aunque no exista ese mes en el CSV (ej: predecir julio 2026)
+        if mes is not None:
+            ref_mes = int(mes)
+
         if clima_overrides:
             for key, val in clima_overrides.items():
                 if key in base_record:

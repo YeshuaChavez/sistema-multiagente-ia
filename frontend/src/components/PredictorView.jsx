@@ -140,6 +140,7 @@ export default function PredictorView({
 }) {
   const [sliderValues, setSliderValues] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [targetMes, setTargetMes] = useState(new Date().getMonth() + 1);
 
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -285,6 +286,7 @@ export default function PredictorView({
     const body = {
       iso_a0: isoCode,
       adm_1_name: selectedDept,
+      mes: targetMes,
       clima_overrides: sliderValues,
     };
 
@@ -404,6 +406,18 @@ export default function PredictorView({
                       ))}
                     </select>
                   </div>
+                </div>
+                <div className="space-y-xs">
+                  <label className="text-body-md text-on-surface-variant">Mes objetivo de predicción</label>
+                  <select
+                    value={targetMes}
+                    onChange={(e) => setTargetMes(parseInt(e.target.value))}
+                    className="w-full bg-surface-container-high text-primary font-bold text-label-md px-sm py-2 rounded-lg border-none outline-none cursor-pointer"
+                  >
+                    {monthNames.map((name, i) => (
+                      <option key={i + 1} value={i + 1}>{name}</option>
+                    ))}
+                  </select>
                 </div>
                 {selectedCountry && selectedDept && (
                   <p className="text-[11px] text-on-surface-variant italic">
