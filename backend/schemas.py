@@ -20,6 +20,7 @@ class SimulationRequest(BaseModel):
     ano: Optional[int] = Field(None, example=2022, description="Año de referencia (opcional; si se omite usa el último registro disponible)")
     mes: Optional[int] = Field(None, example=6, description="Mes de referencia (1-12, opcional)")
     clima_overrides: Optional[Dict[str, float]] = Field(None, description="Valores simulados por el usuario para cualquier variable")
+    include_shap: bool = Field(False, description="Si True, calcula y retorna valores SHAP locales (más lento)")
 
 class RawPredictionRequest(BaseModel):
     features: List[float] = Field(..., description="Vector de 23 características ordenadas")

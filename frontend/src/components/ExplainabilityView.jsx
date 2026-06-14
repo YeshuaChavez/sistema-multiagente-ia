@@ -88,7 +88,7 @@ export default function ExplainabilityView({ activeSubtab }) {
       const res = await fetch(`${API_URL}/api/predict/simulate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ iso_a0, adm_1_name: localDept }),
+        body: JSON.stringify({ iso_a0, adm_1_name: localDept, include_shap: true }),
       });
       if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
       const data = await res.json();

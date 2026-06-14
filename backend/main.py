@@ -123,7 +123,8 @@ def predict_simulate(req: SimulationRequest):
             adm_1_name=req.adm_1_name,
             ano=req.ano,
             mes=req.mes,
-            clima_overrides=overrides
+            clima_overrides=overrides,
+            compute_shap=req.include_shap,
         )
         return res
     except ValueError as val_err:

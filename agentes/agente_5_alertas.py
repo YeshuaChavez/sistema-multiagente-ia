@@ -119,7 +119,7 @@ class AgenteOrquestador:
     # PREDICCIÓN ORQUESTADA (AGENTE 3 + AGENTE 4 + ENSEMBLE)
     # ─────────────────────────────────────────────────────────────
 
-    def predecir_departamento(self, iso_a0, adm_1_name, ano=None, mes=None, clima_overrides=None):
+    def predecir_departamento(self, iso_a0, adm_1_name, ano=None, mes=None, clima_overrides=None, compute_shap=False):
         """
         Orquesta la predicción completa de incidencia de dengue para un departamento.
 
@@ -221,7 +221,7 @@ class AgenteOrquestador:
                     vector[i] = float(clima_overrides[feat])
 
         # ── Agente 3: XGBoost ──
-        res_ml = self.agente_ml.predecir(vector, compute_shap=True)
+        res_ml = self.agente_ml.predecir(vector, compute_shap=compute_shap)
         pred_ml = res_ml["prediccion_ml"]
 
         # ── Agente 4: LSTM PyTorch ──

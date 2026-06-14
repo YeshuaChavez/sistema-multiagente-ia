@@ -140,8 +140,8 @@ class PredictionService:
 
     # ─── Delegación al Orquestador (Agente 5) ───
 
-    def simular_prediccion_departamento(self, iso_a0, adm_1_name, ano=None, mes=None, clima_overrides=None):
-        return self.orquestador.predecir_departamento(iso_a0, adm_1_name, ano, mes, clima_overrides)
+    def simular_prediccion_departamento(self, iso_a0, adm_1_name, ano=None, mes=None, clima_overrides=None, compute_shap=False):
+        return self.orquestador.predecir_departamento(iso_a0, adm_1_name, ano, mes, clima_overrides, compute_shap=compute_shap)
 
     def realizar_prediccion_vector(self, vector, iso_a0=None, adm_1_name=None, compute_shap=False):
         res = self.orquestador.agente_ml.predecir(vector, compute_shap)
