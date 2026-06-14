@@ -76,10 +76,10 @@ class AgenteOrquestador:
 
         # Tabla de lookup: (iso_a0, adm_upper, ano, mes) → incidencia_dengue
         df_lu = df_master.copy()
-        df_lu['_iso_u'] = df_lu['iso_a0'].astype(str).str.strip().str.upper()
-        df_lu['_adm_u'] = df_lu['adm_1_name'].astype(str).str.strip().str.upper()
+        df_lu['iso_u'] = df_lu['iso_a0'].astype(str).str.strip().str.upper()
+        df_lu['adm_u'] = df_lu['adm_1_name'].astype(str).str.strip().str.upper()
         self._inc_lookup = {
-            (r._iso_u, r._adm_u, int(r.ano), int(r.mes)): float(r.incidencia_dengue)
+            (r.iso_u, r.adm_u, int(r.ano), int(r.mes)): float(r.incidencia_dengue)
             for r in df_lu.itertuples()
         }
 
