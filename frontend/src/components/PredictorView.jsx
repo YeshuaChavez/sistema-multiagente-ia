@@ -359,7 +359,7 @@ export default function PredictorView({
           <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>sensors</span>
           <span className="text-secondary font-label-md font-bold uppercase tracking-wider">Inferencia y Alerta Temprana</span>
         </div>
-        <h2 className="text-headline-lg text-primary font-bold">Consola Predictiva — EpiPredict Dengue</h2>
+        <h2 className="text-headline-lg text-primary font-bold">Consola Predictiva — DenguePredict</h2>
         <p className="text-on-surface-variant text-body-md mt-xs max-w-3xl">
           Configure las variables geoclimáticas y epidemiológicas del departamento de interés para obtener una estimación de riesgo de brote. Alterne entre simulación de variables, el histórico temporal y pautas científicas de alertas preventivas.
         </p>

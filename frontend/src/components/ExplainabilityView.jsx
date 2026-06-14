@@ -106,7 +106,7 @@ export default function ExplainabilityView({ activeSubtab, lastSimulation }) {
 
     doc.setFontSize(18);
     doc.setTextColor(...PRIMARY);
-    doc.text("EpiPredict Dengue — Explicabilidad SHAP", 14, 18);
+    doc.text("DenguePredict — Explicabilidad SHAP", 14, 18);
     doc.setFontSize(10);
     doc.setTextColor(...GRAY);
     doc.text(`Agente 3 · TreeSHAP | Generado: ${fecha}`, 14, 26);
@@ -171,11 +171,11 @@ export default function ExplainabilityView({ activeSubtab, lastSimulation }) {
     const pageH = doc.internal.pageSize.getHeight();
     doc.setFontSize(8);
     doc.setTextColor(...GRAY);
-    doc.text("EpiPredict Dengue — Proyecto Final FISI-UNMSM | Uso académico", 14, pageH - 8);
+    doc.text("DenguePredict — Proyecto Final FISI-UNMSM | Uso académico", 14, pageH - 8);
 
     const filename = activeSubtab === "Local SHAP"
       ? `SHAP_Local_${localDept.replace(/\s+/g, "_")}.pdf`
-      : "SHAP_Global_EpiPredict.pdf";
+      : "SHAP_Global_DenguePredict.pdf";
     doc.save(filename);
   };
 

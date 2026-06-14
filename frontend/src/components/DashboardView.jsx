@@ -93,7 +93,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
 
       doc.setFontSize(18);
       doc.setTextColor(30, 58, 95);
-      doc.text("EpiPredict Dengue", 14, 18);
+      doc.text("DenguePredict", 14, 18);
       doc.setFontSize(11);
       doc.setTextColor(100, 100, 100);
       doc.text("Reporte Epidemiológico — Sistema Multi-Agente (XGBoost + LSTM)", 14, 26);
@@ -137,7 +137,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
       });
 
       setReportProgress(95);
-      doc.save("EpiPredict_Reporte.pdf");
+      doc.save("DenguePredict_Reporte.pdf");
     } catch (err) {
       console.error("Error generando PDF:", err);
     } finally {

@@ -21,7 +21,7 @@ export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onO
     <header className="sticky top-0 z-40 bg-surface border-b border-outline-variant">
       {/* ── Fila principal ── */}
       <div className="h-14 flex justify-between items-center w-full px-md sm:px-lg">
-        <span className="text-title-lg font-bold text-primary truncate">EpiPredict Dengue</span>
+        <span className="text-title-lg font-bold text-primary truncate">DenguePredict</span>
 
         <div className="flex items-center gap-xs sm:gap-sm relative">
           {/* Subtabs — solo en desktop md+ */}

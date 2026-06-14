@@ -87,7 +87,7 @@ export default function App() {
     // Header
     doc.setFontSize(20);
     doc.setTextColor(...PRIMARY);
-    doc.text("EpiPredict Dengue", 14, 18);
+    doc.text("DenguePredict", 14, 18);
     doc.setFontSize(10);
     doc.setTextColor(...GRAY);
     doc.text("Reporte Consolidado — Sistema Multi-Agente SMA-ML/DL", 14, 25);
@@ -193,9 +193,9 @@ export default function App() {
     const pageH = doc.internal.pageSize.getHeight();
     doc.setFontSize(8);
     doc.setTextColor(...GRAY);
-    doc.text("EpiPredict Dengue — Proyecto Final FISI-UNMSM | Uso académico", 14, pageH - 8);
+    doc.text("DenguePredict — Proyecto Final FISI-UNMSM | Uso académico", 14, pageH - 8);
 
-    doc.save("EpiPredict_ReporteCompleto.pdf");
+    doc.save("DenguePredict_ReporteCompleto.pdf");
   };
 
   // Navegar al predictor desde el mapa
@@ -295,7 +295,7 @@ export default function App() {
 
         {/* Footer — oculto en móvil para no competir con bottom nav */}
         <footer className="hidden md:flex border-t border-outline-variant px-lg py-md flex-col sm:flex-row justify-between items-center gap-md text-on-surface-variant text-label-md">
-          <p>© {new Date().getFullYear()} EpiPredict Dengue — Unidad de Análisis SMA-ML/DL</p>
+          <p>© {new Date().getFullYear()} DenguePredict — Unidad de Análisis SMA-ML/DL</p>
           <div className="flex gap-lg">
             <span className="hover:text-primary transition-colors cursor-pointer" onClick={() => setIsSupportOpen(true)}>Documentación</span>
             <span className="hover:text-primary transition-colors cursor-pointer" onClick={() => setIsSupportOpen(true)}>Glosario</span>

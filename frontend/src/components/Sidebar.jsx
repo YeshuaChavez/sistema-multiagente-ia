@@ -13,7 +13,7 @@ export default function Sidebar({ currentView, setCurrentView, onOpenSettings, o
     <aside className="h-screen w-64 fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant flex flex-col py-lg z-50 hidden md:flex">
       {/* Logo */}
       <div className="px-md mb-xl">
-        <h1 className="font-black text-headline-md text-primary">EpiPredict Dengue</h1>
+        <h1 className="font-black text-headline-md text-primary">DenguePredict</h1>
         <p className="text-label-md text-on-surface-variant">Vigilancia y Alerta Temprana</p>
       </div>
 
