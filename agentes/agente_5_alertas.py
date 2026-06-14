@@ -442,22 +442,39 @@ class AgenteOrquestador:
 
     def obtener_resumen_mapa(self):
         """
-        Devuelve incidencia histórica media y nivel de riesgo real por departamento.
-        Usado por el frontend para colorear los marcadores del mapa con datos reales.
+        Devuelve incidencia histórica media y nivel de riesgo por departamento para el mapa.
+        Los percentiles se calculan sobre las medias departamentales (no sobre registros
+        mensuales), para reflejar la distribución real de riesgo entre los 187 departamentos.
         """
         grp = (
             self.df_master
             .groupby(['iso_a0', 'adm_1_name'], as_index=False)['incidencia_dengue']
             .mean()
         )
+
+        # Percentiles sobre medias departamentales → comparación continental justa
+        means = grp['incidencia_dengue']
+        p25 = float(means.quantile(0.25))
+        p50 = float(means.quantile(0.50))
+        p90 = float(means.quantile(0.90))
+
         result = []
         for row in grp.itertuples():
-            riesgo = self.calcular_nivel_riesgo(row.incidencia_dengue)  # percentiles globales para comparación continental
+            m = float(row.incidencia_dengue)
+            if m <= p25:
+                nivel, color = "Normal",     "#10b981"
+            elif m <= p50:
+                nivel, color = "Vigilancia", "#eab308"
+            elif m <= p90:
+                nivel, color = "Alerta",     "#f97316"
+            else:
+                nivel, color = "Epidemia",   "#ef4444"
+
             result.append({
                 "iso_a0":          row.iso_a0,
                 "adm_1_name":      row.adm_1_name,
-                "mean_incidencia": round(float(row.incidencia_dengue), 2),
-                "nivel":           riesgo["nivel"],
-                "color":           riesgo["color"],
+                "mean_incidencia": round(m, 2),
+                "nivel":           nivel,
+                "color":           color,
             })
         return result
