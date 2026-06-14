@@ -64,7 +64,7 @@ def read_root():
         ]
     }
 
-@app.get("/api/status", tags=["General"])
+@app.api_route("/api/status", methods=["GET", "HEAD"], tags=["General"])
 def get_status():
     if prediction_service is None or prediction_service.df_master is None:
         return {"status": "loading", "message": "Inicializando modelos en memoria RAM..."}
