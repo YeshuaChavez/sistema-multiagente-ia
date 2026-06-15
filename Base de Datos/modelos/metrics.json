@@ -1,11 +1,11 @@
 {
     "records_procesados": 11538,
-    "r2_xgb": 0.7217,
-    "mae_xgb": 10.0618,
-    "r2_lstm": 0.765,
-    "mae_lstm": 10.2201,
-    "r2_ensemble": 0.7657,
-    "mae_ensemble": 10.0823,
-    "ensemble_w_xgb": 0.1123,
-    "ensemble_w_lstm": 0.8877
+    "r2_xgb": 0.7137,
+    "mae_xgb": 10.1045,
+    "r2_lstm": 0.7411,
+    "mae_lstm": 10.54,
+    "r2_ensemble": 0.7477,
+    "mae_ensemble": 10.0436,
+    "ensemble_w_xgb": 0.3065,
+    "ensemble_w_lstm": 0.6935
 }

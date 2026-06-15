@@ -15,8 +15,10 @@ import pickle
 import pandas as pd
 import numpy as np
 import shap
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from sklearn.metrics import mean_absolute_error, r2_score
 from xgboost import XGBRegressor
 
@@ -47,9 +49,12 @@ class AgentePrediccionML:
 
     def entrenar_modelo(self):
         """
-        Descarga dataset_features_latam.csv de S3, entrena XGBoost con
-        transformación log1p, calcula SHAP con media con signo y sube
-        todos los artefactos a S3/modelos/.
+        Ciclo completo de entrenamiento del Agente 3:
+          Fase 6a — Baseline con parametros por defecto
+          Fase 7a — Evaluacion del baseline
+          Fase 8  — GridSearchCV + TimeSeriesSplit (optimizacion de hiperparametros)
+          Fase 6b — Reentrenamiento con best_estimator_ (parametros optimos)
+          Fase 7b — Evaluacion final del modelo optimizado
         """
         print("=" * 70)
         print("  ENTRENANDO — AGENTE 3: XGBoost")
@@ -57,14 +62,12 @@ class AgentePrediccionML:
 
         os.makedirs(self.model_dir, exist_ok=True)
 
-        # Descargar dataset de features desde S3 si no existe localmente
         s3.ensure_local(s3.PREFIX_PROCESADOS + "dataset_features_latam.csv", self.feat_path)
         if not os.path.exists(self.feat_path):
             raise FileNotFoundError(f"No se encontró el dataset de features: {self.feat_path}")
 
         df = pd.read_csv(self.feat_path)
 
-        # Filtrado dinámico: solo años con >100 casos por país
         yearly = df.groupby(['pais', 'ano'])['casos_dengue'].transform('sum')
         df = df[yearly > 100].reset_index(drop=True)
 
@@ -83,60 +86,89 @@ class AgentePrediccionML:
 
         print(f"   [ML] Train: {len(df_train)} | Test: {len(df_test)}")
 
-        # Imputación y escalado (fit solo en train)
-        imputador = SimpleImputer(strategy="median")
-        X_train_imp = pd.DataFrame(imputador.fit_transform(X_train_raw), columns=COLS_FEAT)
-        X_test_imp  = pd.DataFrame(imputador.transform(X_test_raw),      columns=COLS_FEAT)
-
-        escalador = StandardScaler()
-        X_train = pd.DataFrame(escalador.fit_transform(X_train_imp), columns=COLS_FEAT)
-        X_test  = pd.DataFrame(escalador.transform(X_test_imp),      columns=COLS_FEAT)
-
-        # Transformación logarítmica del target (igual que en producción)
         y_train_log = np.log1p(y_train)
 
-        # Entrenamiento XGBoost
-        print("   [ML] Entrenando XGBoost...")
-        modelo = XGBRegressor(
-            n_estimators=400,
-            learning_rate=0.04,
-            max_depth=6,
-            random_state=self.semilla,
-            n_jobs=-1,
-            verbosity=0
-        )
-        modelo.fit(X_train, y_train_log)
+        # ── Fase 6a: Baseline con parámetros por defecto de XGBoost ──
+        print("\n   [Fase 6a] Entrenando baseline con parametros por defecto...")
+        pipeline_base = Pipeline([
+            ('imputador', SimpleImputer(strategy='median')),
+            ('escalador', StandardScaler()),
+            ('modelo',    XGBRegressor(random_state=self.semilla, n_jobs=-1, verbosity=0))
+        ])
+        pipeline_base.fit(X_train_raw, y_train_log)
 
-        # Evaluación en test (deshacer log)
-        pred_log = modelo.predict(X_test)
+        # ── Fase 7a: Evaluación del baseline ──
+        pred_base = np.expm1(pipeline_base.predict(X_test_raw))
+        r2_base   = r2_score(y_test, pred_base)
+        mae_base  = mean_absolute_error(y_test, pred_base)
+        print(f"   [Fase 7a] Baseline — R²={r2_base*100:.2f}%  MAE={mae_base:.4f}")
+
+        # ── Fase 8: GridSearchCV + TimeSeriesSplit ──
+        print("\n   [Fase 8] GridSearchCV con TimeSeriesSplit (3 folds)...")
+        param_grid = {
+            'modelo__n_estimators':     [200, 400, 600],
+            'modelo__learning_rate':    [0.02, 0.04],
+            'modelo__max_depth':        [4, 5, 6],
+            'modelo__min_child_weight': [1, 3],
+            'modelo__gamma':            [0, 0.1],
+        }
+        total = 1
+        for v in param_grid.values():
+            total *= len(v)
+        print(f"   Combinaciones: {total} x 3 folds = {total*3} entrenamientos")
+
+        pipeline_grid = Pipeline([
+            ('imputador', SimpleImputer(strategy='median')),
+            ('escalador', StandardScaler()),
+            ('modelo',    XGBRegressor(subsample=0.8, colsample_bytree=0.8,
+                                       random_state=self.semilla, n_jobs=-1, verbosity=0))
+        ])
+
+        tscv   = TimeSeriesSplit(n_splits=3)
+        search = GridSearchCV(pipeline_grid, param_grid, cv=tscv,
+                              scoring='r2', n_jobs=-1, refit=True, verbose=0)
+        search.fit(X_train_raw, y_train_log)
+
+        print(f"   Mejor R² en CV: {search.best_score_:.4f}")
+        print(f"   Mejores hiperparametros:")
+        for k, v in sorted(search.best_params_.items()):
+            print(f"     {k.replace('modelo__',''):22s}: {v}")
+
+        # ── Fase 6b+7b: Modelo optimizado = best_estimator_ (ya reentrenado por GridSearchCV) ──
+        pipeline = search.best_estimator_
+        pred_log = pipeline.predict(X_test_raw)
         pred     = np.expm1(pred_log)
-        r2  = r2_score(y_test, pred)
-        mae = mean_absolute_error(y_test, pred)
-        print(f"   [XGBoost] R²={r2*100:.2f}%  MAE={mae:.4f}")
+        r2       = r2_score(y_test, pred)
+        mae      = mean_absolute_error(y_test, pred)
+        print(f"\n   [Fase 7b] Optimizado — R²={r2*100:.2f}%  MAE={mae:.4f}")
+        print(f"   Mejora sobre baseline: R² +{(r2-r2_base)*100:.2f}pp  MAE {mae-mae_base:+.4f}")
 
-        # SHAP con media con signo (preserva dirección del efecto)
+        # SHAP — se accede al modelo dentro del pipeline con named_steps
         print("   [SHAP] Calculando TreeSHAP...")
-        explainer  = shap.TreeExplainer(modelo)
-        shap_vals  = explainer.shap_values(X_test)
+        modelo    = pipeline.named_steps['modelo']
+        X_test_sc = pipeline[:-1].transform(X_test_raw)   # imputa + escala sin predecir
+        explainer = shap.TreeExplainer(modelo)
+        shap_vals = explainer.shap_values(X_test_sc)
         if isinstance(shap_vals, list):
             shap_vals = shap_vals[0]
-        mean_shap  = shap_vals.mean(axis=0)
-        shap_dict  = dict(sorted(
+        mean_shap = shap_vals.mean(axis=0)
+        shap_dict = dict(sorted(
             {f: float(v) for f, v in zip(COLS_FEAT, mean_shap)}.items(),
             key=lambda x: abs(x[1]), reverse=True
         ))
 
-        # Serializar artefactos localmente
-        with open(os.path.join(self.model_dir, "xgb_model.pkl"),    "wb") as f: pickle.dump(modelo,     f)
-        with open(os.path.join(self.model_dir, "imputador_ml.pkl"),  "wb") as f: pickle.dump(imputador,  f)
-        with open(os.path.join(self.model_dir, "escalador_ml.pkl"),  "wb") as f: pickle.dump(escalador,  f)
-        with open(os.path.join(self.model_dir, "cols_feat.pkl"),     "wb") as f: pickle.dump(COLS_FEAT,  f)
+        # Serializar: pipeline completo + artefactos individuales (compatibilidad)
+        with open(os.path.join(self.model_dir, "pipeline_ml.pkl"),   "wb") as f: pickle.dump(pipeline,  f)
+        with open(os.path.join(self.model_dir, "xgb_model.pkl"),     "wb") as f: pickle.dump(modelo,    f)
+        with open(os.path.join(self.model_dir, "imputador_ml.pkl"),  "wb") as f: pickle.dump(pipeline.named_steps['imputador'], f)
+        with open(os.path.join(self.model_dir, "escalador_ml.pkl"),  "wb") as f: pickle.dump(pipeline.named_steps['escalador'], f)
+        with open(os.path.join(self.model_dir, "cols_feat.pkl"),     "wb") as f: pickle.dump(COLS_FEAT, f)
         with open(os.path.join(self.model_dir, "shap_importance.json"), "w") as f:
             json.dump(shap_dict, f, indent=4)
 
         # Subir a S3
-        for fname in ["xgb_model.pkl", "imputador_ml.pkl", "escalador_ml.pkl",
-                      "cols_feat.pkl", "shap_importance.json"]:
+        for fname in ["pipeline_ml.pkl", "xgb_model.pkl", "imputador_ml.pkl",
+                      "escalador_ml.pkl", "cols_feat.pkl", "shap_importance.json"]:
             s3.upload(os.path.join(self.model_dir, fname), s3.PREFIX_MODELOS + fname)
 
         print("SUCCESS: [Agente 3] XGBoost entrenado y subido a S3.")
@@ -158,29 +190,47 @@ class AgentePrediccionML:
 
     @classmethod
     def cargar_modelo(cls, model_dir, base_dir=None):
-        """Carga XGBoost serializado para inferencia sin reentrenar."""
+        """Carga el Pipeline serializado para inferencia sin reentrenar."""
         agente = cls(base_dir=base_dir)
-        with open(os.path.join(model_dir, "xgb_model.pkl"),   "rb") as f: agente.modelo    = pickle.load(f)
-        with open(os.path.join(model_dir, "imputador_ml.pkl"), "rb") as f: agente.imputador = pickle.load(f)
-        with open(os.path.join(model_dir, "escalador_ml.pkl"), "rb") as f: agente.escalador = pickle.load(f)
-        with open(os.path.join(model_dir, "cols_feat.pkl"),    "rb") as f: agente.cols_feat = pickle.load(f)
+
+        pipeline_path = os.path.join(model_dir, "pipeline_ml.pkl")
+        if os.path.exists(pipeline_path):
+            # Pipeline completo: imputa + escala + predice en un solo paso
+            with open(pipeline_path, "rb") as f:
+                agente.pipeline = pickle.load(f)
+            agente.modelo    = agente.pipeline.named_steps['modelo']
+            agente.imputador = agente.pipeline.named_steps['imputador']
+            agente.escalador = agente.pipeline.named_steps['escalador']
+        else:
+            # Compatibilidad con artefactos anteriores (sin pipeline)
+            with open(os.path.join(model_dir, "xgb_model.pkl"),    "rb") as f: agente.modelo    = pickle.load(f)
+            with open(os.path.join(model_dir, "imputador_ml.pkl"),  "rb") as f: agente.imputador = pickle.load(f)
+            with open(os.path.join(model_dir, "escalador_ml.pkl"),  "rb") as f: agente.escalador = pickle.load(f)
+            agente.pipeline = Pipeline([
+                ('imputador', agente.imputador),
+                ('escalador', agente.escalador),
+                ('modelo',    agente.modelo),
+            ])
+
+        with open(os.path.join(model_dir, "cols_feat.pkl"), "rb") as f:
+            agente.cols_feat = pickle.load(f)
 
         shap_path = os.path.join(model_dir, "shap_importance.json")
         agente.shap_importance = json.load(open(shap_path)) if os.path.exists(shap_path) else {}
         agente._shap_explainer = shap.TreeExplainer(agente.modelo)
-        print(f"   [Agente 3] XGBoost cargado — {len(agente.cols_feat)} features.")
+        print(f"   [Agente 3] Pipeline XGBoost cargado — {len(agente.cols_feat)} features.")
         return agente
 
     def predecir(self, vector, compute_shap=False):
         entrada  = pd.DataFrame([vector], columns=self.cols_feat)
-        X_imp    = self.imputador.transform(entrada)
-        X_esc    = pd.DataFrame(self.escalador.transform(X_imp), columns=self.cols_feat)
-        pred_log = float(self.modelo.predict(X_esc)[0])
+        # Pipeline aplica imputación + escalado + predicción en un solo paso
+        pred_log = float(self.pipeline.predict(entrada)[0])
         pred     = max(0.0, np.expm1(pred_log))
         result   = {"prediccion_ml": round(pred, 4)}
 
         if compute_shap and hasattr(self, '_shap_explainer') and self._shap_explainer is not None:
-            shap_vals = self._shap_explainer.shap_values(X_esc)
+            X_sc     = self.pipeline[:-1].transform(entrada)   # imputa + escala sin predecir
+            shap_vals = self._shap_explainer.shap_values(X_sc)
             if hasattr(shap_vals, 'values'):
                 raw = shap_vals.values[0]
             elif isinstance(shap_vals, list):

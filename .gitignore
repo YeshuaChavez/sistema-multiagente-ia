@@ -1,3 +1,6 @@
+# Credenciales — nunca commitear
+.env
+
 # Ignorar datasets masivos
 Base de Datos/datos_crudos/Temporal_extract_V1_3.csv
 

@@ -88,14 +88,45 @@ class AgentePrediccionDL:
     # MODO ENTRENAMIENTO
     # ─────────────────────────────────────────────────────────────
 
+    def _entrenar_lstm(self, X_tr_sc, y_tr_log, hidden_dim, lr, dropout, epochs, seed):
+        """Entrena un LSTM y retorna el modelo entrenado."""
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        m   = DengueLSTMModel(len(LSTM_FEATURES), hidden_dim, dropout=dropout)
+        opt = optim.Adam(m.parameters(), lr=lr, weight_decay=1e-4)
+        crit = nn.MSELoss()
+        Xt = torch.tensor(X_tr_sc, dtype=torch.float32)
+        yt = torch.tensor(y_tr_log, dtype=torch.float32).unsqueeze(1)
+        loader = DataLoader(TensorDataset(Xt, yt), batch_size=256, shuffle=True)
+        m.train()
+        for _ in range(epochs):
+            for bx, by in loader:
+                opt.zero_grad()
+                loss = crit(m(bx), by)
+                loss.backward()
+                opt.step()
+        return m
+
+    def _evaluar_lstm(self, modelo, X_sc, y_real):
+        """Evalua un LSTM escalado y retorna r2, mae."""
+        modelo.eval()
+        with torch.no_grad():
+            pred = np.expm1(
+                modelo(torch.tensor(X_sc, dtype=torch.float32)).numpy().flatten()
+            )
+        return r2_score(y_real, pred), mean_absolute_error(y_real, pred)
+
     def entrenar_modelo(self, metricas_ml=None):
         """
-        Descarga dataset_features_latam.csv de S3, entrena LSTM PyTorch con
-        transformación log1p, serializa artefactos y los sube a S3.
-        Genera el metrics.json combinado (XGBoost + LSTM).
+        Ciclo completo de entrenamiento del Agente 4:
+          Fase 6a — Baseline LSTM simple (1 capa, hidden=32, lr=0.01)
+          Fase 7a — Evaluacion del baseline
+          Fase 8  — Grid Search manual con validacion cruzada temporal (TimeSeriesSplit)
+          Fase 6b — Reentrenamiento con mejores hiperparametros (80 epocas)
+          Fase 7b — Evaluacion final + calculo de pesos del ensemble
 
         Args:
-            metricas_ml: dict con r2_xgb, mae_xgb, n_train, n_test del Agente 3.
+            metricas_ml: dict con r2_xgb, mae_xgb, n_train, xgb_test_lookup del Agente 3.
         """
         print("=" * 70)
         print("  ENTRENANDO — AGENTE 4: LSTM PyTorch")
@@ -108,12 +139,9 @@ class AgentePrediccionDL:
             raise FileNotFoundError(f"No se encontró dataset de features: {self.feat_path}")
 
         df = pd.read_csv(self.feat_path)
-
-        # Filtrado dinámico
         yearly = df.groupby(['pais', 'ano'])['casos_dengue'].transform('sum')
         df = df[yearly > 100].reset_index(drop=True)
 
-        # Construir secuencias usando solo LSTM_FEATURES (6 variables)
         X_seq, y_seq, anos_seq, seq_ids = _build_sequences(df, LSTM_FEATURES, LSTM_SEQ_LEN)
 
         train_mask = anos_seq <= 2020
@@ -121,52 +149,108 @@ class AgentePrediccionDL:
 
         X_train   = X_seq[train_mask]
         y_train   = y_seq[train_mask]
+        anos_train = anos_seq[train_mask]
         X_test    = X_seq[test_mask]
         y_test    = y_seq[test_mask]
         test_ids  = [seq_ids[i] for i, m in enumerate(test_mask) if m]
 
         print(f"   [LSTM] Secuencias — Train: {len(X_train)} | Test: {len(X_test)}")
 
-        # Escalar sobre datos aplanados (n_samples × seq_len, n_features)
+        # Escalador global ajustado sobre todo el train
         escalador = StandardScaler()
         X_train_flat = X_train.reshape(-1, len(LSTM_FEATURES))
         escalador.fit(X_train_flat)
-
         X_train_sc = escalador.transform(X_train_flat).reshape(X_train.shape)
-        X_test_sc  = escalador.transform(X_test.reshape(-1, len(LSTM_FEATURES))).reshape(X_test.shape)
-
-        # Transformación logarítmica del target
+        X_test_sc  = escalador.transform(
+            X_test.reshape(-1, len(LSTM_FEATURES))).reshape(X_test.shape)
         y_train_log = np.log1p(y_train)
 
-        X_t = torch.tensor(X_train_sc, dtype=torch.float32)
-        y_t = torch.tensor(y_train_log, dtype=torch.float32).unsqueeze(1)
+        # ── Fase 6a: Baseline — LSTM simple (1 capa, hidden=32, lr=0.01) ──
+        print("\n   [Fase 6a] Baseline LSTM (1 capa, hidden=32, lr=0.01, 40 epocas)...")
+        modelo_base = self._entrenar_lstm(X_train_sc, y_train_log,
+                                          hidden_dim=32, lr=0.01, dropout=0.0,
+                                          epochs=40, seed=self.semilla)
 
-        torch.manual_seed(self.semilla)
-        np.random.seed(self.semilla)
+        # ── Fase 7a: Evaluación baseline ──
+        r2_base, mae_base = self._evaluar_lstm(modelo_base, X_test_sc, y_test)
+        print(f"   [Fase 7a] Baseline — R²={r2_base*100:.2f}%  MAE={mae_base:.4f}")
 
-        modelo = DengueLSTMModel(input_dim=len(LSTM_FEATURES))
-        optimizer = optim.Adam(modelo.parameters(), lr=0.003, weight_decay=1e-4)
-        criterion = nn.MSELoss()
-        loader    = DataLoader(TensorDataset(X_t, y_t), batch_size=256, shuffle=True)
+        # ── Fase 8: Grid Search manual + TimeSeriesSplit temporal (3 folds) ──
+        # Para series temporales el fold siempre entrena en pasado y valida en futuro
+        # Fold 1: train anos<=2017, val anos==2018
+        # Fold 2: train anos<=2018, val anos==2019
+        # Fold 3: train anos<=2019, val anos==2020
+        print("\n   [Fase 8] Grid Search LSTM + TimeSeriesSplit (3 folds temporales)...")
+        folds = [
+            (anos_train <= 2017, anos_train == 2018),
+            (anos_train <= 2018, anos_train == 2019),
+            (anos_train <= 2019, anos_train == 2020),
+        ]
 
-        print("   [LSTM] Entrenando 80 épocas...")
-        modelo.train()
-        for epoch in range(80):
-            for bx, by in loader:
-                optimizer.zero_grad()
-                loss = criterion(modelo(bx), by)
-                loss.backward()
-                optimizer.step()
+        param_grid = [
+            {'hidden_dim': hd, 'lr': lr, 'dropout': dr}
+            for hd in [32, 64, 128]
+            for lr in [0.001, 0.003]
+            for dr in [0.1, 0.2]
+        ]
+        print(f"   Combinaciones: {len(param_grid)} x 3 folds = {len(param_grid)*3} entrenamientos")
 
-        # Evaluación (modelo predice en escala log → expm1 → escala real)
+        mejores_params = None
+        mejor_r2_cv   = -np.inf
+        resultados_gs  = []
+
+        for params in param_grid:
+            r2_folds = []
+            for tr_mask, val_mask in folds:
+                if val_mask.sum() == 0:
+                    continue
+                X_tr = X_train[tr_mask]
+                y_tr = y_train_log[tr_mask]
+                X_vl = X_train[val_mask]
+                y_vl = y_train[val_mask]
+
+                # Escalar por fold (fit solo en train del fold)
+                sc_fold = StandardScaler()
+                X_tr_sc = sc_fold.fit_transform(
+                    X_tr.reshape(-1, len(LSTM_FEATURES))).reshape(X_tr.shape)
+                X_vl_sc = sc_fold.transform(
+                    X_vl.reshape(-1, len(LSTM_FEATURES))).reshape(X_vl.shape)
+
+                m = self._entrenar_lstm(X_tr_sc, y_tr, epochs=40, seed=self.semilla,
+                                        **params)
+                r2_fold, _ = self._evaluar_lstm(m, X_vl_sc, y_vl)
+                r2_folds.append(r2_fold)
+
+            r2_cv = float(np.mean(r2_folds))
+            resultados_gs.append({**params, 'r2_cv': r2_cv})
+            print(f"   hidden={params['hidden_dim']:3d} lr={params['lr']} "
+                  f"dropout={params['dropout']} -> R2_CV={r2_cv*100:.2f}%")
+
+            if r2_cv > mejor_r2_cv:
+                mejor_r2_cv   = r2_cv
+                mejores_params = params
+
+        print(f"\n   Mejores hiperparametros:")
+        for k, v in mejores_params.items():
+            print(f"     {k:12s}: {v}")
+        print(f"   Mejor R2 CV: {mejor_r2_cv*100:.2f}%")
+
+        # ── Fase 6b: Reentrenar con mejores params, 80 epocas, sobre todo el train ──
+        print(f"\n   [Fase 6b] Reentrenando con mejores params (80 epocas)...")
+        modelo = self._entrenar_lstm(X_train_sc, y_train_log, epochs=80,
+                                     seed=self.semilla, **mejores_params)
+
+        # ── Fase 7b: Evaluación final ──
+        r2, mae = self._evaluar_lstm(modelo, X_test_sc, y_test)
+        pred_log_arr = []
         modelo.eval()
         with torch.no_grad():
-            pred_log = modelo(torch.tensor(X_test_sc, dtype=torch.float32)).numpy().flatten()
-        pred = np.expm1(pred_log)
+            pred_log_arr = modelo(
+                torch.tensor(X_test_sc, dtype=torch.float32)).numpy().flatten()
+        pred = np.expm1(pred_log_arr)
 
-        r2  = r2_score(y_test, pred)
-        mae = mean_absolute_error(y_test, pred)
-        print(f"   [LSTM] R²={r2*100:.2f}%  MAE={mae:.4f}")
+        print(f"   [Fase 7b] Optimizado — R²={r2*100:.2f}%  MAE={mae:.4f}")
+        print(f"   Mejora sobre baseline: R² {(r2-r2_base)*100:+.2f}pp  MAE {mae-mae_base:+.4f}")
 
         # Serializar artefactos localmente
         torch.save(modelo.state_dict(), os.path.join(self.model_dir, "lstm_model.pth"))
@@ -175,8 +259,17 @@ class AgentePrediccionDL:
         with open(os.path.join(self.model_dir, "lstm_features.pkl"), "wb") as f:
             pickle.dump(LSTM_FEATURES, f)
 
-        lstm_config = {"seq_len": LSTM_SEQ_LEN, "input_dim": len(LSTM_FEATURES),
-                       "r2": round(r2, 4), "mae": round(mae, 4)}
+        lstm_config = {
+            "seq_len":    LSTM_SEQ_LEN,
+            "input_dim":  len(LSTM_FEATURES),
+            "hidden_dim": mejores_params['hidden_dim'],
+            "lr":         mejores_params['lr'],
+            "dropout":    mejores_params['dropout'],
+            "r2":         round(r2, 4),
+            "mae":        round(mae, 4),
+            "r2_baseline":round(r2_base, 4),
+            "grid_search_resultados": resultados_gs,
+        }
         with open(os.path.join(self.model_dir, "lstm_config.json"), "w") as f:
             json.dump(lstm_config, f, indent=4)
 
@@ -258,7 +351,9 @@ class AgentePrediccionDL:
 
         agente.lstm_seq_len = config.get("seq_len", LSTM_SEQ_LEN)
         agente.modelo_lstm  = DengueLSTMModel(
-            input_dim=config.get("input_dim", len(agente.lstm_features))
+            input_dim=config.get("input_dim", len(agente.lstm_features)),
+            hidden_dim=config.get("hidden_dim", 64),
+            dropout=config.get("dropout", 0.2),
         )
         agente.modelo_lstm.load_state_dict(
             torch.load(os.path.join(model_dir, "lstm_model.pth"),
