@@ -49,12 +49,22 @@ class AgentePrediccionML:
 
     def entrenar_modelo(self):
         """
-        Ciclo completo de entrenamiento del Agente 3:
-          Fase 6a — Baseline con parametros por defecto
-          Fase 7a — Evaluacion del baseline
-          Fase 8  — GridSearchCV + TimeSeriesSplit (optimizacion de hiperparametros)
-          Fase 6b — Reentrenamiento con best_estimator_ (parametros optimos)
+        Ciclo de vida completo del modelo ML (Agente 3 — XGBoost):
+          Fase 1  — Definicion del problema: prediccion de tasa de incidencia de dengue
+                    a escala subnacional mensual (ver documentacion del SMA)
+          Fase 2  — Recoleccion de datos: ejecutada por Agente 1 (agente_1_recoleccion.py)
+          Fase 3  — Preparacion de datos: ejecutada por Agente 2 (agente_2_preprocesamiento.py)
+          Fase 4  — Division del conjunto: particion cronologica train<=2020, test 2021-2022
+          Fase 5  — Seleccion del modelo: XGBRegressor dentro de Pipeline sklearn
+                    (SimpleImputer + StandardScaler + XGBRegressor)
+          Fase 6a — Entrenamiento baseline con parametros por defecto
+          Fase 7a — Evaluacion del baseline (R2, MAE en test set)
+          Fase 8  — Optimizacion de hiperparametros: GridSearchCV + TimeSeriesSplit(3 folds)
+                    72 combinaciones x 3 folds = 216 entrenamientos
+          Fase 6b — Reentrenamiento con best_estimator_ (parametros optimos, refit=True)
           Fase 7b — Evaluacion final del modelo optimizado
+          Fase 9  — Implementacion: serializacion y subida a AWS S3, carga en FastAPI/Railway
+          Fase 10 — Mantenimiento: reentrenar con nuevos datos ejecutando entrenar_modelos.py
         """
         print("=" * 70)
         print("  ENTRENANDO — AGENTE 3: XGBoost")
@@ -76,6 +86,7 @@ class AgentePrediccionML:
         COLS_FEAT = [c for c in df.columns if c not in COLS_EXCLUIR]
         print(f"   [ML] Features ({len(COLS_FEAT)}): {COLS_FEAT}")
 
+        # ── Fase 4: División cronológica del conjunto (evita data leakage) ──
         df_train = df[df['ano'] <= 2020].copy()
         df_test  = df[(df['ano'] >= 2021) & (df['ano'] <= 2022)].copy()
 
@@ -88,6 +99,7 @@ class AgentePrediccionML:
 
         y_train_log = np.log1p(y_train)
 
+        # ── Fase 5: Selección del modelo — Pipeline sklearn (imputador + escalador + XGBoost) ──
         # ── Fase 6a: Baseline con parámetros por defecto de XGBoost ──
         print("\n   [Fase 6a] Entrenando baseline con parametros por defecto...")
         pipeline_base = Pipeline([

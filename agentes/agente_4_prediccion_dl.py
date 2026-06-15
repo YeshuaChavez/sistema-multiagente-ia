@@ -118,12 +118,22 @@ class AgentePrediccionDL:
 
     def entrenar_modelo(self, metricas_ml=None):
         """
-        Ciclo completo de entrenamiento del Agente 4:
-          Fase 6a — Baseline LSTM simple (1 capa, hidden=32, lr=0.01)
-          Fase 7a — Evaluacion del baseline
-          Fase 8  — Grid Search manual con validacion cruzada temporal (TimeSeriesSplit)
-          Fase 6b — Reentrenamiento con mejores hiperparametros (80 epocas)
-          Fase 7b — Evaluacion final + calculo de pesos del ensemble
+        Ciclo de vida completo del modelo DL (Agente 4 — LSTM PyTorch):
+          Fase 1  — Definicion del problema: prediccion de tasa de incidencia de dengue
+                    a escala subnacional mensual (ver documentacion del SMA)
+          Fase 2  — Recoleccion de datos: ejecutada por Agente 1 (agente_1_recoleccion.py)
+          Fase 3  — Preparacion de datos: ejecutada por Agente 2 (agente_2_preprocesamiento.py)
+          Fase 4  — Division del conjunto: particion cronologica train<=2020, test 2021-2022
+          Fase 5  — Seleccion del modelo: red LSTM de dos capas apiladas (PyTorch)
+                    con lookback=12 meses y 6 variables climaticas/epidemiologicas
+          Fase 6a — Entrenamiento baseline LSTM simple (1 capa, hidden=32, lr=0.01, 40 epocas)
+          Fase 7a — Evaluacion del baseline (R2, MAE en test set)
+          Fase 8  — Optimizacion de hiperparametros: Grid Search manual + TimeSeriesSplit temporal
+                    12 combinaciones x 3 folds cronologicos = 36 entrenamientos
+          Fase 6b — Reentrenamiento con mejores hiperparametros (80 epocas, train completo)
+          Fase 7b — Evaluacion final + calculo de pesos optimos del ensemble (minimos cuadrados)
+          Fase 9  — Implementacion: serializacion y subida a AWS S3, carga en FastAPI/Railway
+          Fase 10 — Mantenimiento: reentrenar con nuevos datos ejecutando entrenar_modelos.py
 
         Args:
             metricas_ml: dict con r2_xgb, mae_xgb, n_train, xgb_test_lookup del Agente 3.
@@ -144,6 +154,7 @@ class AgentePrediccionDL:
 
         X_seq, y_seq, anos_seq, seq_ids = _build_sequences(df, LSTM_FEATURES, LSTM_SEQ_LEN)
 
+        # ── Fase 4: División cronológica del conjunto (evita data leakage) ──
         train_mask = anos_seq <= 2020
         test_mask  = anos_seq >= 2021
 
@@ -156,6 +167,7 @@ class AgentePrediccionDL:
 
         print(f"   [LSTM] Secuencias — Train: {len(X_train)} | Test: {len(X_test)}")
 
+        # ── Fase 5: Selección del modelo — LSTM 2 capas apiladas (PyTorch) ──
         # Escalador global ajustado sobre todo el train
         escalador = StandardScaler()
         X_train_flat = X_train.reshape(-1, len(LSTM_FEATURES))
