@@ -105,7 +105,8 @@ class PredictionService:
             _s3.PREFIX_PROCESADOS + "dataset_maestro_mensual_latam.csv",
             os.path.join(self.processed_dir, "dataset_maestro_mensual_latam.csv")
         )
-        _s3.ensure_local(
+        os.makedirs(self.raw_dir, exist_ok=True)
+        _s3.download(
             _s3.PREFIX_CRUDOS + "departamentos_coordenadas.csv",
             os.path.join(self.raw_dir, "departamentos_coordenadas.csv")
         )
