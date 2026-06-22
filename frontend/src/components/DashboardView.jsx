@@ -53,7 +53,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
         if (metricsRes.ok) {
           const m = await metricsRes.json();
           setStats({
-            records: m.records_procesados?.toLocaleString() ?? "15,342",
+            records: m.records_procesados?.toLocaleString() ?? "9,600",
             r2: m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : (m.r2_xgb != null ? `${(m.r2_xgb * 100).toFixed(2)}%` : "—"),
           });
         }
