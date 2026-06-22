@@ -87,19 +87,21 @@ class PredictionService:
     # ─── Inicialización del Sistema Multi-Agente ───
 
     def _descargar_desde_s3(self):
-        """Descarga modelos y datos desde S3 si no existen localmente."""
-        print("[SMA-ML/DL] Verificando archivos en S3...")
+        """Descarga modelos y datos desde S3 (siempre, para garantizar versión actualizada)."""
+        print("[SMA-ML/DL] Descargando modelos actualizados desde S3...")
+        os.makedirs(self.model_dir, exist_ok=True)
         modelos = [
-            "xgb_model.pkl", "imputador_ml.pkl", "escalador_ml.pkl",
-            "cols_feat.pkl", "shap_importance.json",
+            "pipeline_ml.pkl", "xgb_model.pkl", "imputador_ml.pkl",
+            "escalador_ml.pkl", "cols_feat.pkl", "shap_importance.json",
             "lstm_model.pth", "lstm_config.json", "lstm_features.pkl",
             "escalador_lstm.pkl", "metrics.json",
         ]
         for fname in modelos:
             local = os.path.join(self.model_dir, fname)
-            _s3.ensure_local(_s3.PREFIX_MODELOS + fname, local)
+            _s3.download(_s3.PREFIX_MODELOS + fname, local)
 
-        _s3.ensure_local(
+        os.makedirs(self.processed_dir, exist_ok=True)
+        _s3.download(
             _s3.PREFIX_PROCESADOS + "dataset_maestro_mensual_latam.csv",
             os.path.join(self.processed_dir, "dataset_maestro_mensual_latam.csv")
         )
