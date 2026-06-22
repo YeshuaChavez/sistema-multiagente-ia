@@ -300,6 +300,11 @@ class AgenteOrquestador:
                 if feat in clima_overrides and feat not in _ALWAYS_COMPUTED:
                     raw_val = float(clima_overrides[feat])
                     vector[i] = np.log1p(raw_val) if feat in _INC_LAG_FEATS else raw_val
+            # Sincronizar lag_cache con los overrides del usuario para que Agente 6
+            # use los valores simulados, no los históricos originales
+            for feat in ("incidencia_lag1", "incidencia_lag2", "incidencia_lag3"):
+                if feat in clima_overrides:
+                    lag_cache[feat] = np.log1p(float(clima_overrides[feat]))
 
         # ── Agente 3: XGBoost ──
         res_ml = self.agente_ml.predecir(vector, compute_shap=compute_shap)
@@ -315,7 +320,12 @@ class AgenteOrquestador:
         ]
         p25_local = float(df_d_pct["incidencia_dengue"].quantile(0.25)) if not df_d_pct.empty else self.p25
         p50_local = float(df_d_pct["incidencia_dengue"].quantile(0.50)) if not df_d_pct.empty else self.p50
-        p90_local = float(df_d_pct["incidencia_dengue"].quantile(0.90)) if not df_d_pct.empty else self.p90
+        # p90 usa el global como piso — evita clasificar como extremo valores bajos en abs.
+        # en depts. de baja endemia el p90 local puede ser 2-3 casos/100k
+        p90_local = max(
+            float(df_d_pct["incidencia_dengue"].quantile(0.90)) if not df_d_pct.empty else self.p90,
+            self.p90
+        )
 
         lag1_raw = np.expm1(lag_cache.get("incidencia_lag1", 0.0))
         lag1_log = lag_cache.get("incidencia_lag1", 0.0)
