@@ -26,6 +26,7 @@ def _load_agente(module_name: str, rel_path: str):
 _s3 = _load_agente("s3_client",             "agentes/s3_client.py")
 _a3 = _load_agente("agente_3_prediccion_ml", "agentes/agente_3_prediccion_ml.py")
 _a4 = _load_agente("agente_4_prediccion_dl", "agentes/agente_4_prediccion_dl.py")
+_a6 = _load_agente("agente_6_regimen",        "agentes/agente_6_regimen.py")   # cargado antes que a5
 _a5 = _load_agente("agente_5_alertas",        "agentes/agente_5_alertas.py")
 
 AgentePrediccionML = _a3.AgentePrediccionML
