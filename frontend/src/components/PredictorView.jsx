@@ -338,10 +338,6 @@ export default function PredictorView({
     ? Math.abs(allPreds[0] - allPreds[1]).toFixed(1)
     : "—";
 
-  const confidence = result && allPreds.length > 0
-    ? Math.max(65, 100 - (parseFloat(ensembleVariance) / Math.max(result.prediccion_ensemble, 1)) * 40).toFixed(1)
-    : "—";
-
   // Filter keys by section
   const principalKeys = Object.keys(FEATURE_DEFS).filter(k => FEATURE_DEFS[k].section === "principal");
   const advancedKeys = Object.keys(FEATURE_DEFS).filter(k => FEATURE_DEFS[k].section === "advanced");
@@ -681,16 +677,10 @@ export default function PredictorView({
                         Nivel de Alerta: {getRisk(result.riesgo_ensemble).label}
                       </div>
 
-                      <div className="flex gap-lg mt-sm border-t border-white/10 pt-lg w-full max-w-sm">
-                        <div className="flex-1">
-                          <p className="text-primary-fixed-dim text-[11px] uppercase tracking-wider font-bold">Confianza</p>
-                          <p className="text-headline-md font-bold text-white">{confidence}%</p>
-                        </div>
-                        <div className="w-px bg-white/10"></div>
-                        <div className="flex-1">
-                          <p className="text-primary-fixed-dim text-[11px] uppercase tracking-wider font-bold">Desviación</p>
-                          <p className="text-headline-md font-bold text-white">±{ensembleVariance}</p>
-                        </div>
+                      <div className="mt-sm border-t border-white/10 pt-lg w-full max-w-sm">
+                        <p className="text-primary-fixed-dim text-[11px] uppercase tracking-wider font-bold">Δ XGBoost – LSTM</p>
+                        <p className="text-headline-md font-bold text-white">±{ensembleVariance} <span className="text-[13px] font-normal opacity-70">casos/100k</span></p>
+                        <p className="text-[10px] text-primary-fixed-dim mt-xs opacity-70">Divergencia entre modelos</p>
                       </div>
                     </div>
                   </div>
