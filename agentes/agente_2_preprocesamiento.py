@@ -143,27 +143,59 @@ class AgentePreprocesamiento:
         df = df.sort_values(['iso_a0', 'adm_1_name', 'ano', 'mes']).reset_index(drop=True)
         grp = df.groupby(['iso_a0', 'adm_1_name'])
 
-        # Lags climáticos 1-3
+        # Lags climáticos 1-6
         for var in ['tmax_promedio', 'tmin_promedio', 'precipitacion', 'humedad_promedio']:
             base = var.split('_')[0] if 'promedio' in var else var
-            for lag in [1, 2, 3]:
+            for lag in range(1, 7):
                 df[f"{base}_lag{lag}"] = grp[var].shift(lag)
 
-        # Lags de incidencia 1-6
-        for lag in range(1, 7):
-            df[f"incidencia_lag{lag}"] = grp['incidencia_dengue'].shift(lag)
+        # Lags de incidencia 1-12 en log-escala (alineados con el target que también se predice en log)
+        for lag in range(1, 13):
+            df[f"incidencia_lag{lag}"] = np.log1p(grp['incidencia_dengue'].shift(lag))
 
-        # Rolling means (shift(1) para evitar data leakage)
-        df['incidencia_roll3'] = grp['incidencia_dengue'].transform(
+        # Rolling means en log-escala
+        df['incidencia_roll3'] = np.log1p(grp['incidencia_dengue'].transform(
             lambda x: x.shift(1).rolling(3, min_periods=1).mean()
-        )
-        df['incidencia_roll6'] = grp['incidencia_dengue'].transform(
+        ))
+        df['incidencia_roll6'] = np.log1p(grp['incidencia_dengue'].transform(
             lambda x: x.shift(1).rolling(6, min_periods=1).mean()
-        )
+        ))
+        df['incidencia_roll12'] = np.log1p(grp['incidencia_dengue'].transform(
+            lambda x: x.shift(1).rolling(12, min_periods=1).mean()
+        ))
 
         # Codificación cíclica del mes
         df['mes_sin'] = np.sin(2 * np.pi * df['mes'] / 12)
         df['mes_cos'] = np.cos(2 * np.pi * df['mes'] / 12)
+
+        # ── Indicadores binarios ─────────────────────────────────────────────
+        # COVID: subregistro y patrones atípicos desde 2020
+        df['indicador_covid'] = (df['ano'] >= 2020).astype(np.int8)
+
+        # ENSO: valores ONI mensuales aproximados 2014-2022 (NOAA)
+        _ONI = {
+            (2014,1):-0.4,(2014,2):-0.2,(2014,3):0.2,(2014,4):0.3,(2014,5):0.4,(2014,6):0.5,
+            (2014,7):0.5,(2014,8):0.5,(2014,9):0.5,(2014,10):0.6,(2014,11):0.7,(2014,12):0.8,
+            (2015,1):0.7,(2015,2):0.7,(2015,3):0.7,(2015,4):0.9,(2015,5):1.0,(2015,6):1.2,
+            (2015,7):1.4,(2015,8):1.7,(2015,9):2.0,(2015,10):2.4,(2015,11):2.7,(2015,12):2.9,
+            (2016,1):2.7,(2016,2):2.3,(2016,3):1.7,(2016,4):1.0,(2016,5):0.5,(2016,6):-0.1,
+            (2016,7):-0.4,(2016,8):-0.6,(2016,9):-0.8,(2016,10):-0.8,(2016,11):-0.8,(2016,12):-0.7,
+            (2017,1):-0.7,(2017,2):-0.4,(2017,3):-0.2,(2017,4):0.1,(2017,5):0.3,(2017,6):0.4,
+            (2017,7):0.2,(2017,8):0.1,(2017,9):-0.1,(2017,10):-0.4,(2017,11):-0.8,(2017,12):-1.0,
+            (2018,1):-1.0,(2018,2):-0.9,(2018,3):-0.6,(2018,4):-0.3,(2018,5):-0.1,(2018,6):0.1,
+            (2018,7):0.3,(2018,8):0.5,(2018,9):0.8,(2018,10):1.0,(2018,11):1.0,(2018,12):0.9,
+            (2019,1):0.8,(2019,2):0.7,(2019,3):0.8,(2019,4):0.7,(2019,5):0.6,(2019,6):0.5,
+            (2019,7):0.4,(2019,8):0.3,(2019,9):0.3,(2019,10):0.3,(2019,11):0.5,(2019,12):0.5,
+            (2020,1):0.5,(2020,2):0.4,(2020,3):0.4,(2020,4):0.2,(2020,5):0.0,(2020,6):-0.1,
+            (2020,7):-0.4,(2020,8):-0.5,(2020,9):-0.8,(2020,10):-1.1,(2020,11):-1.3,(2020,12):-1.3,
+            (2021,1):-1.1,(2021,2):-0.9,(2021,3):-0.7,(2021,4):-0.4,(2021,5):-0.1,(2021,6):0.0,
+            (2021,7):-0.1,(2021,8):-0.5,(2021,9):-0.9,(2021,10):-1.1,(2021,11):-1.0,(2021,12):-1.0,
+            (2022,1):-1.0,(2022,2):-0.9,(2022,3):-1.0,(2022,4):-1.1,(2022,5):-1.1,(2022,6):-1.2,
+            (2022,7):-1.0,(2022,8):-0.9,(2022,9):-1.0,(2022,10):-0.9,(2022,11):-0.8,(2022,12):-0.7,
+        }
+        oni_vals = df.apply(lambda r: _ONI.get((int(r['ano']), int(r['mes'])), 0.0), axis=1)
+        df['indicador_nino'] = (oni_vals >= 0.5).astype(np.int8)
+        df['indicador_nina'] = (oni_vals <= -0.5).astype(np.int8)
 
         # Vecinos espaciales (3 departamentos más cercanos por país) con lags 1-6
         coords_path = os.path.join(self.crudos_dir, "departamentos_coordenadas.csv")
@@ -202,13 +234,37 @@ class AgentePreprocesamiento:
             df['incidencia_vecinos'] = inc_vec
             grp_u = df.groupby(['iso_a0', 'adm_upper'])
             for lag in range(1, 7):
-                df[f'incidencia_vecinos_lag{lag}'] = grp_u['incidencia_vecinos'].shift(lag)
+                df[f'incidencia_vecinos_lag{lag}'] = np.log1p(grp_u['incidencia_vecinos'].shift(lag))
 
             df.drop(columns=['adm_upper', 'incidencia_vecinos'], inplace=True)
         else:
             print("   [Advertencia] Sin coordenadas — vecinos en 0.")
             for lag in range(1, 7):
                 df[f'incidencia_vecinos_lag{lag}'] = 0.0
+
+        # ── Features derivadas de clima ──────────────────────────────────────
+        df['amplitud_termica'] = df['tmax_promedio'] - df['tmin_promedio']
+        df['temperatura_media'] = (df['tmax_promedio'] + df['tmin_promedio']) / 2
+
+        # Anomalía de precipitación: desviación respecto a la media móvil de 12 meses
+        df['precipitacion_anomalia'] = df['precipitacion'] - grp['precipitacion'].transform(
+            lambda x: x.shift(1).rolling(12, min_periods=3).mean()
+        )
+
+        # ── Features derivadas de incidencia (ya en log-escala) ──────────────
+        # Aceleración: ¿está subiendo o bajando el brote?
+        df['aceleracion_incidencia'] = df['incidencia_lag1'] - df['incidencia_lag2']
+        # Cambio interanual: ¿peor o mejor que el mismo mes del año pasado?
+        df['cambio_interanual'] = df['incidencia_lag1'] - df['incidencia_lag12']
+
+        # ── Indicador de brote activo ─────────────────────────────────────────
+        # 1 si la incidencia del mes pasado supera el percentil 75 del país
+        p75_pais = df.groupby('iso_a0')['incidencia_lag1'].transform(lambda x: x.quantile(0.75))
+        df['indicador_brote'] = (df['incidencia_lag1'] > p75_pais).astype(np.int8)
+
+        # ── Dummies de país (baseline diferente por país) ─────────────────────
+        pais_dummies = pd.get_dummies(df['iso_a0'], prefix='pais', dtype=np.int8)
+        df = pd.concat([df, pais_dummies], axis=1)
 
         # Eliminar filas con NaN introducidos por lags
         lag_cols = [c for c in df.columns if 'lag' in c or 'roll' in c]
@@ -236,6 +292,8 @@ class AgentePreprocesamiento:
         )
         df_base = self.calcular_incidencia(df_merged)
         df_base = df_base[df_base['ano'] <= 2022].reset_index(drop=True)
+        # Nicaragua excluida del sistema: series de casos incompletas y discontinuas
+        df_base = df_base[df_base['iso_a0'].str.upper() != 'NIC'].reset_index(drop=True)
 
         # Guardar dataset base (14 cols) → backend
         df_base.to_csv(self.output_base, index=False)

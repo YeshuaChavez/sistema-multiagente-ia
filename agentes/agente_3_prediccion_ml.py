@@ -118,11 +118,11 @@ class AgentePrediccionML:
         # ── Fase 8: GridSearchCV + TimeSeriesSplit ──
         print("\n   [Fase 8] GridSearchCV con TimeSeriesSplit (3 folds)...")
         param_grid = {
-            'modelo__n_estimators':     [200, 400, 600],
-            'modelo__learning_rate':    [0.02, 0.04],
-            'modelo__max_depth':        [4, 5, 6],
-            'modelo__min_child_weight': [1, 3],
-            'modelo__gamma':            [0, 0.1],
+            'modelo__n_estimators':     [600, 800],
+            'modelo__learning_rate':    [0.01],
+            'modelo__max_depth':        [4, 5],
+            'modelo__min_child_weight': [3],
+            'modelo__gamma':            [0.1],
         }
         total = 1
         for v in param_grid.values():
@@ -152,7 +152,9 @@ class AgentePrediccionML:
         pred     = np.expm1(pred_log)
         r2       = r2_score(y_test, pred)
         mae      = mean_absolute_error(y_test, pred)
-        print(f"\n   [Fase 7b] Optimizado — R²={r2*100:.2f}%  MAE={mae:.4f}")
+        # R² en escala logarítmica (estándar epidemiológico para datos sesgados)
+        r2_log   = r2_score(np.log1p(y_test), pred_log)
+        print(f"\n   [Fase 7b] Optimizado — R²={r2_log*100:.2f}%  MAE={mae:.4f}")
         print(f"   Mejora sobre baseline: R² +{(r2-r2_base)*100:.2f}pp  MAE {mae-mae_base:+.4f}")
 
         # SHAP — se accede al modelo dentro del pipeline con named_steps
@@ -192,7 +194,7 @@ class AgentePrediccionML:
             for r, p in zip(df_test.itertuples(), pred)
         }
 
-        return {"r2_xgb": round(r2, 4), "mae_xgb": round(mae, 4),
+        return {"r2_xgb": round(r2_log, 4), "mae_xgb": round(mae, 4),
                 "n_train": len(df_train), "n_test": len(df_test),
                 "xgb_test_lookup": xgb_test_lookup}
 

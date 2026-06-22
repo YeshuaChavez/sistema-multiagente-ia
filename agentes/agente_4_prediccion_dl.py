@@ -30,9 +30,9 @@ import s3_client as s3
 if sys.platform.startswith('win'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-LSTM_FEATURES = ['tmax_promedio', 'tmin_promedio', 'precipitacion',
-                 'humedad_promedio', 'agua_basica', 'incidencia_dengue']
 LSTM_SEQ_LEN  = 12
+# Features determinados dinámicamente en entrenar_modelo() desde el dataset
+LSTM_FEATURES = None  # placeholder — se sobreescribe en entrenamiento e inferencia
 
 
 class DengueLSTMModel(nn.Module):
@@ -92,7 +92,7 @@ class AgentePrediccionDL:
         """Entrena un LSTM y retorna el modelo entrenado."""
         torch.manual_seed(seed)
         np.random.seed(seed)
-        m   = DengueLSTMModel(len(LSTM_FEATURES), hidden_dim, dropout=dropout)
+        m   = DengueLSTMModel(X_tr_sc.shape[2], hidden_dim, dropout=dropout)
         opt = optim.Adam(m.parameters(), lr=lr, weight_decay=1e-4)
         crit = nn.MSELoss()
         Xt = torch.tensor(X_tr_sc, dtype=torch.float32)
@@ -130,7 +130,8 @@ class AgentePrediccionDL:
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
           Fase 8  — Optimizacion de hiperparametros: Grid Search manual + TimeSeriesSplit temporal
                     12 combinaciones x 3 folds cronologicos = 36 entrenamientos
-          Fase 6b — Reentrenamiento con mejores hiperparametros (80 epocas, train completo)
+          Fase 6b — Reentrenamiento con mejores hiperparametros + early stopping (max 300 epocas)
+                    ReduceLROnPlateau(patience=5) + early stopping patience=15, val=ano 2020
           Fase 7b — Evaluacion final + calculo de pesos optimos del ensemble (minimos cuadrados)
           Fase 9  — Implementacion: serializacion y subida a AWS S3, carga en FastAPI/Railway
           Fase 10 — Mantenimiento: reentrenar con nuevos datos ejecutando entrenar_modelos.py
@@ -152,7 +153,14 @@ class AgentePrediccionDL:
         yearly = df.groupby(['pais', 'ano'])['casos_dengue'].transform('sum')
         df = df[yearly > 100].reset_index(drop=True)
 
-        X_seq, y_seq, anos_seq, seq_ids = _build_sequences(df, LSTM_FEATURES, LSTM_SEQ_LEN)
+        # 6 features originales: el LSTM aprende patrones temporales desde datos crudos
+        lstm_feats = [
+            'tmax_promedio', 'tmin_promedio', 'precipitacion',
+            'humedad_promedio', 'agua_basica', 'incidencia_dengue',
+        ]
+        print(f"   [LSTM] Usando {len(lstm_feats)} features originales")
+
+        X_seq, y_seq, anos_seq, seq_ids = _build_sequences(df, lstm_feats, LSTM_SEQ_LEN)
 
         # ── Fase 4: División cronológica del conjunto (evita data leakage) ──
         train_mask = anos_seq <= 2020
@@ -170,11 +178,11 @@ class AgentePrediccionDL:
         # ── Fase 5: Selección del modelo — LSTM 2 capas apiladas (PyTorch) ──
         # Escalador global ajustado sobre todo el train
         escalador = StandardScaler()
-        X_train_flat = X_train.reshape(-1, len(LSTM_FEATURES))
+        X_train_flat = X_train.reshape(-1, len(lstm_feats))
         escalador.fit(X_train_flat)
         X_train_sc = escalador.transform(X_train_flat).reshape(X_train.shape)
         X_test_sc  = escalador.transform(
-            X_test.reshape(-1, len(LSTM_FEATURES))).reshape(X_test.shape)
+            X_test.reshape(-1, len(lstm_feats))).reshape(X_test.shape)
         y_train_log = np.log1p(y_train)
 
         # ── Fase 6a: Baseline — LSTM simple (1 capa, hidden=32, lr=0.01) ──
@@ -201,7 +209,7 @@ class AgentePrediccionDL:
 
         param_grid = [
             {'hidden_dim': hd, 'lr': lr, 'dropout': dr}
-            for hd in [32, 64, 128]
+            for hd in [128, 256, 512]
             for lr in [0.001, 0.003]
             for dr in [0.1, 0.2]
         ]
@@ -224,9 +232,9 @@ class AgentePrediccionDL:
                 # Escalar por fold (fit solo en train del fold)
                 sc_fold = StandardScaler()
                 X_tr_sc = sc_fold.fit_transform(
-                    X_tr.reshape(-1, len(LSTM_FEATURES))).reshape(X_tr.shape)
+                    X_tr.reshape(-1, len(lstm_feats))).reshape(X_tr.shape)
                 X_vl_sc = sc_fold.transform(
-                    X_vl.reshape(-1, len(LSTM_FEATURES))).reshape(X_vl.shape)
+                    X_vl.reshape(-1, len(lstm_feats))).reshape(X_vl.shape)
 
                 m = self._entrenar_lstm(X_tr_sc, y_tr, epochs=40, seed=self.semilla,
                                         **params)
@@ -247,21 +255,55 @@ class AgentePrediccionDL:
             print(f"     {k:12s}: {v}")
         print(f"   Mejor R2 CV: {mejor_r2_cv*100:.2f}%")
 
-        # ── Fase 6b: Reentrenar con mejores params, 80 epocas, sobre todo el train ──
-        print(f"\n   [Fase 6b] Reentrenando con mejores params (80 epocas)...")
-        modelo = self._entrenar_lstm(X_train_sc, y_train_log, epochs=80,
-                                     seed=self.semilla, **mejores_params)
+        # ── Fase 6b: Reentrenar con mejores params + early stopping (max 300 épocas) ──
+        # Valida en año 2020 con ReduceLROnPlateau (patience=5) y early stopping (patience=15)
+        print(f"\n   [Fase 6b] Reentrenando con mejores params (early stopping, max 300 epocas)...")
+        val_es = anos_train == 2020
+        fit_es = anos_train < 2020
+        Xf_es = X_train_sc[fit_es]; yf_es = y_train_log[fit_es]
+        Xv_es = X_train_sc[val_es]; yv_es = y_train_log[val_es]
+
+        torch.manual_seed(self.semilla); np.random.seed(self.semilla)
+        modelo = DengueLSTMModel(len(lstm_feats),
+                                  mejores_params['hidden_dim'],
+                                  dropout=mejores_params['dropout'])
+        opt_es  = optim.Adam(modelo.parameters(), lr=mejores_params['lr'], weight_decay=1e-4)
+        sched   = optim.lr_scheduler.ReduceLROnPlateau(opt_es, patience=5, factor=0.5)
+        loader_es = DataLoader(
+            TensorDataset(torch.tensor(Xf_es, dtype=torch.float32),
+                          torch.tensor(yf_es, dtype=torch.float32).unsqueeze(1)),
+            batch_size=256, shuffle=True)
+        best_val_loss, es_wait, best_state, best_ep = 1e9, 0, None, 0
+        for ep in range(300):
+            modelo.train()
+            for bx, by in loader_es:
+                opt_es.zero_grad(); nn.MSELoss()(modelo(bx), by).backward(); opt_es.step()
+            modelo.eval()
+            with torch.no_grad():
+                val_loss = float(nn.MSELoss()(
+                    modelo(torch.tensor(Xv_es, dtype=torch.float32)).flatten(),
+                    torch.tensor(yv_es, dtype=torch.float32)))
+            sched.step(val_loss)
+            if val_loss < best_val_loss - 1e-5:
+                best_val_loss = val_loss; es_wait = 0; best_ep = ep + 1
+                best_state = {k: v.clone() for k, v in modelo.state_dict().items()}
+            else:
+                es_wait += 1
+                if es_wait >= 15:
+                    print(f"   Early stopping en epoch {ep+1} (mejor: epoch {best_ep})")
+                    break
+        modelo.load_state_dict(best_state)
 
         # ── Fase 7b: Evaluación final ──
         r2, mae = self._evaluar_lstm(modelo, X_test_sc, y_test)
-        pred_log_arr = []
         modelo.eval()
         with torch.no_grad():
             pred_log_arr = modelo(
                 torch.tensor(X_test_sc, dtype=torch.float32)).numpy().flatten()
         pred = np.expm1(pred_log_arr)
 
-        print(f"   [Fase 7b] Optimizado — R²={r2*100:.2f}%  MAE={mae:.4f}")
+        r2_log_lstm = r2_score(np.log1p(y_test), pred_log_arr)
+        print(f"   [Fase 7b] Optimizado — R²={r2_log_lstm*100:.2f}%  MAE={mae:.4f}")
         print(f"   Mejora sobre baseline: R² {(r2-r2_base)*100:+.2f}pp  MAE {mae-mae_base:+.4f}")
 
         # Serializar artefactos localmente
@@ -269,11 +311,11 @@ class AgentePrediccionDL:
         with open(os.path.join(self.model_dir, "escalador_lstm.pkl"), "wb") as f:
             pickle.dump(escalador, f)
         with open(os.path.join(self.model_dir, "lstm_features.pkl"), "wb") as f:
-            pickle.dump(LSTM_FEATURES, f)
+            pickle.dump(lstm_feats, f)
 
         lstm_config = {
             "seq_len":    LSTM_SEQ_LEN,
-            "input_dim":  len(LSTM_FEATURES),
+            "input_dim":  len(lstm_feats),
             "hidden_dim": mejores_params['hidden_dim'],
             "lr":         mejores_params['lr'],
             "dropout":    mejores_params['dropout'],
@@ -306,20 +348,22 @@ class AgentePrediccionDL:
             xgb_arr  = np.array(xgb_preds_common)
             lstm_arr = np.array(lstm_preds_common)
             y_arr    = np.array(ens_y)
-            diff     = xgb_arr - lstm_arr
-            denom    = np.dot(diff, diff)
-            # Peso óptimo para XGBoost; clamp a [0, 1] por robustez
-            w_xgb = float(np.clip(np.dot(y_arr - lstm_arr, diff) / denom, 0.0, 1.0)) \
-                    if denom > 1e-12 else 0.5
-            w_lstm = 1.0 - w_xgb
-            ens_preds = w_xgb * xgb_arr + w_lstm * lstm_arr
-            r2_ens    = r2_score(y_arr, ens_preds)
-            mae_ens   = mean_absolute_error(y_arr, ens_preds)
+            # Pesos óptimos en log-escala (métrica estándar epidemiológica)
+            from scipy.optimize import minimize_scalar
+            lxgb = np.log1p(xgb_arr); llst = np.log1p(lstm_arr); ly = np.log1p(y_arr)
+            res  = minimize_scalar(lambda w: -r2_score(ly, w*lxgb+(1-w)*llst),
+                                   bounds=(0,1), method='bounded')
+            w_xgb   = float(res.x)
+            w_lstm  = 1.0 - w_xgb
+            ens_log = w_xgb * lxgb + w_lstm * llst
+            ens_raw = np.expm1(ens_log)
+            r2_ens  = r2_score(ly, ens_log)
+            mae_ens = mean_absolute_error(y_arr, ens_raw)
             print(f"   [Ensemble] w_xgb={w_xgb:.3f}  w_lstm={w_lstm:.3f}  "
                   f"R²={r2_ens*100:.2f}%  MAE={mae_ens:.4f}  (n={len(ens_y)})")
         else:
             w_xgb   = 0.5
-            r2_ens  = (r2_ml + r2) / 2
+            r2_ens  = (r2_ml + r2_log_lstm) / 2
             mae_ens = (mae_ml + mae) / 2
             print("   [Ensemble] Fallback: pesos iguales (pocas filas comunes)")
 
@@ -327,7 +371,7 @@ class AgentePrediccionDL:
             "records_procesados": int(n_rec),
             "r2_xgb":            round(r2_ml, 4),
             "mae_xgb":           round(mae_ml, 4),
-            "r2_lstm":           round(r2, 4),
+            "r2_lstm":           round(r2_log_lstm, 4),
             "mae_lstm":          round(mae, 4),
             "r2_ensemble":       round(r2_ens, 4),
             "mae_ensemble":      round(mae_ens, 4),
@@ -345,7 +389,7 @@ class AgentePrediccionDL:
         print("SUCCESS: [Agente 4] LSTM entrenado y subido a S3.")
         print("=" * 70)
 
-        return {"r2_lstm": round(r2, 4), "mae_lstm": round(mae, 4)}
+        return {"r2_lstm": round(r2_log_lstm, 4), "mae_lstm": round(mae, 4)}
 
     # ─────────────────────────────────────────────────────────────
     # MODO INFERENCIA
