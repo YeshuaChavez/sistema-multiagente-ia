@@ -56,10 +56,22 @@ const agents = [
     color: "bg-emerald-600",
     colorLight: "bg-emerald-50",
     description:
-      "Combina las predicciones de los Agentes 3 y 4 mediante ensemble ponderado con pesos proporcionales al R² individual (w_XGB=0.512, w_LSTM=0.488), reduciendo la varianza individual. Clasifica la predicción final en niveles de riesgo epidemiológico calibrados con percentiles históricos.",
+      "Combina las predicciones de los Agentes 3 y 4 usando pesos ajustados dinámicamente por el Agente 6. En régimen normal usa pesos proporcionales al R² (w_XGB=0.512, w_LSTM=0.488). Clasifica la predicción final en niveles de riesgo calibrados con percentiles históricos por departamento.",
     tech: ["NumPy", "Percentiles Calibrados (p25, p50, p90)"],
-    input: "Predicciones de Agente 3 (ML) + Agente 4 (DL)",
+    input: "Predicciones de Agente 3 (ML) + Agente 4 (DL) + Pesos de Agente 6",
     output: "Predicción final + Nivel de riesgo (Normal/Vigilancia/Alerta/Epidemia)",
+  },
+  {
+    id: 6,
+    name: "Agente de Detección de Régimen Epidémico",
+    icon: "crisis_alert",
+    color: "bg-rose-600",
+    colorLight: "bg-rose-50",
+    description:
+      "Clasifica el estado epidémico actual en uno de cinco regímenes (Normal, Vigilancia, Pre-brote, Brote activo, Post-pico) usando percentiles históricos locales y la tendencia de incidencia. Ajusta dinámicamente los pesos del ensemble: en Brote activo el LSTM domina (hasta 80%) para capturar momentum; en Post-pico el XGBoost domina porque la regresión a la media es correcta.",
+    tech: ["NumPy", "Percentiles Locales por Departamento", "Detección de Tendencia"],
+    input: "incidencia_lag1 (escala real) + tendencia log + percentiles p25/p50/p90 locales",
+    output: "Régimen epidémico + pesos adaptativos w_XGB / w_LSTM para el Agente 5",
   },
 ];
 
@@ -107,7 +119,7 @@ export default function InfoView() {
       <div>
         <h3 className="text-label-md font-bold text-primary uppercase tracking-wider mb-md flex items-center gap-sm">
           <span className="material-symbols-outlined text-[18px]">smart_toy</span>
-          Los 5 Agentes del Sistema
+          Los 6 Agentes del Sistema
         </h3>
         <div className="space-y-md stagger-children">
           {agents.map((agent) => (

@@ -12,6 +12,7 @@ la respuesta final del sistema multi-agente.
 import os
 import numpy as np
 import pandas as pd
+from agente_6_regimen import AgenteRegimen
 
 
 class AgenteOrquestador:
@@ -51,9 +52,12 @@ class AgenteOrquestador:
         self.df_master = df_master
         self.df_coords = df_coords
 
-        # Pesos del ensemble: cargados desde metrics.json si están disponibles
+        # Pesos base del ensemble: cargados desde metrics.json si están disponibles
         self._w_xgb  = float((metrics or {}).get("ensemble_w_xgb",  0.5))
         self._w_lstm = float((metrics or {}).get("ensemble_w_lstm", 0.5))
+
+        # Agente 6: Detección de Régimen Epidémico
+        self.agente_regimen = AgenteRegimen(self._w_xgb, self._w_lstm)
 
         # Percentiles globales como fallback cuando el departamento no tiene historial suficiente
         self.p25 = float(df_master["incidencia_dengue"].quantile(0.25))
@@ -298,24 +302,27 @@ class AgenteOrquestador:
         # ── Agente 4: LSTM PyTorch ──
         pred_lstm = self.agente_dl.predecir_secuencia(df_dept, ref_idx, clima_overrides)
 
-        # ── Agente 5: Ensemble con pesos adaptativos ──
-        # En brotes extremos (lag1 > p90 local), LSTM captura mejor el momentum
-        # temporal que XGBoost (los árboles no extrapolan más allá del rango visto)
-        df_d_pct = self.df_master[
+        # ── Agente 6: Detección de Régimen Epidémico ──
+        df_d_pct  = self.df_master[
             (self.df_master['iso_a0'] == iso_a0) &
             (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
         ]
+        p25_local = float(df_d_pct["incidencia_dengue"].quantile(0.25)) if not df_d_pct.empty else self.p25
+        p50_local = float(df_d_pct["incidencia_dengue"].quantile(0.50)) if not df_d_pct.empty else self.p50
         p90_local = float(df_d_pct["incidencia_dengue"].quantile(0.90)) if not df_d_pct.empty else self.p90
-        p90_ref   = max(p90_local, self.p90, 1.0)
 
         lag1_raw = np.expm1(lag_cache.get("incidencia_lag1", 0.0))
-        if pred_lstm is not None and lag1_raw > p90_ref:
-            extremeness  = min(lag1_raw / p90_ref, 3.0)
-            w_lstm_adj   = min(self._w_lstm * extremeness, 0.80)
-            w_xgb_adj    = 1.0 - w_lstm_adj
-        else:
-            w_xgb_adj, w_lstm_adj = self._w_xgb, self._w_lstm
+        lag1_log = lag_cache.get("incidencia_lag1", 0.0)
+        lag2_log = lag_cache.get("incidencia_lag2", 0.0)
 
+        regimen_info = self.agente_regimen.detectar(
+            lag1_raw, lag1_log, lag2_log,
+            p25_local, p50_local, p90_local
+        )
+        w_xgb_adj = regimen_info["w_xgb"]
+        w_lstm_adj = regimen_info["w_lstm"]
+
+        # ── Agente 5: Ensemble con pesos del Agente 6 ──
         if pred_lstm is not None:
             pred_ens = w_xgb_adj * pred_ml + w_lstm_adj * pred_lstm
         else:
@@ -330,6 +337,8 @@ class AgenteOrquestador:
             "riesgo_ensemble":     self.calcular_nivel_riesgo(pred_ens, iso_a0, adm_1_name),
             "ensemble_w_xgb":      round(w_xgb_adj, 4),
             "ensemble_w_lstm":     round(w_lstm_adj, 4),
+            "regimen_epidemico":   regimen_info["regimen"],
+            "regimen_descripcion": regimen_info["descripcion"],
             "features_usadas":     {f: float(v) for f, v in zip(cols_feat, vector)},
         }
         if "shap_local" in res_ml:
