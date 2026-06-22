@@ -23,10 +23,16 @@ def _load_agente(module_name: str, rel_path: str):
     return module
 
 
+# Agregar directorio de agentes a sys.path para que los imports entre agentes funcionen
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_agentes_dir = os.path.join(_root, "agentes")
+if _agentes_dir not in sys.path:
+    sys.path.insert(0, _agentes_dir)
+
 _s3 = _load_agente("s3_client",             "agentes/s3_client.py")
 _a3 = _load_agente("agente_3_prediccion_ml", "agentes/agente_3_prediccion_ml.py")
 _a4 = _load_agente("agente_4_prediccion_dl", "agentes/agente_4_prediccion_dl.py")
-_a6 = _load_agente("agente_6_regimen",        "agentes/agente_6_regimen.py")   # cargado antes que a5
+_a6 = _load_agente("agente_6_regimen",        "agentes/agente_6_regimen.py")
 _a5 = _load_agente("agente_5_alertas",        "agentes/agente_5_alertas.py")
 
 AgentePrediccionML = _a3.AgentePrediccionML
