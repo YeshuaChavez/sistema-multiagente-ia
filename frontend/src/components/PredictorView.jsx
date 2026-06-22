@@ -141,6 +141,8 @@ export default function PredictorView({
 }) {
   const [sliderValues, setSliderValues] = useState({});
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advancedPage, setAdvancedPage] = useState(0);
+  const ADV_PAGE_SIZE = 7;
   const [targetMes, setTargetMes] = useState(new Date().getMonth() + 1);
 
   const currentDate = new Date();
@@ -502,33 +504,64 @@ export default function PredictorView({
                   </span>
                 </button>
 
-                {showAdvanced && (
-                  <div className="space-y-lg pt-md mt-sm border-t border-outline-variant/35 grid grid-cols-1 gap-md animate-fade-in">
-                    {advancedKeys.map((key) => {
-                      const def = FEATURE_DEFS[key];
-                      const val = sliderValues[key] ?? (def.min + def.max) / 2;
-                      return (
-                        <div key={key} className="space-y-xs">
-                          <div className="flex justify-between items-center">
-                            <label className="text-[12px] text-on-surface-variant leading-tight">{def.label}</label>
-                            <span className="font-bold text-primary/80 bg-surface-container px-xs py-0.5 rounded text-[11px]" style={{ fontVariantNumeric: "tabular-nums" }}>
-                              {val.toFixed(key.includes("humedad") || key === "densidad_poblacion" ? 0 : 1)}{def.unit}
-                            </span>
-                          </div>
-                          <input
-                            type="range"
-                            min={def.min}
-                            max={def.max}
-                            step={def.step}
-                            value={val}
-                            onChange={(e) => handleSliderChange(key, parseFloat(e.target.value))}
-                            className="slider-custom h-1"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {showAdvanced && (() => {
+                  const totalPages = Math.ceil(advancedKeys.length / ADV_PAGE_SIZE);
+                  const pageKeys   = advancedKeys.slice(advancedPage * ADV_PAGE_SIZE, (advancedPage + 1) * ADV_PAGE_SIZE);
+                  return (
+                    <div className="pt-md mt-sm border-t border-outline-variant/35 animate-fade-in">
+                      <div className="grid grid-cols-1 gap-md">
+                        {pageKeys.map((key) => {
+                          const def = FEATURE_DEFS[key];
+                          const val = sliderValues[key] ?? (def.min + def.max) / 2;
+                          return (
+                            <div key={key} className="space-y-xs">
+                              <div className="flex justify-between items-center">
+                                <label className="text-[12px] text-on-surface-variant leading-tight">{def.label}</label>
+                                <span className="font-bold text-primary/80 bg-surface-container px-xs py-0.5 rounded text-[11px]" style={{ fontVariantNumeric: "tabular-nums" }}>
+                                  {val.toFixed(key.includes("humedad") || key === "densidad_poblacion" ? 0 : 1)}{def.unit}
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min={def.min}
+                                max={def.max}
+                                step={def.step}
+                                value={val}
+                                onChange={(e) => handleSliderChange(key, parseFloat(e.target.value))}
+                                className="slider-custom h-1"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Paginación */}
+                      <div className="flex items-center justify-between mt-md pt-sm border-t border-outline-variant/30">
+                        <button
+                          type="button"
+                          disabled={advancedPage === 0}
+                          onClick={() => setAdvancedPage(p => p - 1)}
+                          className="flex items-center gap-xs text-[12px] text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-container px-sm py-xs rounded-lg transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                          Anterior
+                        </button>
+                        <span className="text-[11px] text-on-surface-variant">
+                          Página {advancedPage + 1} / {totalPages}
+                          <span className="ml-xs opacity-60">({advancedKeys.length} variables)</span>
+                        </span>
+                        <button
+                          type="button"
+                          disabled={advancedPage >= totalPages - 1}
+                          onClick={() => setAdvancedPage(p => p + 1)}
+                          className="flex items-center gap-xs text-[12px] text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-container px-sm py-xs rounded-lg transition-colors"
+                        >
+                          Siguiente
+                          <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* ─── ACCION PREDECIR ─── */}
