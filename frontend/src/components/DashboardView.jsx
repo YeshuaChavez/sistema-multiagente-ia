@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Map from "./MapContainer";
+import ScatterPlot from "./ScatterPlot";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -37,6 +38,8 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
 
   const [backendReady, setBackendReady] = useState(false);
   const [stats, setStats] = useState({ records: "9,600", r2: "88.80%" });
+  const [metrics, setMetrics] = useState(null);
+  const [scatterData, setScatterData] = useState(undefined); // undefined=loading, null=unavailable
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("ALL");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);
@@ -52,10 +55,18 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
         const metricsRes = await fetch(`${backendUrl}/api/metrics`);
         if (metricsRes.ok) {
           const m = await metricsRes.json();
+          setMetrics(m);
           setStats({
             records: m.records_procesados?.toLocaleString() ?? "9,600",
             r2: m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : (m.r2_xgb != null ? `${(m.r2_xgb * 100).toFixed(2)}%` : "—"),
           });
+        }
+        // Load scatter data (may not exist yet)
+        try {
+          const scatterRes = await fetch(`${backendUrl}/api/scatter-data`);
+          setScatterData(scatterRes.ok ? await scatterRes.json() : null);
+        } catch {
+          setScatterData(null);
         }
         // Load real top departments
         const topRes = await fetch(`${backendUrl}/api/top-departments?n=5`);
@@ -159,48 +170,108 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
         </p>
       </div>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+      {/* KPI Row — 4 tarjetas */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-lg">
         {/* Registros */}
-        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-lg shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
-          <div className="w-14 h-14 bg-surface-container rounded-lg flex items-center justify-center text-primary">
-            <span className="material-symbols-outlined text-[32px]">database</span>
+        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
+          <div className="w-12 h-12 bg-surface-container rounded-lg flex items-center justify-center text-primary flex-shrink-0">
+            <span className="material-symbols-outlined text-[28px]">database</span>
           </div>
           <div>
-            <p className="text-label-md font-medium text-on-surface-variant">
-              Registros Consolidados
-            </p>
-            <h3 className="text-headline-md font-bold text-primary" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {stats.records} <span className="text-label-md font-normal opacity-60">obs.</span>
+            <p className="text-[11px] font-medium text-on-surface-variant">Registros</p>
+            <h3 className="text-[22px] font-bold text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {stats.records}
             </h3>
+            <p className="text-[10px] text-on-surface-variant">observaciones</p>
           </div>
         </div>
 
         {/* Rango */}
-        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant border-l-4 border-l-secondary p-lg rounded-xl flex items-center gap-lg shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
-          <div className="w-14 h-14 bg-secondary-container/20 rounded-lg flex items-center justify-center text-secondary">
-            <span className="material-symbols-outlined text-[32px]">calendar_today</span>
+        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant border-l-4 border-l-secondary p-lg rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
+          <div className="w-12 h-12 bg-secondary-container/20 rounded-lg flex items-center justify-center text-secondary flex-shrink-0">
+            <span className="material-symbols-outlined text-[28px]">calendar_today</span>
           </div>
           <div>
-            <p className="text-label-md font-medium text-on-surface-variant">Rango Temporal</p>
-            <h3 className="text-headline-md font-bold text-primary" style={{ fontVariantNumeric: "tabular-nums" }}>
-              2014 — 2022
-            </h3>
+            <p className="text-[11px] font-medium text-on-surface-variant">Rango temporal</p>
+            <h3 className="text-[22px] font-bold text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>2014–2022</h3>
+            <p className="text-[10px] text-on-surface-variant">
+              Train: 2014–2020 · Test: 2021–2022
+            </p>
           </div>
         </div>
 
-        {/* Precisión */}
-        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-lg shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
-          <div className="w-14 h-14 bg-primary-container/10 rounded-lg flex items-center justify-center text-primary-container">
-            <span className="material-symbols-outlined text-[32px]">analytics</span>
+        {/* Países */}
+        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
+          <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 flex-shrink-0">
+            <span className="material-symbols-outlined text-[28px]">public</span>
           </div>
           <div>
-            <p className="text-label-md font-medium text-on-surface-variant">Precisión del Sistema</p>
-            <h3 className="text-headline-md font-bold text-primary" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {stats.r2} <span className="text-label-md font-normal text-secondary">(R²)</span>
-            </h3>
+            <p className="text-[11px] font-medium text-on-surface-variant">Países</p>
+            <h3 className="text-[22px] font-bold text-primary leading-tight">{metrics?.n_paises ?? 8}</h3>
+            <p className="text-[10px] text-on-surface-variant">América Latina</p>
           </div>
         </div>
+
+        {/* Departamentos */}
+        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
+          <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 flex-shrink-0">
+            <span className="material-symbols-outlined text-[28px]">location_city</span>
+          </div>
+          <div>
+            <p className="text-[11px] font-medium text-on-surface-variant">Departamentos</p>
+            <h3 className="text-[22px] font-bold text-primary leading-tight">{metrics?.n_departamentos ?? 169}</h3>
+            <p className="text-[10px] text-on-surface-variant">subregiones</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Model Performance Row — 4 tarjetas de métricas del modelo */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-lg">
+        {[
+          {
+            label: "XGBoost R²",
+            value: metrics?.r2_xgb != null ? `${(metrics.r2_xgb * 100).toFixed(2)}%` : "89.88%",
+            sub: "escala log1p",
+            icon: "precision_manufacturing",
+            color: "text-orange-600",
+            bg: "bg-orange-50",
+          },
+          {
+            label: "LSTM R²",
+            value: metrics?.r2_lstm != null ? `${(metrics.r2_lstm * 100).toFixed(2)}%` : "85.77%",
+            sub: "escala log1p",
+            icon: "neurology",
+            color: "text-purple-600",
+            bg: "bg-purple-50",
+          },
+          {
+            label: "MAE Ensemble",
+            value: metrics?.mae_ensemble != null ? metrics.mae_ensemble.toFixed(2) : "7.11",
+            sub: "casos/100k hab.",
+            icon: "straighten",
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+          },
+          {
+            label: "RMSE Ensemble",
+            value: metrics?.rmse_ensemble != null ? metrics.rmse_ensemble.toFixed(2) : "—",
+            sub: metrics?.rmse_ensemble != null ? "casos/100k hab." : "ejecuta scatter script",
+            icon: "query_stats",
+            color: "text-sky-600",
+            bg: "bg-sky-50",
+          },
+        ].map((m) => (
+          <div key={m.label} className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-md rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
+            <div className={`w-10 h-10 ${m.bg} rounded-lg flex items-center justify-center ${m.color} flex-shrink-0`}>
+              <span className="material-symbols-outlined text-[22px]">{m.icon}</span>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-on-surface-variant">{m.label}</p>
+              <h3 className="text-[20px] font-bold text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>{m.value}</h3>
+              <p className="text-[10px] text-on-surface-variant">{m.sub}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Main Visualization Grid */}
@@ -320,6 +391,11 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           </div>
         </div>
       </div>
+
+      {/* Scatter Plot */}
+      {scatterData !== undefined && (
+        <ScatterPlot data={scatterData} />
+      )}
 
       {/* REPORT GENERATION MODAL */}
       {isGeneratingReport && (

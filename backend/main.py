@@ -189,6 +189,19 @@ def get_features(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener features: {str(e)}")
 
+@app.get("/api/scatter-data", tags=["Métricas"])
+def get_scatter_data():
+    """Retorna puntos predicho vs real del set de prueba (2021-2022) para el diagrama de dispersión."""
+    import json as _json
+    scatter_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "Base de Datos", "modelos", "scatter_data.json"
+    )
+    if not os.path.exists(scatter_path):
+        raise HTTPException(status_code=404, detail="Scatter data no generado aún. Ejecuta generar_scatter_data.py")
+    with open(scatter_path, "r") as f:
+        return _json.load(f)
+
 @app.get("/api/explain/global", tags=["Explicabilidad XAI"])
 def explain_global():
     if prediction_service.shap_importance is None:

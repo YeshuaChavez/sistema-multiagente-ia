@@ -117,6 +117,14 @@ class PredictionService:
             _s3.PREFIX_CRUDOS + "departamentos_coordenadas.csv",
             os.path.join(self.raw_dir, "departamentos_coordenadas.csv")
         )
+        # Scatter data es opcional (se genera con generar_scatter_data.py)
+        try:
+            _s3.download(
+                _s3.PREFIX_MODELOS + "scatter_data.json",
+                os.path.join(self.model_dir, "scatter_data.json")
+            )
+        except Exception:
+            print("[SMA-ML/DL] scatter_data.json no disponible en S3 (ejecuta generar_scatter_data.py para generarlo)")
 
     def inicializar_servicio(self):
         print("[SMA-ML/DL] Iniciando Sistema Multi-Agente...")

@@ -771,39 +771,42 @@ export default function PredictorView({
                   <p className="text-on-surface-variant">Cargando serie histórica departamental...</p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-lg">
-                  {/* SVG Chart */}
-                  <HistoricalChart data={historicalData} />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg">
+                  {/* SVG Chart — ocupa 7 cols en pantallas grandes */}
+                  <div className="lg:col-span-7">
+                    <HistoricalChart data={historicalData} />
+                  </div>
 
-                  {/* Historical Table */}
-                  <div className="bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-lg shadow-sm overflow-hidden">
-                    <div className="flex justify-between items-center mb-md">
-                      <h4 className="text-headline-md font-bold text-primary">Registros Históricos ({selectedDept}, {selectedCountry})</h4>
-                      <span className="text-label-md text-on-surface-variant">{historicalData.length} meses registrados</span>
+                  {/* Historical Table — ocupa 5 cols, con scroll vertical */}
+                  <div className="lg:col-span-5 bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-lg shadow-sm flex flex-col overflow-hidden">
+                    <div className="flex justify-between items-center mb-md flex-shrink-0">
+                      <div>
+                        <h4 className="text-headline-md font-bold text-primary">Registros Históricos</h4>
+                        <p className="text-[11px] text-on-surface-variant mt-0.5">{selectedDept} · {selectedCountry}</p>
+                      </div>
+                      <span className="text-[11px] font-bold text-primary bg-surface-container px-sm py-xs rounded-lg">
+                        {historicalData.length} meses
+                      </span>
                     </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-body-md border-collapse">
-                        <thead>
-                          <tr className="border-b border-outline-variant/60 text-on-surface-variant font-bold text-[13px] bg-surface-container-low">
-                            <th className="py-sm px-md">Fecha (t)</th>
-                            <th className="py-sm px-md">Casos Reportados</th>
-                            <th className="py-sm px-md">Incidencia (/100k)</th>
-                            <th className="py-sm px-md">T. Máx (°C)</th>
-                            <th className="py-sm px-md">T. Mín (°C)</th>
-                            <th className="py-sm px-md">Lluvia (mm)</th>
-                            <th className="py-sm px-md">Humedad (%)</th>
+                    <div className="overflow-y-auto flex-1" style={{ maxHeight: "480px" }}>
+                      <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 z-10">
+                          <tr className="border-b border-outline-variant/60 text-on-surface-variant font-bold text-[11px] bg-surface-container-low">
+                            <th className="py-xs px-sm whitespace-nowrap">Fecha</th>
+                            <th className="py-xs px-sm whitespace-nowrap">Casos</th>
+                            <th className="py-xs px-sm whitespace-nowrap">Inc./100k</th>
+                            <th className="py-xs px-sm whitespace-nowrap">Tmax</th>
+                            <th className="py-xs px-sm whitespace-nowrap">Lluvia</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {historicalData.slice().reverse().slice(0, 36).map((rec, idx) => (
-                            <tr key={idx} className="border-b border-outline-variant/30 hover:bg-surface-container-lowest text-[13px] transition-colors">
-                              <td className="py-sm px-md font-bold text-on-surface">{rec.fecha}</td>
-                              <td className="py-sm px-md font-semibold text-primary">{rec.casos}</td>
-                              <td className="py-sm px-md text-on-surface-variant">{rec.incidencia}</td>
-                              <td className="py-sm px-md">{rec.tmax}°C</td>
-                              <td className="py-sm px-md">{rec.tmin}°C</td>
-                              <td className="py-sm px-md">{rec.precipitacion} mm</td>
-                              <td className="py-sm px-md">{rec.humedad}%</td>
+                          {historicalData.slice().reverse().map((rec, idx) => (
+                            <tr key={idx} className="border-b border-outline-variant/20 hover:bg-surface-container-lowest text-[12px] transition-colors">
+                              <td className="py-xs px-sm font-bold text-on-surface whitespace-nowrap">{rec.fecha}</td>
+                              <td className="py-xs px-sm font-semibold text-primary">{rec.casos}</td>
+                              <td className="py-xs px-sm text-on-surface-variant">{rec.incidencia}</td>
+                              <td className="py-xs px-sm">{rec.tmax}°C</td>
+                              <td className="py-xs px-sm">{rec.precipitacion}mm</td>
                             </tr>
                           ))}
                         </tbody>
