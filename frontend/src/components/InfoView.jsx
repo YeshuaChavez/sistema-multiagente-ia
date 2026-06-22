@@ -56,7 +56,7 @@ const agents = [
     color: "bg-emerald-600",
     colorLight: "bg-emerald-50",
     description:
-      "Combina las predicciones de los Agentes 3 y 4 mediante promedio simple (Ensemble Averaging), reduciendo la varianza individual. Clasifica la predicción final en niveles de riesgo epidemiológico calibrados con percentiles históricos.",
+      "Combina las predicciones de los Agentes 3 y 4 mediante ensemble ponderado con pesos proporcionales al R² individual (w_XGB=0.512, w_LSTM=0.488), reduciendo la varianza individual. Clasifica la predicción final en niveles de riesgo epidemiológico calibrados con percentiles históricos.",
     tech: ["NumPy", "Percentiles Calibrados (p25, p50, p90)"],
     input: "Predicciones de Agente 3 (ML) + Agente 4 (DL)",
     output: "Predicción final + Nivel de riesgo (Normal/Vigilancia/Alerta/Epidemia)",

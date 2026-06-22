@@ -14,7 +14,7 @@ export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onO
   const notifications = [
     { id: 1, text: "Backend conectado de forma exitosa.", time: "Hace 2 min", type: "success" },
     { id: 2, text: "Modelos XGBoost y LSTM PyTorch listos.", time: "Hace 5 min", type: "info" },
-    { id: 3, text: "Dataset consolidado con 12,180 registros.", time: "Hace 10 min", type: "info" }
+    { id: 3, text: "Dataset consolidado con 9,600 registros (8 países).", time: "Hace 10 min", type: "info" }
   ];
 
   return (

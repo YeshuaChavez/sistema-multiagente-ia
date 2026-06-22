@@ -10,7 +10,6 @@ const countryNames = {
   BRA: "Brasil",
   MEX: "México",
   PER: "Perú",
-  NIC: "Nicaragua",
   ARG: "Argentina",
   BOL: "Bolivia",
   ECU: "Ecuador",

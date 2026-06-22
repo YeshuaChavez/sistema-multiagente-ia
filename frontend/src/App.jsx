@@ -407,7 +407,7 @@ export default function App() {
                 <ul className="text-body-md text-on-surface-variant mt-xs space-y-sm list-disc pl-md">
                   <li><strong>Tasa de Incidencia:</strong> Número de casos registrados de dengue por cada 100,000 habitantes.</li>
                   <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (~88.8% para el Ensemble XGBoost + LSTM).</li>
-                  <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (~9.87 casos/100k hab. para el Ensemble).</li>
+                  <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (~7.11 casos/100k hab. para el Ensemble).</li>
                 </ul>
               </div>
               <div className="border-t border-outline-variant pt-md">
