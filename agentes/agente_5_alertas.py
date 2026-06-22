@@ -283,10 +283,13 @@ class AgenteOrquestador:
             else:
                 vector.append(0.0)
 
+        # Incidencia features que el usuario puede ajustar — siempre en log1p (igual que entrenamiento)
+        _INC_LAG_FEATS = {f for f in cols_feat if f.startswith("incidencia_lag") or f.startswith("incidencia_vecinos_lag") or f in ("incidencia_roll3", "incidencia_roll6", "incidencia_roll12")}
         if clima_overrides:
             for i, feat in enumerate(cols_feat):
                 if feat in clima_overrides and feat not in _ALWAYS_COMPUTED:
-                    vector[i] = float(clima_overrides[feat])
+                    raw_val = float(clima_overrides[feat])
+                    vector[i] = np.log1p(raw_val) if feat in _INC_LAG_FEATS else raw_val
 
         # ── Agente 3: XGBoost ──
         res_ml = self.agente_ml.predecir(vector, compute_shap=compute_shap)
