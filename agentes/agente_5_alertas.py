@@ -176,7 +176,11 @@ class AgenteOrquestador:
         cols_feat = self.agente_ml.cols_feat
         # Estas features se recalculan siempre; no deben venir del CSV ni de clima_overrides
         _ALWAYS_COMPUTED = {"mes_sin", "mes_cos", "incidencia_roll3", "incidencia_roll6"}
+        # Pre-computar lags de incidencia en log1p (igual que agente_2 al generar features)
+        _inc_vars = {"incidencia", "incidencia_vecinos"}
+
         vector = []
+        lag_cache = {}  # {feat: valor_log1p} para reutilizar en features derivadas
         for feat in cols_feat:
             val = None if feat in _ALWAYS_COMPUTED else base_record.get(feat)
             if val is not None and not (isinstance(val, float) and np.isnan(val)):
@@ -198,9 +202,10 @@ class AgenteOrquestador:
                         if vals:
                             lag_val = float(np.mean(vals))
                         else:
-                            # Fallback: propia incidencia (idéntico a Agente 2)
                             lag_val = self._inc_lookup.get(
                                 (iso_a0, adm_1_name_u, lag_ano, lag_mes))
+                        if lag_val is not None:
+                            lag_val = np.log1p(lag_val)  # mismo que agente_2 línea 237
                     else:
                         map_vars = {
                             "tmax": "tmax_promedio", "tmin": "tmin_promedio",
@@ -210,20 +215,71 @@ class AgenteOrquestador:
                         col_real = map_vars.get(var_base, var_base)
                         if col_real in df_dept.columns:
                             lag_val = df_dept.loc[ref_idx - lag_num, col_real]
+                            if var_base == "incidencia" and lag_val is not None:
+                                lag_val = np.log1p(lag_val)  # mismo que agente_2 línea 154
                 if lag_val is None or (isinstance(lag_val, float) and np.isnan(lag_val)):
                     med = df_dept[df_dept['mes'] == ref_mes].median(numeric_only=True).to_dict()
                     lag_val = med.get(var_base, 0.0)
+                    if var_base in _inc_vars:
+                        lag_val = np.log1p(lag_val)
+                lag_cache[feat] = lag_val
                 vector.append(lag_val)
             elif feat == "incidencia_roll3":
                 vals = df_dept['incidencia_dengue'].iloc[max(0, ref_idx - 3):ref_idx].values
-                vector.append(float(np.mean(vals)) if len(vals) > 0 else 0.0)
+                v = float(np.log1p(np.mean(vals))) if len(vals) > 0 else 0.0
+                lag_cache[feat] = v
+                vector.append(v)
             elif feat == "incidencia_roll6":
                 vals = df_dept['incidencia_dengue'].iloc[max(0, ref_idx - 6):ref_idx].values
-                vector.append(float(np.mean(vals)) if len(vals) > 0 else 0.0)
+                v = float(np.log1p(np.mean(vals))) if len(vals) > 0 else 0.0
+                lag_cache[feat] = v
+                vector.append(v)
+            elif feat == "incidencia_roll12":
+                vals = df_dept['incidencia_dengue'].iloc[max(0, ref_idx - 12):ref_idx].values
+                v = float(np.log1p(np.mean(vals))) if len(vals) > 0 else 0.0
+                vector.append(v)
             elif feat == "mes_sin":
                 vector.append(float(np.sin(2 * np.pi * ref_mes / 12)))
             elif feat == "mes_cos":
                 vector.append(float(np.cos(2 * np.pi * ref_mes / 12)))
+            # Features derivadas de incidencia (calculadas igual que agente_2)
+            elif feat == "aceleracion_incidencia":
+                l1 = lag_cache.get("incidencia_lag1", 0.0)
+                l2 = lag_cache.get("incidencia_lag2", 0.0)
+                vector.append(l1 - l2)
+            elif feat == "cambio_interanual":
+                l1  = lag_cache.get("incidencia_lag1", 0.0)
+                l12 = lag_cache.get("incidencia_lag12", 0.0)
+                vector.append(l1 - l12)
+            elif feat == "tendencia_1m":
+                l1 = lag_cache.get("incidencia_lag1", 0.0)
+                l2 = lag_cache.get("incidencia_lag2", 0.0)
+                vector.append(np.log1p(l1) - np.log1p(l2))
+            elif feat == "tendencia_3m":
+                l1 = lag_cache.get("incidencia_lag1", 0.0)
+                l3 = lag_cache.get("incidencia_lag3", 0.0)
+                vector.append(np.log1p(l1) - np.log1p(l3))
+            elif feat == "fase_ascendente":
+                l1 = lag_cache.get("incidencia_lag1", 0.0)
+                l3 = lag_cache.get("incidencia_lag3", 0.0)
+                vector.append(1.0 if l1 > l3 else 0.0)
+            elif feat == "indicador_brote":
+                l1 = lag_cache.get("incidencia_lag1", 0.0)
+                p75 = float(df_dept["incidencia_dengue"].apply(np.log1p).quantile(0.75))
+                vector.append(1.0 if l1 > p75 else 0.0)
+            # Features derivadas de clima
+            elif feat == "amplitud_termica":
+                tmax = base_record.get("tmax_promedio", 0.0) or 0.0
+                tmin = base_record.get("tmin_promedio", 0.0) or 0.0
+                vector.append(float(tmax - tmin))
+            elif feat == "temperatura_media":
+                tmax = base_record.get("tmax_promedio", 0.0) or 0.0
+                tmin = base_record.get("tmin_promedio", 0.0) or 0.0
+                vector.append(float((tmax + tmin) / 2))
+            elif feat == "precipitacion_anomalia":
+                prec = base_record.get("precipitacion", 0.0) or 0.0
+                med_prec = df_dept[df_dept['mes'] == ref_mes]['precipitacion'].median()
+                vector.append(float(prec - (med_prec if not np.isnan(med_prec) else 0.0)))
             else:
                 vector.append(0.0)
 
