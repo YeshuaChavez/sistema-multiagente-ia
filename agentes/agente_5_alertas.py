@@ -10,9 +10,10 @@ la respuesta final del sistema multi-agente.
 """
 
 import os
+import sys
+import importlib.util
 import numpy as np
 import pandas as pd
-from agente_6_regimen import AgenteRegimen
 
 
 class AgenteOrquestador:
@@ -56,8 +57,13 @@ class AgenteOrquestador:
         self._w_xgb  = float((metrics or {}).get("ensemble_w_xgb",  0.5))
         self._w_lstm = float((metrics or {}).get("ensemble_w_lstm", 0.5))
 
-        # Agente 6: Detección de Régimen Epidémico
-        self.agente_regimen = AgenteRegimen(self._w_xgb, self._w_lstm)
+        # Agente 6: Detección de Régimen Epidémico — cargado por ruta para evitar problemas de sys.path
+        _here = os.path.dirname(os.path.abspath(__file__))
+        _a6_path = os.path.join(_here, "agente_6_regimen.py")
+        _spec = importlib.util.spec_from_file_location("agente_6_regimen", _a6_path)
+        _mod  = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        self.agente_regimen = _mod.AgenteRegimen(self._w_xgb, self._w_lstm)
 
         # Percentiles globales como fallback cuando el departamento no tiene historial suficiente
         self.p25 = float(df_master["incidencia_dengue"].quantile(0.25))
