@@ -348,13 +348,12 @@ class AgentePrediccionDL:
             xgb_arr  = np.array(xgb_preds_common)
             lstm_arr = np.array(lstm_preds_common)
             y_arr    = np.array(ens_y)
-            # Pesos óptimos en log-escala (métrica estándar epidemiológica)
-            from scipy.optimize import minimize_scalar
             lxgb = np.log1p(xgb_arr); llst = np.log1p(lstm_arr); ly = np.log1p(y_arr)
-            res  = minimize_scalar(lambda w: -r2_score(ly, w*lxgb+(1-w)*llst),
-                                   bounds=(0,1), method='bounded')
-            w_xgb   = float(res.x)
-            w_lstm  = 1.0 - w_xgb
+            # Pesos proporcionales al R² individual de cada modelo
+            # Cada agente contribuye según su desempeño demostrado en CV
+            total_r2 = r2_ml + r2_log_lstm
+            w_xgb   = r2_ml / total_r2
+            w_lstm  = r2_log_lstm / total_r2
             ens_log = w_xgb * lxgb + w_lstm * llst
             ens_raw = np.expm1(ens_log)
             r2_ens  = r2_score(ly, ens_log)

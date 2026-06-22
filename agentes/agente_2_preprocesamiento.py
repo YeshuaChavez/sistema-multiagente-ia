@@ -256,6 +256,12 @@ class AgentePreprocesamiento:
         df['aceleracion_incidencia'] = df['incidencia_lag1'] - df['incidencia_lag2']
         # Cambio interanual: ¿peor o mejor que el mismo mes del año pasado?
         df['cambio_interanual'] = df['incidencia_lag1'] - df['incidencia_lag12']
+        # Tendencia mensual en log-escala (cambio mes a mes)
+        df['tendencia_1m'] = np.log1p(df['incidencia_lag1']) - np.log1p(df['incidencia_lag2'])
+        # Tendencia trimestral en log-escala (cambio últimos 3 meses)
+        df['tendencia_3m'] = np.log1p(df['incidencia_lag1']) - np.log1p(df['incidencia_lag3'])
+        # Fase ascendente: 1 si el brote está creciendo vs hace 3 meses
+        df['fase_ascendente'] = (df['incidencia_lag1'] > df['incidencia_lag3']).astype(np.int8)
 
         # ── Indicador de brote activo ─────────────────────────────────────────
         # 1 si la incidencia del mes pasado supera el percentil 75 del país
