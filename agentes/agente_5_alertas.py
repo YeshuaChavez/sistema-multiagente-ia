@@ -298,9 +298,26 @@ class AgenteOrquestador:
         # ── Agente 4: LSTM PyTorch ──
         pred_lstm = self.agente_dl.predecir_secuencia(df_dept, ref_idx, clima_overrides)
 
-        # ── Agente 5: Ensemble con pesos óptimos ──
+        # ── Agente 5: Ensemble con pesos adaptativos ──
+        # En brotes extremos (lag1 > p90 local), LSTM captura mejor el momentum
+        # temporal que XGBoost (los árboles no extrapolan más allá del rango visto)
+        df_d_pct = self.df_master[
+            (self.df_master['iso_a0'] == iso_a0) &
+            (self.df_master['adm_1_name'].str.upper() == adm_1_name_u)
+        ]
+        p90_local = float(df_d_pct["incidencia_dengue"].quantile(0.90)) if not df_d_pct.empty else self.p90
+        p90_ref   = max(p90_local, self.p90, 1.0)
+
+        lag1_raw = np.expm1(lag_cache.get("incidencia_lag1", 0.0))
+        if pred_lstm is not None and lag1_raw > p90_ref:
+            extremeness  = min(lag1_raw / p90_ref, 3.0)
+            w_lstm_adj   = min(self._w_lstm * extremeness, 0.80)
+            w_xgb_adj    = 1.0 - w_lstm_adj
+        else:
+            w_xgb_adj, w_lstm_adj = self._w_xgb, self._w_lstm
+
         if pred_lstm is not None:
-            pred_ens = self._w_xgb * pred_ml + self._w_lstm * pred_lstm
+            pred_ens = w_xgb_adj * pred_ml + w_lstm_adj * pred_lstm
         else:
             pred_ens = pred_ml
 
@@ -311,6 +328,8 @@ class AgenteOrquestador:
             "riesgo_lstm":         self.calcular_nivel_riesgo(pred_lstm, iso_a0, adm_1_name) if pred_lstm is not None else None,
             "prediccion_ensemble": round(pred_ens, 4),
             "riesgo_ensemble":     self.calcular_nivel_riesgo(pred_ens, iso_a0, adm_1_name),
+            "ensemble_w_xgb":      round(w_xgb_adj, 4),
+            "ensemble_w_lstm":     round(w_lstm_adj, 4),
             "features_usadas":     {f: float(v) for f, v in zip(cols_feat, vector)},
         }
         if "shap_local" in res_ml:
