@@ -64,7 +64,7 @@ export default function ScatterPlot({ data }) {
             Diagrama de Dispersión — Real vs Predicho
           </h4>
           <p className="text-[12px] text-on-surface-variant mt-xs">
-            Set de prueba 2021–2022 · {points.length} puntos muestreados
+            Set de prueba 2021–2022 · {points.length.toLocaleString()} observaciones completas
             {meta && (
               <>
                 {" · "}
@@ -121,7 +121,7 @@ export default function ScatterPlot({ data }) {
         {points.map((p, i) => (
           <circle key={i}
             cx={sx(p.actual)} cy={sy(p.pred)}
-            r="4" fill={ISO_COLORS[p.iso] ?? "#6366f1"} opacity="0.60"
+            r="3" fill={ISO_COLORS[p.iso] ?? "#6366f1"} opacity="0.45"
             className="cursor-pointer"
             onMouseEnter={(e) => setHovered({ ...p, mx: sx(p.actual), my: sy(p.pred) })}
           />

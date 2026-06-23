@@ -155,9 +155,7 @@ dept_col = df_test["adm_1_name"].values if "adm_1_name" in df_test.columns else 
 ano_col  = df_test["ano"].values
 mes_col  = df_test["mes"].values
 
-rng = np.random.default_rng(42)
-n_sample = min(400, len(y_real))
-idx_sample = rng.choice(len(y_real), size=n_sample, replace=False)
+idx_sample = np.arange(len(y_real))  # todos los puntos del test set
 
 points_xgb = [
     {"actual": round(float(y_real[i]), 2), "pred": round(float(pred_xgb[i]), 2),
@@ -190,5 +188,5 @@ scatter_path = os.path.join(MODELS, "scatter_data.json")
 with open(scatter_path, "w") as f:
     json.dump(scatter, f)
 s3.upload(scatter_path, s3.PREFIX_MODELOS + "scatter_data.json")
-print(f"  [S3↑] scatter_data.json ({n_sample} puntos)")
+print(f"  [S3↑] scatter_data.json ({len(idx_sample)} puntos)")
 print("\nListo. Redespliega Railway para que el backend sirva los nuevos datos.")
