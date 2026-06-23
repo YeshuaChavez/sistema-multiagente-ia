@@ -94,7 +94,7 @@ export default function App() {
     doc.text(`Generado: ${fecha}`, 14, 31);
 
     // Métricas del sistema
-    let metrics = { records: "9,600", r2_xgb: "89.88%", r2_lstm: "85.77%", r2_ens: "88.80%", mae: "7.11" };
+    let metrics = { records: "9,600", r2_xgb: "91.23%", r2_lstm: "86.94%", r2_ens: "89.79%", mae: "5.97" };
     try {
       const r = await fetch(`${API_URL}/api/metrics`);
       if (r.ok) {
@@ -406,8 +406,8 @@ export default function App() {
                 <p className="font-bold text-primary text-label-md">¿Qué significan las métricas?</p>
                 <ul className="text-body-md text-on-surface-variant mt-xs space-y-sm list-disc pl-md">
                   <li><strong>Tasa de Incidencia:</strong> Número de casos registrados de dengue por cada 100,000 habitantes.</li>
-                  <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (~88.8% para el Ensemble XGBoost + LSTM).</li>
-                  <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (~7.11 casos/100k hab. para el Ensemble).</li>
+                  <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (~89.8% para el Ensemble XGBoost + LSTM).</li>
+                  <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (~5.97 casos/100k hab. para el Ensemble).</li>
                 </ul>
               </div>
               <div className="border-t border-outline-variant pt-md">

@@ -68,13 +68,15 @@ class LSTMModel(nn.Module):
         out, _ = self.lstm(x)
         return self.fc(out[:, -1, :]).squeeze(-1)
 
+# Detectar num_layers desde el state_dict
+_sd = torch.load(os.path.join(MODELS, "lstm_model.pth"), map_location="cpu", weights_only=True)
+_num_layers = sum(1 for k in _sd if k.startswith("lstm.weight_ih_l"))
+
 model_lstm = LSTMModel(
     lstm_cfg["input_dim"], lstm_cfg["hidden_dim"],
-    lstm_cfg["num_layers"], lstm_cfg.get("dropout", 0.2)
+    _num_layers, lstm_cfg.get("dropout", 0.2)
 )
-model_lstm.load_state_dict(torch.load(
-    os.path.join(MODELS, "lstm_model.pth"), map_location="cpu", weights_only=True
-))
+model_lstm.load_state_dict(_sd)
 model_lstm.eval()
 
 SEQ_LEN = lstm_cfg.get("seq_len", 12)

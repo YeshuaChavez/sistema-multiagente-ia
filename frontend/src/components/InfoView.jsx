@@ -35,7 +35,7 @@ const agents = [
       "Entrena y ejecuta un modelo XGBoost (Gradient Boosting basado en árboles) para la predicción de la tasa de incidencia de dengue. Utiliza hiperparámetros optimizados mediante GridSearchCV + TimeSeriesSplit (n_estimators=800, lr=0.01, max_depth=4) y genera importancias SHAP locales y globales mediante TreeSHAP.",
     tech: ["XGBoost", "Scikit-Learn", "SHAP (TreeSHAP)", "Joblib"],
     input: "Dataset preprocesado + 73 features ingenieriles",
-    output: "Predicción ML (R²=89.88%) + SHAP values",
+    output: "Predicción ML (R²=91.23%) + SHAP values",
   },
   {
     id: 4,
@@ -47,7 +47,7 @@ const agents = [
       "Implementa una red neuronal LSTM (Long Short-Term Memory) con PyTorch para capturar dependencias temporales de largo plazo en los datos epidemiológicos. Utiliza 12 meses de lookback, capas recurrentes con dropout y entrenamiento con Adam optimizer + early stopping (ReduceLROnPlateau).",
     tech: ["PyTorch (CPU)", "torch.nn (LSTM)", "Adam Optimizer", "Early Stopping"],
     input: "Secuencias temporales de 12 meses (clima + incidencia)",
-    output: "Predicción DL (R²=85.77%) con patrón estacional",
+    output: "Predicción DL (R²=86.94%) con patrón estacional",
   },
   {
     id: 5,

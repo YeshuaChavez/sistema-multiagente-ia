@@ -37,7 +37,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
   const [topDepts, setTopDepts] = useState([]);
 
   const [backendReady, setBackendReady] = useState(false);
-  const [stats, setStats] = useState({ records: "9,600", r2: "88.80%" });
+  const [stats, setStats] = useState({ records: "9,600", r2: "89.79%" });
   const [metrics, setMetrics] = useState(null);
   const [scatterData, setScatterData] = useState(undefined); // undefined=loading, null=unavailable
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("ALL");
@@ -118,9 +118,9 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           ["Registros consolidados", stats.records + " obs."],
           ["Rango temporal", "2014 — 2022"],
           ["Precisión del sistema (R² Ensemble)", stats.r2],
-          ["XGBoost R²", "89.88%"],
-          ["LSTM PyTorch R²", "85.77%"],
-          ["MAE Ensemble", "7.11 casos/100k"],
+          ["XGBoost R²", "91.23%"],
+          ["LSTM PyTorch R²", "86.94%"],
+          ["MAE Ensemble", "5.97 casos/100k"],
         ],
         headStyles: { fillColor: [30, 58, 95] },
         alternateRowStyles: { fillColor: [245, 248, 255] },
@@ -225,12 +225,20 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
         </div>
       </div>
 
-      {/* Model Performance Row — 4 tarjetas de métricas del modelo */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-lg">
+      {/* Model Performance Row — 5 tarjetas de métricas del modelo */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-lg">
         {[
           {
+            label: "Ensemble R²",
+            value: metrics?.r2_ensemble != null ? `${(metrics.r2_ensemble * 100).toFixed(2)}%` : "89.79%",
+            sub: "escala log1p · test 2021–22",
+            icon: "hub",
+            color: "text-primary",
+            bg: "bg-primary-container/10",
+          },
+          {
             label: "XGBoost R²",
-            value: metrics?.r2_xgb != null ? `${(metrics.r2_xgb * 100).toFixed(2)}%` : "89.88%",
+            value: metrics?.r2_xgb != null ? `${(metrics.r2_xgb * 100).toFixed(2)}%` : "91.23%",
             sub: "escala log1p",
             icon: "precision_manufacturing",
             color: "text-orange-600",
@@ -238,7 +246,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           },
           {
             label: "LSTM R²",
-            value: metrics?.r2_lstm != null ? `${(metrics.r2_lstm * 100).toFixed(2)}%` : "85.77%",
+            value: metrics?.r2_lstm != null ? `${(metrics.r2_lstm * 100).toFixed(2)}%` : "86.94%",
             sub: "escala log1p",
             icon: "neurology",
             color: "text-purple-600",
@@ -246,7 +254,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           },
           {
             label: "MAE Ensemble",
-            value: metrics?.mae_ensemble != null ? metrics.mae_ensemble.toFixed(2) : "7.11",
+            value: metrics?.mae_ensemble != null ? metrics.mae_ensemble.toFixed(2) : "5.97",
             sub: "casos/100k hab.",
             icon: "straighten",
             color: "text-emerald-600",
@@ -254,8 +262,8 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           },
           {
             label: "RMSE Ensemble",
-            value: metrics?.rmse_ensemble != null ? metrics.rmse_ensemble.toFixed(2) : "—",
-            sub: metrics?.rmse_ensemble != null ? "casos/100k hab." : "ejecuta scatter script",
+            value: metrics?.rmse_ensemble != null ? metrics.rmse_ensemble.toFixed(2) : "21.24",
+            sub: "casos/100k hab.",
             icon: "query_stats",
             color: "text-sky-600",
             bg: "bg-sky-50",
@@ -381,7 +389,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
               <h5 className="text-label-md font-bold uppercase tracking-wider">Estado del Modelo Híbrido</h5>
             </div>
             <p className="text-body-md opacity-90 leading-relaxed">
-              El motor ensemble combina <strong>XGBoost</strong> (R²=89.9%) y <strong>LSTM PyTorch</strong> (R²=85.8%) con pesos proporcionales al R², alcanzando <strong>R²=88.8%</strong> y MAE de 7.11 casos/100k hab.
+              El motor ensemble combina <strong>XGBoost</strong> (R²=91.2%) y <strong>LSTM PyTorch</strong> (R²=86.9%) con pesos proporcionales al R², alcanzando <strong>R²=89.8%</strong> y MAE de 5.97 casos/100k hab. sobre el set de prueba 2021–2022.
             </p>
             <div className="mt-md flex items-center gap-sm flex-wrap">
               <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">XGBoost</span>
