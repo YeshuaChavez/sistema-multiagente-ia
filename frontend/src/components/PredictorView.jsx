@@ -329,25 +329,6 @@ export default function PredictorView({
 
   const getRisk = (r) => riskStyles[r?.nivel] || riskStyles["Endémico"];
 
-  // Régimen epidémico (Agente 6)
-  const regimenColors = {
-    "Normal":        "bg-emerald-500",
-    "Vigilancia":    "bg-yellow-500",
-    "Pre-brote":     "bg-orange-500",
-    "Brote activo":  "bg-red-600",
-    "Post-pico":     "bg-blue-500",
-  };
-  const regimenIcons = {
-    "Normal":        "check_circle",
-    "Vigilancia":    "visibility",
-    "Pre-brote":     "trending_up",
-    "Brote activo":  "crisis_alert",
-    "Post-pico":     "trending_down",
-  };
-  const regimen     = result?.regimen_epidemico     ?? "—";
-  const regimenDesc = result?.regimen_descripcion   ?? "";
-  const wXgb        = result?.ensemble_w_xgb        != null ? `${(result.ensemble_w_xgb * 100).toFixed(0)}%` : "—";
-  const wLstm       = result?.ensemble_w_lstm       != null ? `${(result.ensemble_w_lstm * 100).toFixed(0)}%` : "—";
 
   // Filter keys by section
   const principalKeys = Object.keys(FEATURE_DEFS).filter(k => FEATURE_DEFS[k].section === "principal");
@@ -718,17 +699,6 @@ export default function PredictorView({
                         Nivel de Alerta: {getRisk(result.riesgo_ensemble).label}
                       </div>
 
-                      <div className="mt-sm border-t border-white/10 pt-lg w-full max-w-sm">
-                        <p className="text-primary-fixed-dim text-[11px] uppercase tracking-wider font-bold mb-xs">Régimen Epidémico · Agente 6</p>
-                        <div className="flex items-center gap-sm">
-                          <span className={`material-symbols-outlined text-white text-[20px] p-1 rounded-lg ${regimenColors[regimen] ?? "bg-gray-500"}`}>
-                            {regimenIcons[regimen] ?? "help"}
-                          </span>
-                          <p className="text-title-md font-bold text-white">{regimen}</p>
-                        </div>
-                        <p className="text-[10px] text-primary-fixed-dim mt-xs opacity-80">{regimenDesc}</p>
-                        <p className="text-[10px] text-primary-fixed-dim mt-xs opacity-60">w_XGB={wXgb} · w_LSTM={wLstm}</p>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -739,7 +709,7 @@ export default function PredictorView({
                   <div className="space-y-xs">
                     <p className="text-label-md font-bold text-primary">Nota de Verificación</p>
                     <p>
-                      El ensemble combina <strong>XGBoost</strong> (R²=91.2%) y <strong>LSTM PyTorch</strong> (R²=86.9%) con pesos ajustados dinámicamente por el <strong>Agente 6</strong> según el régimen epidémico detectado. En brotes activos el LSTM recibe hasta 80% del peso para capturar el momentum temporal. La clasificación de riesgo usa percentiles locales calibrados por departamento: Endémico (&le;p50), Alerta (p50–p90), Epidemia (&gt;p90).
+                      El ensemble combina <strong>XGBoost</strong> (R²=91.2%) y <strong>LSTM PyTorch</strong> (R²=86.9%) con pesos optimizados sobre el conjunto de validación 2020 (w_XGB=0.90, w_LSTM=0.10), ajustados internamente por el Agente 6 según el estado epidémico del departamento. La clasificación de riesgo usa percentiles locales calibrados por departamento: Endémico (&le;p50), Alerta (p50–p90), Epidemia (&gt;p90).
                     </p>
                   </div>
                 </div>
