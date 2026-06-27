@@ -118,9 +118,9 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           ["Registros consolidados", stats.records + " obs."],
           ["Rango temporal", "2014 — 2022"],
           ["Precisión del sistema (R² Ensemble)", stats.r2],
-          ["XGBoost R²", "91.23%"],
-          ["LSTM PyTorch R²", "86.94%"],
-          ["MAE Ensemble", "5.97 casos/100k"],
+          ["XGBoost R²", metrics?.r2_xgb != null ? `${(metrics.r2_xgb * 100).toFixed(2)}%` : "91.23%"],
+          ["LSTM PyTorch R²", metrics?.r2_lstm != null ? `${(metrics.r2_lstm * 100).toFixed(2)}%` : "86.94%"],
+          ["MAE Ensemble", metrics?.mae_ensemble != null ? `${metrics.mae_ensemble.toFixed(2)} casos/100k` : "5.97 casos/100k"],
         ],
         headStyles: { fillColor: [30, 58, 95] },
         alternateRowStyles: { fillColor: [245, 248, 255] },
@@ -389,7 +389,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
               <h5 className="text-label-md font-bold uppercase tracking-wider">Estado del Modelo Híbrido</h5>
             </div>
             <p className="text-body-md opacity-90 leading-relaxed">
-              El motor ensemble combina <strong>XGBoost</strong> (R²=91.2%) y <strong>LSTM PyTorch</strong> (R²=86.9%) con pesos proporcionales al R², alcanzando <strong>R²=89.8%</strong> y MAE de 5.97 casos/100k hab. sobre el set de prueba 2021–2022.
+              El motor ensemble combina <strong>XGBoost</strong> (R²={metrics?.r2_xgb != null ? `${(metrics.r2_xgb * 100).toFixed(1)}%` : "91.2%"}) y <strong>LSTM PyTorch</strong> (R²={metrics?.r2_lstm != null ? `${(metrics.r2_lstm * 100).toFixed(1)}%` : "86.9%"}) alcanzando <strong>R²={metrics?.r2_ensemble != null ? `${(metrics.r2_ensemble * 100).toFixed(1)}%` : "89.8%"}</strong> y MAE de {metrics?.mae_ensemble != null ? `${metrics.mae_ensemble.toFixed(2)}` : "5.97"} casos/100k hab. sobre el set de prueba 2021–2022.
             </p>
             <div className="mt-md flex items-center gap-sm flex-wrap">
               <span className="text-[10px] px-2 py-0.5 bg-white/10 rounded-full">XGBoost</span>

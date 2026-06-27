@@ -26,17 +26,15 @@ class AgenteOrquestador:
       Agente 4 (LSTM)     ─┘
 
     Niveles de alerta calibrados con percentiles históricos:
-      Normal     (<p25)
-      Vigilancia (p25–p50)
+      Endémico   (<=p50)
       Alerta     (p50–p90)
       Epidemia   (>p90)
     """
 
     _NIVELES = {
-        "normal":     {"nivel": "Normal",     "codigo": "normal",     "color": "#10b981"},
-        "vigilancia": {"nivel": "Vigilancia", "codigo": "vigilancia", "color": "#eab308"},
-        "alerta":     {"nivel": "Alerta",     "codigo": "alerta",     "color": "#f97316"},
-        "epidemia":   {"nivel": "Epidemia",   "codigo": "epidemia",   "color": "#ef4444"},
+        "endemico": {"nivel": "Endémico", "codigo": "endemico", "color": "#10b981"},
+        "alerta":   {"nivel": "Alerta",   "codigo": "alerta",   "color": "#f97316"},
+        "epidemia": {"nivel": "Epidemia", "codigo": "epidemia", "color": "#ef4444"},
     }
 
     def __init__(self, agente_ml, agente_dl, df_master, df_coords=None, metrics=None):
@@ -109,7 +107,7 @@ class AgenteOrquestador:
 
     def calcular_nivel_riesgo(self, pred_val, iso_a0=None, adm_1_name=None):
         """Clasifica el nivel de riesgo usando percentiles del departamento (o globales)."""
-        p25, p50, p90 = self.p25, self.p50, self.p90
+        p50, p90 = self.p50, self.p90
 
         if iso_a0 and adm_1_name:
             df_dept = self.df_master[
@@ -117,14 +115,11 @@ class AgenteOrquestador:
                 (self.df_master['adm_1_name'].str.upper() == adm_1_name.strip().upper())
             ]
             if not df_dept.empty:
-                p25 = float(df_dept["incidencia_dengue"].quantile(0.25))
                 p50 = max(float(df_dept["incidencia_dengue"].quantile(0.50)), 0.5)
                 p90 = max(float(df_dept["incidencia_dengue"].quantile(0.90)), 5.0)
 
-        if pred_val <= p25:
-            return self._NIVELES["normal"]
-        elif pred_val <= p50:
-            return self._NIVELES["vigilancia"]
+        if pred_val <= p50:
+            return self._NIVELES["endemico"]
         elif pred_val <= p90:
             return self._NIVELES["alerta"]
         else:

@@ -26,7 +26,7 @@ class RawPredictionRequest(BaseModel):
     features: List[float] = Field(..., description="Vector de 23 características ordenadas")
 
 class RiskLevel(BaseModel):
-    nivel: str = Field(..., description="Descripción del riesgo: Normal, Vigilancia, Alerta, Epidemia")
+    nivel: str = Field(..., description="Descripción del riesgo: Endémico, Alerta, Epidemia")
     codigo: str = Field(..., description="Etiqueta corta del riesgo")
     color: str = Field(..., description="Color hexadecimal para renderizado en frontend")
 

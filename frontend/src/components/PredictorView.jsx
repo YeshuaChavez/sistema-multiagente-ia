@@ -4,10 +4,9 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 // Risk badge styling
 const riskStyles = {
-  Normal: { bg: "bg-[#10b981]/10", text: "text-[#00714d]", border: "border-[#10b981]/20", label: "Bajo/Normal", icon: "check_circle", ensemble: "bg-[#10b981]" },
-  Vigilancia: { bg: "bg-[#10b981]/10", text: "text-[#00714d]", border: "border-[#10b981]/20", label: "Vigilancia", icon: "visibility", ensemble: "bg-[#10b981]" },
-  Alerta: { bg: "bg-[#ea580c]/10", text: "text-[#ea580c]", border: "border-[#ea580c]/20", label: "Alerta", icon: "warning", ensemble: "bg-[#ea580c]" },
-  Epidemia: { bg: "bg-[#ba1a1a]/10", text: "text-[#ba1a1a]", border: "border-[#ba1a1a]/20", label: "Epidemia", icon: "emergency", ensemble: "bg-[#ba1a1a]" },
+  "Endémico": { bg: "bg-[#10b981]/10", text: "text-[#00714d]", border: "border-[#10b981]/20", label: "Endémico", icon: "check_circle", ensemble: "bg-[#10b981]" },
+  Alerta:     { bg: "bg-[#ea580c]/10", text: "text-[#ea580c]", border: "border-[#ea580c]/20", label: "Alerta",    icon: "warning",       ensemble: "bg-[#ea580c]" },
+  Epidemia:   { bg: "bg-[#ba1a1a]/10", text: "text-[#ba1a1a]", border: "border-[#ba1a1a]/20", label: "Epidemia",  icon: "emergency",     ensemble: "bg-[#ba1a1a]" },
 };
 
 // Configuration of ranges, labels, and steps for model features
@@ -106,14 +105,12 @@ const runMockPrediction = (values, country, dept) => {
   const pred_ens = (pred_ml + pred_lstm) / 2.0;
 
   const isLowRiskDept = dept && dept.toUpperCase() === "AGUASCALIENTES";
-  const p25 = 0.0;
   const p50 = isLowRiskDept ? 0.05 : 2.8;
   const p90 = isLowRiskDept ? 0.8 : 64.0;
 
   const getMockRisk = (val) => {
-    if (val <= p25) return { nivel: "Normal", codigo: "normal", color: "#10b981" };
-    if (val <= p50) return { nivel: "Vigilancia", codigo: "vigilancia", color: "#eab308" };
-    if (val <= p90) return { nivel: "Alerta", codigo: "alerta", color: "#f97316" };
+    if (val <= p50) return { nivel: "Endémico", codigo: "endemico", color: "#10b981" };
+    if (val <= p90) return { nivel: "Alerta",   codigo: "alerta",   color: "#f97316" };
     return { nivel: "Epidemia", codigo: "epidemia", color: "#ef4444" };
   };
 
@@ -330,7 +327,7 @@ export default function PredictorView({
     }));
   };
 
-  const getRisk = (r) => riskStyles[r?.nivel] || riskStyles.Normal;
+  const getRisk = (r) => riskStyles[r?.nivel] || riskStyles["Endémico"];
 
   // Régimen epidémico (Agente 6)
   const regimenColors = {
@@ -357,7 +354,6 @@ export default function PredictorView({
   const advancedKeys = Object.keys(FEATURE_DEFS).filter(k => FEATURE_DEFS[k].section === "advanced");
 
   // Local department percentiles (falling back to global ones if not simulated yet)
-  const localP25 = result?.percentiles_locales?.p25 ?? 0.0;
   const localP50 = result?.percentiles_locales?.p50 ?? 2.8;
   const localP90 = result?.percentiles_locales?.p90 ?? 64.0;
 
@@ -743,7 +739,7 @@ export default function PredictorView({
                   <div className="space-y-xs">
                     <p className="text-label-md font-bold text-primary">Nota de Verificación</p>
                     <p>
-                      El ensemble combina <strong>XGBoost</strong> (R²=89.9%) y <strong>LSTM PyTorch</strong> (R²=85.8%) con pesos ajustados dinámicamente por el <strong>Agente 6</strong> según el régimen epidémico detectado. En brotes activos el LSTM recibe hasta 80% del peso para capturar el momentum temporal. La clasificación de riesgo usa percentiles locales calibrados por departamento: Normal (&lt;p25), Vigilancia (p25–p50), Alerta (p50–p90), Epidemia (&gt;p90).
+                      El ensemble combina <strong>XGBoost</strong> (R²=91.2%) y <strong>LSTM PyTorch</strong> (R²=86.9%) con pesos ajustados dinámicamente por el <strong>Agente 6</strong> según el régimen epidémico detectado. En brotes activos el LSTM recibe hasta 80% del peso para capturar el momentum temporal. La clasificación de riesgo usa percentiles locales calibrados por departamento: Endémico (&le;p50), Alerta (p50–p90), Epidemia (&gt;p90).
                     </p>
                   </div>
                 </div>
@@ -831,23 +827,15 @@ export default function PredictorView({
             <div className="space-y-sm">
               <div className="flex justify-between items-center p-sm bg-emerald-50 dark:bg-emerald-950/20 border-l-4 border-emerald-500 rounded">
                 <div>
-                  <h5 className="text-[13px] font-bold text-emerald-800 dark:text-emerald-300">Normal (&lt;p25)</h5>
-                  <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400">Sin alertas. Riesgo endémico bajo.</p>
+                  <h5 className="text-[13px] font-bold text-emerald-800 dark:text-emerald-300">Endémico (&le;p50)</h5>
+                  <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400">Incidencia dentro del rango endémico habitual.</p>
                 </div>
-                <span className="font-mono text-label-md font-bold text-emerald-800 dark:text-emerald-300">&lt; {localP25.toFixed(2)}</span>
-              </div>
-
-              <div className="flex justify-between items-center p-sm bg-yellow-50 dark:bg-yellow-950/20 border-l-4 border-yellow-500 rounded">
-                <div>
-                  <h5 className="text-[13px] font-bold text-yellow-800 dark:text-yellow-300">Vigilancia (p25 - p50)</h5>
-                  <p className="text-[11px] text-yellow-700/80 dark:text-yellow-400">Desviaciones leves. Reforzar educación pública.</p>
-                </div>
-                <span className="font-mono text-label-md font-bold text-yellow-800 dark:text-yellow-300">{localP25.toFixed(2)} — {localP50.toFixed(2)}</span>
+                <span className="font-mono text-label-md font-bold text-emerald-800 dark:text-emerald-300">&le; {localP50.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center p-sm bg-orange-50 dark:bg-orange-950/20 border-l-4 border-orange-500 rounded">
                 <div>
-                  <h5 className="text-[13px] font-bold text-orange-800 dark:text-orange-300">Alerta (p50 - p90)</h5>
+                  <h5 className="text-[13px] font-bold text-orange-800 dark:text-orange-300">Alerta (p50 – p90)</h5>
                   <p className="text-[11px] text-orange-700/80 dark:text-orange-400">Brotes localizados. Fumigaciones selectivas.</p>
                 </div>
                 <span className="font-mono text-label-md font-bold text-orange-800 dark:text-orange-300">{localP50.toFixed(2)} — {localP90.toFixed(2)}</span>

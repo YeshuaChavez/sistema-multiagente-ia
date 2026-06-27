@@ -1,11 +1,18 @@
 {
-    "records_procesados": 9600,
-    "r2_xgb": 0.8988,
-    "mae_xgb": 7.2408,
-    "r2_lstm": 0.8577,
-    "mae_lstm": 7.3931,
-    "r2_ensemble": 0.888,
-    "mae_ensemble": 7.1093,
-    "ensemble_w_xgb": 0.5117,
-    "ensemble_w_lstm": 0.4883
+  "records_procesados": 16224,
+  "r2_xgb": 0.8988,
+  "mae_xgb": 7.2408,
+  "r2_lstm": 0.8577,
+  "mae_lstm": 7.3931,
+  "r2_ensemble": 0.8981,
+  "mae_ensemble": 7.1905,
+  "ensemble_w_xgb": 0.9,
+  "ensemble_w_lstm": 0.1,
+  "rmse_xgb": 22.5937,
+  "rmse_lstm": 20.6281,
+  "rmse_ensemble": 22.2618,
+  "n_train": 12168,
+  "n_test": 4056,
+  "n_paises": 8,
+  "n_departamentos": 169
 }
