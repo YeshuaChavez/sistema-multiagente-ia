@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Evalúa qué tan bien clasifica el sistema los niveles de riesgo epidémico
-(Normal / Vigilancia / Alerta / Epidemia) sobre el test set 2021-2022.
+(Endémico / Alerta / Epidemia) sobre el test set 2021-2022.
+Lógica idéntica a Agente 5: pred <= p50 → Endémico, <= p90 → Alerta, > p90 → Epidemia.
 """
 import os, sys, json, pickle, warnings
 warnings.filterwarnings('ignore')
@@ -92,13 +93,12 @@ for (iso, adm), grp in df_hist.groupby(['iso_u', 'adm_u']):
     )
 
 def clasificar(valor, iso, adm):
-    p25, p50, p90 = pct_map.get((iso, adm), (g25, g50, g90))
-    if valor <= p25:   return 0  # Normal
-    elif valor <= p50: return 1  # Vigilancia
-    elif valor <= p90: return 2  # Alerta
-    else:              return 3  # Epidemia
+    _, p50, p90 = pct_map.get((iso, adm), (g25, g50, g90))
+    if valor <= p50:   return 0  # Endémico
+    elif valor <= p90: return 1  # Alerta
+    else:              return 2  # Epidemia
 
-CLASES = ['Normal', 'Vigilancia', 'Alerta', 'Epidemia']
+CLASES = ['Endémico', 'Alerta', 'Epidemia']
 
 y_clase, ens_clase = [], []
 for i, row in enumerate(df_test.itertuples()):
@@ -142,8 +142,8 @@ print(f"\n  Reporte por clase:")
 print(classification_report(y_clase, ens_clase, target_names=CLASES, digits=3))
 
 # ── Métrica crítica: detección de epidemias ───────────────────────────────────
-epi_real  = (y_clase == 3)
-epi_pred  = (ens_clase == 3)
+epi_real  = (y_clase == 2)
+epi_pred  = (ens_clase == 2)
 tp = (epi_real & epi_pred).sum()
 fn = (epi_real & ~epi_pred).sum()
 fp = (~epi_real & epi_pred).sum()
