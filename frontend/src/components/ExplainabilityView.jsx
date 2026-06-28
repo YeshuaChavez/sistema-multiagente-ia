@@ -25,6 +25,8 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [recalculating, setRecalculating] = useState(false);
+  const [shapPage, setShapPage] = useState(0);
+  const SHAP_PAGE_SIZE = 15;
 
   // ─── Local SHAP state ───
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -272,44 +274,88 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
             )}
 
             {/* SHAP Bars */}
-            {Array.isArray(shapData) && shapData.length > 0 && (
-              <div className="space-y-lg">
-                {shapData.map((feature) => {
-                  const pct = (Math.abs(feature.importance) / maxVal) * 100;
-                  const isNegative = feature.importance < 0;
-                  return (
-                    <div key={feature.feature} className="space-y-sm">
-                      <div className="flex justify-between items-center" style={{ fontVariantNumeric: "tabular-nums" }}>
-                        <span className="text-label-md text-on-surface font-medium">{feature.feature}</span>
-                        <span className="text-label-md text-on-surface-variant">{feature.importance.toFixed(4)}</span>
+            {Array.isArray(shapData) && shapData.length > 0 && (() => {
+              const totalPages = Math.ceil(shapData.length / SHAP_PAGE_SIZE);
+              const pageData  = shapData.slice(shapPage * SHAP_PAGE_SIZE, (shapPage + 1) * SHAP_PAGE_SIZE);
+              return (
+                <div className="space-y-lg">
+                  {pageData.map((feature, i) => {
+                    const globalRank = shapPage * SHAP_PAGE_SIZE + i + 1;
+                    const pct = (Math.abs(feature.importance) / maxVal) * 100;
+                    const isNegative = feature.importance < 0;
+                    return (
+                      <div key={feature.feature} className="space-y-xs group/bar">
+                        <div className="flex justify-between items-center" style={{ fontVariantNumeric: "tabular-nums" }}>
+                          <div className="flex items-center gap-sm">
+                            <span className="text-[10px] font-bold text-on-surface-variant/50 w-5 text-right flex-shrink-0">#{globalRank}</span>
+                            <span className="text-label-md text-on-surface font-medium group-hover/bar:text-primary transition-colors">{feature.feature}</span>
+                          </div>
+                          <div className="flex items-center gap-sm">
+                            <span className={`text-[10px] font-bold px-xs py-0.5 rounded ${isNegative ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"}`}>
+                              {isNegative ? "↓ reduce" : "↑ aumenta"}
+                            </span>
+                            <span className="text-label-md text-on-surface-variant font-mono">{feature.importance.toFixed(4)}</span>
+                          </div>
+                        </div>
+                        <div className="w-full bg-surface-container-low dark:bg-zinc-800 h-3 rounded-full overflow-hidden">
+                          <div
+                            className={`chart-bar h-full bg-gradient-to-r ${isNegative ? "from-blue-600 to-blue-400" : "from-orange-400 to-orange-600"} rounded-full transition-all duration-300 group-hover/bar:brightness-110`}
+                            style={{ width: `${Math.max(pct, 2)}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="w-full bg-surface-container-low dark:bg-zinc-850 h-4 rounded-full overflow-hidden">
-                        <div
-                          className={`chart-bar h-full bg-gradient-to-r ${
-                            isNegative 
-                              ? "from-blue-600 to-blue-400" 
-                              : "from-orange-400 to-orange-600"
-                          } rounded-full`}
-                          style={{ width: `${Math.max(pct, 3)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
 
-                {/* Legend */}
-                <div className="mt-xl flex justify-between items-center border-t border-outline-variant pt-lg">
-                  <div className="flex items-center gap-sm">
-                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                    <span className="text-[11px] text-on-surface-variant text-label-md uppercase tracking-wider">Atenuación del Riesgo (SHAP &lt; 0)</span>
-                  </div>
-                  <div className="flex items-center gap-sm">
-                    <span className="text-[11px] text-on-surface-variant text-label-md uppercase tracking-wider">Acrecentamiento del Riesgo (SHAP &gt; 0)</span>
-                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-lg border-t border-outline-variant mt-lg">
+                      <button
+                        onClick={() => setShapPage(p => p - 1)}
+                        disabled={shapPage === 0}
+                        className="flex items-center gap-xs text-label-md text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-container px-sm py-xs rounded-lg transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                        Anterior
+                      </button>
+                      <div className="flex items-center gap-xs">
+                        {[...Array(totalPages)].map((_, pi) => (
+                          <button
+                            key={pi}
+                            onClick={() => setShapPage(pi)}
+                            className={`w-7 h-7 rounded-lg text-[12px] font-bold transition-colors cursor-pointer
+                              ${pi === shapPage ? "bg-primary text-on-primary" : "text-on-surface-variant hover:bg-surface-container"}`}
+                          >
+                            {pi + 1}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setShapPage(p => p + 1)}
+                        disabled={shapPage >= totalPages - 1}
+                        className="flex items-center gap-xs text-label-md text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-container px-sm py-xs rounded-lg transition-colors cursor-pointer"
+                      >
+                        Siguiente
+                        <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Legend */}
+                  <div className="flex justify-between items-center border-t border-outline-variant pt-md">
+                    <div className="flex items-center gap-sm">
+                      <div className="w-3 h-3 rounded-full bg-blue-500" />
+                      <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Atenuación del Riesgo (SHAP &lt; 0)</span>
+                    </div>
+                    <span className="text-[11px] text-on-surface-variant/50">{shapData.length} variables · pág. {shapPage + 1}/{totalPages}</span>
+                    <div className="flex items-center gap-sm">
+                      <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Acrecentamiento del Riesgo (SHAP &gt; 0)</span>
+                      <div className="w-3 h-3 rounded-full bg-orange-500" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
