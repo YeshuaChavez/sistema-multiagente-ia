@@ -23,8 +23,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 load_dotenv(os.path.join(ROOT, ".env"))
 sys.path.insert(0, os.path.join(ROOT, "agents"))
 
-GITHUB_API    = "https://api.github.com/repos/OpenDengue/master-repo/commits"
-OPENDENGUE_FILE = "data/Temporal_extract_V1_3.csv"
+GITHUB_API      = "https://api.github.com/repos/OpenDengue/master-repo/commits"
+OPENDENGUE_FILE = "data/releases"   # monitorear carpeta de releases para detectar nuevas versiones
 VERSION_FILE  = os.path.join(ROOT, "data", "models", "data_version.json")
 METRICS_FILE  = os.path.join(ROOT, "data", "models", "metrics.json")
 DRIFT_FILE    = os.path.join(ROOT, "data", "models", "drift_report.json")

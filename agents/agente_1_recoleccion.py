@@ -319,44 +319,62 @@ class AgenteRecoleccion:
         print(f"SUCCESS: [Agente 1] Agua JMP guardada en '{self.agua_jmp_path}' ({len(df_agua)} registros).")
         return df_agua
 
-    # URLs candidatas de OpenDengue (GitHub raw) — se prueban en orden
-    OPENDENGUE_URLS = [
-        "https://raw.githubusercontent.com/OpenDengue/master-repo/main/data/Temporal_extract_V1_3.csv",
-        "https://raw.githubusercontent.com/OpenDengue/master-repo/main/data/Temporal_extract_V1_2.csv",
-        "https://raw.githubusercontent.com/OpenDengue/master-repo/main/data/Temporal_extract_V1_1.csv",
+    # ZIPs de OpenDengue en GitHub (versiones en orden descendente)
+    # El archivo global está en data/releases/VX.X/ como ZIP que contiene el CSV
+    OPENDENGUE_RELEASES = [
+        ("V1.3", "https://github.com/OpenDengue/master-repo/raw/main/data/releases/V1.3/Temporal_extract_V1_3.zip"),
+        ("V1.2.2", "https://github.com/OpenDengue/master-repo/raw/main/data/releases/V1.2.2/Temporal_extract_V1_2_2.zip"),
+        ("V1.1", "https://github.com/OpenDengue/master-repo/raw/main/data/releases/V1.1/Temporal_extract_V1_1.csv"),
+        ("V1.0", "https://github.com/OpenDengue/master-repo/raw/main/data/releases/V1.0/Temporal_extract_V1_0.csv"),
     ]
 
     def _descargar_opendengue(self):
         """
-        Descarga el CSV de OpenDengue desde GitHub si no existe localmente.
-        Prueba las URLs candidatas en orden hasta que una funcione.
-        Nota: OpenDengue no tiene API REST — publica CSVs en GitHub con latencia
-        de 6-12 meses respecto a los datos oficiales de cada país.
+        Descarga el dataset de OpenDengue desde GitHub.
+        Las versiones >= V1.2 están en ZIP — se extraen automáticamente.
+        Nota: OpenDengue no tiene API REST — publica versiones anuales en GitHub
+        con latencia de 6-12 meses respecto a los datos oficiales de cada país.
         """
+        import zipfile, io
         os.makedirs(os.path.dirname(self.dengue_path), exist_ok=True)
-        for url in self.OPENDENGUE_URLS:
-            version = url.split("/")[-1]
-            print(f"   [OpenDengue] Intentando descargar {version}...")
+
+        for version, url in self.OPENDENGUE_RELEASES:
+            print(f"   [OpenDengue] Intentando {version} desde GitHub...")
             try:
-                r = requests.get(url, timeout=180, stream=True)
-                if r.status_code == 200:
-                    total = int(r.headers.get("content-length", 0))
-                    descargado = 0
-                    with open(self.dengue_path, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=1024 * 256):
-                            f.write(chunk)
-                            descargado += len(chunk)
-                    mb = descargado / 1_048_576
-                    print(f"   [OpenDengue] OK — {mb:.1f} MB descargados desde {version}")
-                    return
+                r = requests.get(url, timeout=300, stream=True)
+                if r.status_code != 200:
+                    print(f"   [OpenDengue] HTTP {r.status_code} — probando versión anterior...")
+                    continue
+
+                contenido = b""
+                for chunk in r.iter_content(chunk_size=1024 * 512):
+                    contenido += chunk
+                mb = len(contenido) / 1_048_576
+                print(f"   [OpenDengue] {mb:.1f} MB descargados")
+
+                if url.endswith(".zip"):
+                    print(f"   [OpenDengue] Extrayendo ZIP...")
+                    with zipfile.ZipFile(io.BytesIO(contenido)) as zf:
+                        csvs = [n for n in zf.namelist() if n.endswith(".csv")]
+                        if not csvs:
+                            print(f"   [OpenDengue] ZIP sin CSV — probando siguiente...")
+                            continue
+                        with zf.open(csvs[0]) as src, open(self.dengue_path, "wb") as dst:
+                            dst.write(src.read())
                 else:
-                    print(f"   [OpenDengue] HTTP {r.status_code} en {version}, probando siguiente...")
+                    with open(self.dengue_path, "wb") as f:
+                        f.write(contenido)
+
+                print(f"   [OpenDengue] OK — {version} guardado en {self.dengue_path}")
+                return
+
             except Exception as e:
-                print(f"   [OpenDengue] Error en {version}: {e}, probando siguiente...")
+                print(f"   [OpenDengue] Error en {version}: {e} — probando siguiente...")
+
         raise RuntimeError(
-            "No se pudo descargar el dataset de OpenDengue. "
-            "Descárgalo manualmente desde https://github.com/OpenDengue/master-repo "
-            "y colócalo en data/raw/Temporal_extract_V1_3.csv"
+            "No se pudo descargar OpenDengue automáticamente.\n"
+            "Descárgalo manualmente desde https://github.com/OpenDengue/master-repo/tree/main/data/releases\n"
+            f"y colócalo como: {self.dengue_path}"
         )
 
     def recolectar_casos_dengue(self):
