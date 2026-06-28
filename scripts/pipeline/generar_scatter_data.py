@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Genera scatter_data.json con predicciones vs reales del set de prueba (2021-2022).
 Ejecutar UNA vez localmente. Sube el resultado a S3.
@@ -12,15 +12,15 @@ import pandas as pd
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from dotenv import load_dotenv
 load_dotenv('.env')
-sys.path.insert(0, 'agentes')
+sys.path.insert(0, 'agents')
 
 import s3_client as s3
 
 # ── Rutas ──────────────────────────────────────────────────────────────────────
 BASE    = os.path.dirname(os.path.abspath(__file__))
-DB      = os.path.join(BASE, "Base de Datos")
-MODELS  = os.path.join(DB, "modelos")
-PROC    = os.path.join(DB, "datos_procesados")
+DB      = os.path.join(BASE, "data")
+MODELS  = os.path.join(DB, "models")
+PROC    = os.path.join(DB, "processed")
 
 feat_path   = os.path.join(PROC, "dataset_features_latam.csv")
 master_path = os.path.join(PROC, "dataset_maestro_mensual_latam.csv")

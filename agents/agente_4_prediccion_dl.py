@@ -79,9 +79,8 @@ class AgentePrediccionDL:
         else:
             self.base_dir = base_dir
 
-        self.db_dir    = os.path.join(self.base_dir, "Base de Datos")
-        self.model_dir = os.path.join(self.db_dir, "modelos")
-        self.feat_path = os.path.join(self.db_dir, "datos_procesados", "dataset_features_latam.csv")
+        self.model_dir = os.path.join(self.base_dir, "data", "models")
+        self.feat_path = os.path.join(self.base_dir, "data", "processed", "dataset_features_latam.csv")
         self.semilla   = 9
 
     # ─────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Actualiza metrics.json y thresholds_clasificacion.json en S3 con
 ensemble 50/50 y metricas de clasificacion 3 etiquetas.
 """
@@ -13,8 +13,8 @@ from sklearn.metrics import (r2_score, mean_absolute_error, mean_squared_error,
 import boto3
 
 BASE   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA   = os.path.join(BASE, "Base de Datos", "datos_procesados", "dataset_features_latam.csv")
-TMP    = os.path.join(BASE, "Base de Datos", "modelos")
+DATA   = os.path.join(BASE, "data", "processed", "dataset_features_latam.csv")
+TMP    = os.path.join(BASE, "data", "models")
 
 AWS_KEY    = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET = os.environ.get("AWS_SECRET_ACCESS_KEY", "")

@@ -1,6 +1,6 @@
-"""Regenera dataset_features_latam.csv con las 3 nuevas features de tendencia."""
+﻿"""Regenera dataset_features_latam.csv con las 3 nuevas features de tendencia."""
 import os, sys
-sys.path.insert(0, 'agentes')
+sys.path.insert(0, 'agents')
 from dotenv import load_dotenv; load_dotenv('.env')
 import pandas as pd, numpy as np
 import s3_client as s3

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Script de entrenamiento completo — DenguePredict SMA-ML/DL
 ----------------------------------------------------------
@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
-sys.path.insert(0, os.path.join(BASE_DIR, "agentes"))
+sys.path.insert(0, os.path.join(BASE_DIR, "agents"))
 
 from agente_3_prediccion_ml import AgentePrediccionML
 from agente_4_prediccion_dl import AgentePrediccionDL
@@ -37,5 +37,5 @@ if __name__ == "__main__":
     agente_dl.entrenar_modelo(metricas_ml=metricas_ml)
 
     print("\n  Entrenamiento completado.")
-    print("  Artefactos guardados en Base de Datos/modelos/ y subidos a S3.")
+    print("  Artefactos guardados en data/models/ y subidos a S3.")
     print("=" * 70)

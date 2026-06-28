@@ -1,22 +1,26 @@
-# Credenciales — nunca commitear
+# Credenciales
 .env
+.env*
 
-# Ignorar datasets masivos
-Base de Datos/datos_crudos/Temporal_extract_V1_3.csv
+# Datos grandes (descargados desde S3)
+data/raw/Temporal_extract_V1_3.csv
 
-# Ignorar documentos Word
-*.docx
+# Notebooks y outputs (solo desarrollo local)
+notebooks/
+output_lstm.txt
 
-# Ignorar caches de compilacion y temporales
+# Caches
 __pycache__/
 *.pyc
+*.pyo
 temp_skills/
 .gemini/
 .system_generated/
 
-# Ignorar archivos del sistema operativo
+# Sistema operativo
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Vercel
 .vercel
-.env*

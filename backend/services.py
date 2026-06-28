@@ -25,15 +25,15 @@ def _load_agente(module_name: str, rel_path: str):
 
 # Agregar directorio de agentes a sys.path para que los imports entre agentes funcionen
 _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_agentes_dir = os.path.join(_root, "agentes")
-if _agentes_dir not in sys.path:
-    sys.path.insert(0, _agentes_dir)
+_agents_dir = os.path.join(_root, "agents")
+if _agents_dir not in sys.path:
+    sys.path.insert(0, _agents_dir)
 
-_s3 = _load_agente("s3_client",             "agentes/s3_client.py")
-_a3 = _load_agente("agente_3_prediccion_ml", "agentes/agente_3_prediccion_ml.py")
-_a4 = _load_agente("agente_4_prediccion_dl", "agentes/agente_4_prediccion_dl.py")
-_a6 = _load_agente("agente_6_regimen",        "agentes/agente_6_regimen.py")
-_a5 = _load_agente("agente_5_alertas",        "agentes/agente_5_alertas.py")
+_s3 = _load_agente("s3_client",             "agents/s3_client.py")
+_a3 = _load_agente("agente_3_prediccion_ml", "agents/agente_3_prediccion_ml.py")
+_a4 = _load_agente("agente_4_prediccion_dl", "agents/agente_4_prediccion_dl.py")
+_a6 = _load_agente("agente_6_regimen",        "agents/agente_6_regimen.py")
+_a5 = _load_agente("agente_5_alertas",        "agents/agente_5_alertas.py")
 
 AgentePrediccionML = _a3.AgentePrediccionML
 AgentePrediccionDL = _a4.AgentePrediccionDL
@@ -52,18 +52,17 @@ class PredictionService:
         if os.environ.get("RAILWAY_ENVIRONMENT"):
             _tmp           = "/tmp/sma_data"
             self.base_dir  = _tmp
-            self.model_dir     = os.path.join(_tmp, "modelos")
-            self.processed_dir = os.path.join(_tmp, "datos_procesados")
-            self.raw_dir       = os.path.join(_tmp, "datos_crudos")
+            self.model_dir     = os.path.join(_tmp, "models")
+            self.processed_dir = os.path.join(_tmp, "processed")
+            self.raw_dir       = os.path.join(_tmp, "raw")
         else:
             if base_dir is None:
                 self.base_dir = r"c:\Users\yeshu\Documents\Inteligencia Artificial\Proyecto Final"
             else:
                 self.base_dir = base_dir
-            self.db_dir        = os.path.join(self.base_dir, "Base de Datos")
-            self.model_dir     = os.path.join(self.db_dir, "modelos")
-            self.processed_dir = os.path.join(self.db_dir, "datos_procesados")
-            self.raw_dir       = os.path.join(self.db_dir, "datos_crudos")
+            self.model_dir     = os.path.join(self.base_dir, "data", "models")
+            self.processed_dir = os.path.join(self.base_dir, "data", "processed")
+            self.raw_dir       = os.path.join(self.base_dir, "data", "raw")
 
         self.orquestador: AgenteOrquestador = None
         self.inicializar_servicio()

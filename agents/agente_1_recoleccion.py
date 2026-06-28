@@ -32,10 +32,8 @@ class AgenteRecoleccion:
         else:
             self.base_dir = base_dir
             
-        self.db_dir = os.path.join(self.base_dir, "Base de Datos")
-        
         # Rutas de entrada
-        self.dengue_path = os.path.join(self.db_dir, "datos_crudos", "Temporal_extract_V1_3.csv")
+        self.dengue_path = os.path.join(self.base_dir, "data", "raw", "Temporal_extract_V1_3.csv")
         self.paises_iso = ['ARG', 'BOL', 'BRA', 'COL', 'ECU', 'MEX', 'NIC', 'PAN', 'PER']
         
         # Nombres de países para geocodificación
@@ -52,8 +50,8 @@ class AgenteRecoleccion:
             'NIC': (12.86, -85.20), 'PAN': (8.53, -80.78), 'PER': (-9.19, -75.01)
         }
         
-        # Poblaciones crudas (Censos oficiales de cada país)
-        self.pob_dir = os.path.join(self.db_dir, "datos_procesados", "poblacion")
+        # Poblaciones procesadas (Censos oficiales de cada país)
+        self.pob_dir = os.path.join(self.base_dir, "data", "processed", "poblacion")
         self.poblaciones_paths = {
             'ARG': os.path.join(self.pob_dir, "poblacion_argentina.csv"),
             'BOL': os.path.join(self.pob_dir, "poblacion_bolivia.csv"),
@@ -65,11 +63,11 @@ class AgenteRecoleccion:
             'PAN': os.path.join(self.pob_dir, "poblacion_panama.csv"),
             'PER': os.path.join(self.pob_dir, "poblacion_peru.csv")
         }
-        
+
         # Rutas de salida para APIs y geocodificación
-        self.clima_nasa_path = os.path.join(self.db_dir, "datos_crudos", "clima_nasa_crudo.csv")
-        self.agua_jmp_path = os.path.join(self.db_dir, "datos_crudos", "agua_jmp_crudo.csv")
-        self.coords_cache_path = os.path.join(self.db_dir, "datos_crudos", "departamentos_coordenadas.csv")
+        self.clima_nasa_path   = os.path.join(self.base_dir, "data", "raw", "clima_nasa_crudo.csv")
+        self.agua_jmp_path     = os.path.join(self.base_dir, "data", "raw", "agua_jmp_crudo.csv")
+        self.coords_cache_path = os.path.join(self.base_dir, "data", "raw", "departamentos_coordenadas.csv")
 
     def geocodificar_departamento(self, iso, dept_name):
         """
@@ -403,7 +401,7 @@ class AgenteRecoleccion:
         
         # Subir archivos crudos actualizados a S3
         print("[Agente 1] Subiendo datos crudos a S3...")
-        crudos_dir = self.raw_dir if hasattr(self, 'raw_dir') else os.path.join(self.db_dir, "datos_crudos")
+        crudos_dir = os.path.join(self.base_dir, "data", "raw")
         for fname in ["clima_nasa_crudo.csv", "agua_jmp_crudo.csv",
                       "Temporal_extract_V1_3.csv", "departamentos_coordenadas.csv"]:
             local = os.path.join(crudos_dir, fname)

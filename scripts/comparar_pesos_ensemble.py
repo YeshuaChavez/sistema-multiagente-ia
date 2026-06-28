@@ -1,4 +1,4 @@
-"""
+﻿"""
 Compara estrategias de pesos para el ensemble XGBoost + LSTM.
 No entrena nada — solo inference + optimización de pesos.
 """
@@ -13,8 +13,8 @@ from scipy.optimize import minimize_scalar, minimize
 import boto3
 
 BASE   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA   = os.path.join(BASE, "Base de Datos", "datos_procesados", "dataset_features_latam.csv")
-TMP    = os.path.join(BASE, "Base de Datos", "modelos")
+DATA   = os.path.join(BASE, "data", "processed", "dataset_features_latam.csv")
+TMP    = os.path.join(BASE, "data", "models")
 
 AWS_KEY    = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SECRET = os.environ.get("AWS_SECRET_ACCESS_KEY", "")

@@ -32,9 +32,8 @@ class AgentePreprocesamiento:
         else:
             self.base_dir = base_dir
 
-        self.db_dir        = os.path.join(self.base_dir, "Base de Datos")
-        self.crudos_dir    = os.path.join(self.db_dir, "datos_crudos")
-        self.procesados_dir = os.path.join(self.db_dir, "datos_procesados")
+        self.crudos_dir    = os.path.join(self.base_dir, "data", "raw")
+        self.procesados_dir = os.path.join(self.base_dir, "data", "processed")
         self.output_base   = os.path.join(self.procesados_dir, "dataset_maestro_mensual_latam.csv")
         self.output_feat   = os.path.join(self.procesados_dir, "dataset_features_latam.csv")
 

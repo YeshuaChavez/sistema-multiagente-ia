@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Compara XGBoost vs Ensemble por régimen epidémico en el test set 2021-2022.
 Calcula R² y MAE segmentados por nivel de incidencia real:
@@ -14,12 +14,12 @@ warnings.filterwarnings('ignore')
 import numpy as np, pandas as pd, torch, torch.nn as nn
 from sklearn.metrics import r2_score, mean_absolute_error
 
-sys.path.insert(0, 'agentes')
+sys.path.insert(0, 'agents')
 from dotenv import load_dotenv; load_dotenv('.env')
 
 BASE   = r'C:\Users\yeshu\Documents\Inteligencia Artificial\Proyecto Final'
-MODELS = os.path.join(BASE, 'Base de Datos', 'modelos')
-PROC   = os.path.join(BASE, 'Base de Datos', 'datos_procesados')
+MODELS = os.path.join(BASE, 'data', 'models')
+PROC   = os.path.join(BASE, 'data', 'processed')
 
 # ── Cargar datos ──────────────────────────────────────────────────────────────
 df       = pd.read_csv(os.path.join(PROC, 'dataset_features_latam.csv'))

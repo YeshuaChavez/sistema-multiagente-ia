@@ -1,8 +1,8 @@
-import sys, os
+﻿import sys, os
 import numpy as np, pandas as pd
 
 BASE      = r'C:\Users\yeshu\Documents\Inteligencia Artificial\Proyecto Final'
-FEAT_PATH = os.path.join(BASE, 'Base de Datos', 'datos_procesados', 'dataset_features_latam.csv')
+FEAT_PATH = os.path.join(BASE, 'data', 'processed', 'dataset_features_latam.csv')
 
 df = pd.read_csv(FEAT_PATH)
 yearly = df.groupby(['pais','ano'])['casos_dengue'].transform('sum')

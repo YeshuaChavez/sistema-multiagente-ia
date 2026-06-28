@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Optimiza los pesos del ensemble en un validation set (años 2018-2019-2020)
 usando scipy.optimize. Los pesos se buscan en log1p-space para consistencia
@@ -19,15 +19,15 @@ warnings.filterwarnings('ignore')
 import numpy as np, torch
 from sklearn.metrics import r2_score, mean_absolute_error
 from scipy.optimize import minimize_scalar
-sys.path.insert(0, 'agentes')
+sys.path.insert(0, 'agents')
 from dotenv import load_dotenv; load_dotenv('.env')
 import s3_client as s3
 from agente_4_prediccion_dl import DengueLSTMModel, _build_sequences, LSTM_SEQ_LEN
 import pandas as pd
 
 BASE      = r'C:\Users\yeshu\Documents\Inteligencia Artificial\Proyecto Final'
-MODEL_DIR = os.path.join(BASE, 'Base de Datos', 'modelos')
-FEAT_PATH = os.path.join(BASE, 'Base de Datos', 'datos_procesados', 'dataset_features_latam.csv')
+MODEL_DIR = os.path.join(BASE, 'data', 'models')
+FEAT_PATH = os.path.join(BASE, 'data', 'processed', 'dataset_features_latam.csv')
 
 # ── Cargar dataset ────────────────────────────────────────────────────────────
 print("[1/5] Cargando dataset...")

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Evalúa qué tan bien clasifica el sistema los niveles de riesgo epidémico
 (Endémico / Alerta / Epidemia) sobre el test set 2021-2022.
@@ -9,12 +9,12 @@ warnings.filterwarnings('ignore')
 import numpy as np, pandas as pd, torch, torch.nn as nn
 from sklearn.metrics import (confusion_matrix, classification_report,
                              accuracy_score, cohen_kappa_score)
-sys.path.insert(0, 'agentes')
+sys.path.insert(0, 'agents')
 from dotenv import load_dotenv; load_dotenv('.env')
 
 BASE   = r'C:\Users\yeshu\Documents\Inteligencia Artificial\Proyecto Final'
-MODELS = os.path.join(BASE, 'Base de Datos', 'modelos')
-PROC   = os.path.join(BASE, 'Base de Datos', 'datos_procesados')
+MODELS = os.path.join(BASE, 'data', 'models')
+PROC   = os.path.join(BASE, 'data', 'processed')
 
 df       = pd.read_csv(os.path.join(PROC, 'dataset_features_latam.csv'))
 df_master= pd.read_csv(os.path.join(PROC, 'dataset_maestro_mensual_latam.csv'))
