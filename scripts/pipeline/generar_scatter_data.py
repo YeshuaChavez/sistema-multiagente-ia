@@ -11,28 +11,32 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from dotenv import load_dotenv
-load_dotenv('.env')
-sys.path.insert(0, 'agents')
+
+ROOT    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+load_dotenv(os.path.join(ROOT, '.env'))
+sys.path.insert(0, os.path.join(ROOT, 'agents'))
 
 import s3_client as s3
 
 # ── Rutas ──────────────────────────────────────────────────────────────────────
-BASE    = os.path.dirname(os.path.abspath(__file__))
-DB      = os.path.join(BASE, "data")
-MODELS  = os.path.join(DB, "models")
-PROC    = os.path.join(DB, "processed")
+MODELS  = os.path.join(ROOT, "data", "models")
+PROC    = os.path.join(ROOT, "data", "processed")
 
 feat_path   = os.path.join(PROC, "dataset_features_latam.csv")
-master_path = os.path.join(PROC, "dataset_maestro_mensual_latam.csv")
+master_path = os.path.join(PROC, "dataset_maestro_mensual_latam.csv")  # noqa: F841
 
 # ── Cargar features ────────────────────────────────────────────────────────────
 print("[1/5] Cargando dataset de features...")
 df = pd.read_csv(feat_path)
 df_master = pd.read_csv(master_path)
 
-# Split test: años 2021-2022
-mask_test = df['ano'].isin([2021, 2022])
+# Split dinámico: últimos 2 años = test (igual que agentes 3/4)
+TEST_ANOS = 2
+max_ano   = int(df['ano'].max())
+split_ano = max_ano - TEST_ANOS
+mask_test = df['ano'] > split_ano
 df_test   = df[mask_test].copy()
+print(f"      Split dinámico: test >{split_ano} (max={max_ano})")
 print(f"      Test set: {len(df_test)} filas ({df_test['ano'].value_counts().to_dict()})")
 
 # ── Cargar modelo XGBoost ──────────────────────────────────────────────────────

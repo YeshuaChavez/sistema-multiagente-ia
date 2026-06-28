@@ -162,8 +162,13 @@ class AgentePrediccionDL:
         X_seq, y_seq, anos_seq, seq_ids = _build_sequences(df, lstm_feats, LSTM_SEQ_LEN)
 
         # ── Fase 4: División cronológica del conjunto (evita data leakage) ──
-        train_mask = anos_seq <= 2020
-        test_mask  = anos_seq >= 2021
+        # Split dinámico: últimos 2 años = test
+        TEST_ANOS  = 2
+        max_ano    = int(anos_seq.max())
+        split_ano  = max_ano - TEST_ANOS
+        train_mask = anos_seq <= split_ano
+        test_mask  = anos_seq >  split_ano
+        print(f"   [LSTM] Split dinámico: train ≤{split_ano} | test >{split_ano} (max={max_ano})")
 
         X_train   = X_seq[train_mask]
         y_train   = y_seq[train_mask]
@@ -200,15 +205,15 @@ class AgentePrediccionDL:
         # Fold 2: train anos<=2016, val anos==2017
         # Fold 3: train anos<=2017, val anos==2018
         # Fold 4: train anos<=2018, val anos==2019
-        # Fold 5: train anos<=2019, val anos==2020
+        # Folds dinámicos: últimos 5 años del train set como años de validación sucesivos
         print("\n   [Fase 8] Grid Search LSTM + TimeSeriesSplit (5 folds temporales)...")
+        anos_unicos_train = sorted(set(anos_train.tolist()))
+        fold_val_anos = anos_unicos_train[-5:]   # últimos 5 años del train
         folds = [
-            (anos_train <= 2016, anos_train == 2016),
-            (anos_train <= 2016, anos_train == 2017),
-            (anos_train <= 2017, anos_train == 2018),
-            (anos_train <= 2018, anos_train == 2019),
-            (anos_train <= 2019, anos_train == 2020),
+            (anos_train < val_ano, anos_train == val_ano)
+            for val_ano in fold_val_anos
         ]
+        print(f"   Folds val: {fold_val_anos}")
 
         param_grid = [
             {'hidden_dim': hd, 'lr': lr, 'dropout': dr}
@@ -261,8 +266,9 @@ class AgentePrediccionDL:
         # ── Fase 6b: Reentrenar con mejores params + early stopping (max 300 épocas) ──
         # Valida en año 2020 con ReduceLROnPlateau (patience=5) y early stopping (patience=15)
         print(f"\n   [Fase 6b] Reentrenando con mejores params (early stopping, max 300 epocas)...")
-        val_es = anos_train == 2020
-        fit_es = anos_train < 2020
+        ano_val_es = max(set(anos_train.tolist()))   # último año del train como validación ES
+        val_es = anos_train == ano_val_es
+        fit_es = anos_train <  ano_val_es
         Xf_es = X_train_sc[fit_es]; yf_es = y_train_log[fit_es]
         Xv_es = X_train_sc[val_es]; yv_es = y_train_log[val_es]
 

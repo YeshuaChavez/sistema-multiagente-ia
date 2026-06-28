@@ -86,8 +86,14 @@ class AgentePrediccionML:
         print(f"   [ML] Features ({len(COLS_FEAT)}): {COLS_FEAT}")
 
         # ── Fase 4: División cronológica del conjunto (evita data leakage) ──
-        df_train = df[df['ano'] <= 2020].copy()
-        df_test  = df[(df['ano'] >= 2021) & (df['ano'] <= 2022)].copy()
+        # Split dinámico: últimos 2 años = test, el resto = train
+        # Permite reentrenamiento automático cuando llegan nuevos datos de OpenDengue
+        TEST_ANOS = 2
+        max_ano   = int(df['ano'].max())
+        split_ano = max_ano - TEST_ANOS        # e.g. max=2022 → split=2020; max=2023 → split=2021
+        df_train = df[df['ano'] <= split_ano].copy()
+        df_test  = df[df['ano'] >  split_ano].copy()
+        print(f"   [ML] Split dinámico: train ≤{split_ano} | test >{split_ano} (max={max_ano})")
 
         X_train_raw = df_train[COLS_FEAT]
         y_train     = df_train['incidencia_dengue']

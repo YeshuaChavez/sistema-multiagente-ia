@@ -1,0 +1,120 @@
+name: Verificación y Reentrenamiento Automático
+
+on:
+  schedule:
+    - cron: '0 8 1 * *'   # 1ro de cada mes a las 8 UTC
+  workflow_dispatch:        # también ejecutable manualmente desde GitHub
+
+jobs:
+  verificar-y-reentrenar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180    # LSTM puede tardar hasta 60 min
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Verificar nueva versión OpenDengue + drift climático
+        id: check
+        env:
+          GITHUB_TOKEN:          ${{ secrets.GITHUB_TOKEN }}
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION:    us-east-2
+        run: |
+          python scripts/pipeline/verificar_actualizacion.py 2>&1 | tee check_output.txt
+          # Detectar si hay nueva versión para decidir si reentrenar
+          if grep -q "Nueva versión detectada" check_output.txt; then
+            echo "nueva_version=true" >> $GITHUB_OUTPUT
+          else
+            echo "nueva_version=false" >> $GITHUB_OUTPUT
+          fi
+          # Detectar drift alto
+          if grep -q "ALERTA" check_output.txt; then
+            echo "drift_alto=true" >> $GITHUB_OUTPUT
+          else
+            echo "drift_alto=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Reentrenar modelos (solo si hay nueva versión)
+        if: steps.check.outputs.nueva_version == 'true'
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION:    us-east-2
+        run: |
+          echo "Nueva versión de OpenDengue detectada — iniciando pipeline completo..."
+          python agents/agente_2_preprocesamiento.py
+          python scripts/training/entrenar_modelos.py
+          python scripts/pipeline/generar_scatter_data.py
+
+      - name: Subir artefactos a S3 y actualizar métricas
+        if: steps.check.outputs.nueva_version == 'true'
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION:    us-east-2
+        run: |
+          python -c "
+          import sys, os
+          sys.path.insert(0, 'agents')
+          import s3_client as s3
+          from datetime import datetime, timezone
+          import json
+
+          # Subir modelos
+          for f in ['pipeline_ml.pkl', 'lstm_model.pt', 'lstm_scaler.pkl',
+                    'cols_feat.pkl', 'shap_global.json', 'scatter_data.json']:
+              path = f'data/models/{f}'
+              if os.path.exists(path):
+                  s3.upload(path, s3.PREFIX_MODELOS + f)
+
+          # Actualizar trained_at en metrics.json
+          with open('data/models/metrics.json') as f:
+              m = json.load(f)
+          m['trained_at'] = datetime.now(timezone.utc).isoformat()
+          with open('data/models/metrics.json', 'w') as f:
+              json.dump(m, f, indent=2)
+          s3.upload('data/models/metrics.json',    s3.PREFIX_MODELOS + 'metrics.json')
+          s3.upload('data/models/drift_report.json', s3.PREFIX_MODELOS + 'drift_report.json')
+          s3.upload('data/models/data_version.json', s3.PREFIX_MODELOS + 'data_version.json')
+          print('Artefactos subidos a S3.')
+          "
+
+      - name: Crear issue si hay drift alto sin nueva versión
+        if: steps.check.outputs.drift_alto == 'true' && steps.check.outputs.nueva_version == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title: '⚠️ Drift climático detectado — revisar cuando llegue nueva versión OpenDengue',
+              body:  '**Drift alto detectado** en features climáticas (PSI ≥ 0.2).\n\nEl dataset de OpenDengue no tiene nueva versión aún, por lo que el reentrenamiento automático no aplica.\nCuando OpenDengue publique nuevos datos, el drift de concepto podrá evaluarse.\n\nVer `data/models/drift_report.json` para detalles.',
+              labels: ['drift', 'model-monitoring']
+            })
+
+      - name: Resumen del resultado
+        if: always()
+        run: |
+          echo "### Resultado de verificación" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.nueva_version }}" == "true" ]; then
+            echo "✅ **Nueva versión OpenDengue detectada** — modelos reentrenados y subidos a S3" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ **Sin nueva versión de OpenDengue** — modelos actuales vigentes" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "${{ steps.check.outputs.drift_alto }}" == "true" ]; then
+            echo "⚠️ **Drift climático alto** — ver drift_report.json" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ **Features climáticas estables**" >> $GITHUB_STEP_SUMMARY
+          fi
