@@ -166,7 +166,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
         </div>
         <h2 className="text-headline-lg text-primary font-bold">Panel de Control Epidemiológico</h2>
         <p className="text-on-surface-variant text-body-md mt-xs max-w-2xl">
-          Monitoreo en tiempo real de la incidencia de dengue en América Latina. Seleccione un departamento en el mapa para iniciar una simulación predictiva.
+          Vigilancia epidemiológica de la incidencia de dengue en América Latina. Seleccione un departamento en el mapa para iniciar una simulación predictiva.
         </p>
       </div>
 

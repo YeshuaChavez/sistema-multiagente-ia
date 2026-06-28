@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
+import BottomNav from "./components/BottomNav";
 import DashboardView from "./components/DashboardView";
 import PredictorView from "./components/PredictorView";
 import ExplainabilityView from "./components/ExplainabilityView";
@@ -307,32 +308,7 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-outline-variant md:hidden flex justify-around items-center py-xs z-50">
-        {[
-          { id: "dashboard", icon: "dashboard", label: "Inicio" },
-          { id: "predictor", icon: "query_stats", label: "Predictor" },
-          { id: "explain", icon: "psychology", label: "XAI" },
-          { id: "info", icon: "menu_book", label: "Info" },
-        ].map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setCurrentView(item.id)}
-            className={`flex flex-col items-center gap-[2px] py-xs px-md cursor-pointer transition-colors rounded-lg ${
-              currentView === item.id ? "text-primary" : "text-on-surface-variant"
-            }`}
-          >
-            <span
-              className="material-symbols-outlined text-[22px]"
-              style={currentView === item.id ? { fontVariationSettings: "'FILL' 1" } : {}}
-            >
-              {item.icon}
-            </span>
-            <span className={`text-[10px] font-medium ${currentView === item.id ? "font-bold" : ""}`}>
-              {item.label}
-            </span>
-          </button>
-        ))}
-      </nav>
+      <BottomNav currentView={currentView} setCurrentView={setCurrentView} />
 
       {/* MODAL DE AJUSTES */}
       {isSettingsOpen && (
