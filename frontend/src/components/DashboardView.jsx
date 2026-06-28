@@ -172,57 +172,42 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
 
       {/* KPI Row — 4 tarjetas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-lg">
-        {/* Registros */}
-        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
-          <div className="w-12 h-12 bg-surface-container rounded-lg flex items-center justify-center text-primary flex-shrink-0">
-            <span className="material-symbols-outlined text-[28px]">database</span>
+        {[
+          {
+            icon: "database", iconBg: "bg-surface-container", iconColor: "text-primary",
+            label: "Registros", value: stats.records, sub: "observaciones",
+            delay: "delay-0",
+          },
+          {
+            icon: "calendar_today", iconBg: "bg-secondary-container/20", iconColor: "text-secondary",
+            label: "Rango temporal", value: "2014–2022", sub: "Train: 2014–2020 · Test: 2021–2022",
+            accent: "border-l-4 border-l-secondary", delay: "delay-75",
+          },
+          {
+            icon: "public", iconBg: "bg-emerald-50 dark:bg-emerald-900/20", iconColor: "text-emerald-600",
+            label: "Países", value: metrics?.n_paises ?? 8, sub: "América Latina",
+            delay: "delay-150",
+          },
+          {
+            icon: "location_city", iconBg: "bg-indigo-50 dark:bg-indigo-900/20", iconColor: "text-indigo-500",
+            label: "Departamentos", value: metrics?.n_departamentos ?? 164, sub: "subregiones",
+            delay: "delay-225",
+          },
+        ].map((kpi) => (
+          <div
+            key={kpi.label}
+            className={`group card-hover bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-md animate-fade-in-up ${kpi.delay} ${kpi.accent ?? ""}`}
+          >
+            <div className={`w-12 h-12 ${kpi.iconBg} rounded-xl flex items-center justify-center ${kpi.iconColor} flex-shrink-0 transition-transform duration-300 group-hover:scale-110`}>
+              <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{kpi.icon}</span>
+            </div>
+            <div>
+              <p className="text-[11px] font-medium text-on-surface-variant">{kpi.label}</p>
+              <h3 className="text-[22px] font-bold text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>{kpi.value}</h3>
+              <p className="text-[10px] text-on-surface-variant">{kpi.sub}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[11px] font-medium text-on-surface-variant">Registros</p>
-            <h3 className="text-[22px] font-bold text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {stats.records}
-            </h3>
-            <p className="text-[10px] text-on-surface-variant">observaciones</p>
-          </div>
-        </div>
-
-        {/* Rango */}
-        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant border-l-4 border-l-secondary p-lg rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
-          <div className="w-12 h-12 bg-secondary-container/20 rounded-lg flex items-center justify-center text-secondary flex-shrink-0">
-            <span className="material-symbols-outlined text-[28px]">calendar_today</span>
-          </div>
-          <div>
-            <p className="text-[11px] font-medium text-on-surface-variant">Rango temporal</p>
-            <h3 className="text-[22px] font-bold text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>2014–2022</h3>
-            <p className="text-[10px] text-on-surface-variant">
-              Train: 2014–2020 · Test: 2021–2022
-            </p>
-          </div>
-        </div>
-
-        {/* Países */}
-        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
-          <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 flex-shrink-0">
-            <span className="material-symbols-outlined text-[28px]">public</span>
-          </div>
-          <div>
-            <p className="text-[11px] font-medium text-on-surface-variant">Países</p>
-            <h3 className="text-[22px] font-bold text-primary leading-tight">{metrics?.n_paises ?? 8}</h3>
-            <p className="text-[10px] text-on-surface-variant">América Latina</p>
-          </div>
-        </div>
-
-        {/* Departamentos */}
-        <div className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-lg rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
-          <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 flex-shrink-0">
-            <span className="material-symbols-outlined text-[28px]">location_city</span>
-          </div>
-          <div>
-            <p className="text-[11px] font-medium text-on-surface-variant">Departamentos</p>
-            <h3 className="text-[22px] font-bold text-primary leading-tight">{metrics?.n_departamentos ?? 169}</h3>
-            <p className="text-[10px] text-on-surface-variant">subregiones</p>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Model Performance Row — 5 tarjetas de métricas del modelo */}
@@ -268,10 +253,14 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
             color: "text-sky-600",
             bg: "bg-sky-50",
           },
-        ].map((m) => (
-          <div key={m.label} className="bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-md rounded-xl flex items-center gap-md shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
-            <div className={`w-10 h-10 ${m.bg} rounded-lg flex items-center justify-center ${m.color} flex-shrink-0`}>
-              <span className="material-symbols-outlined text-[22px]">{m.icon}</span>
+        ].map((m, i) => (
+          <div
+            key={m.label}
+            className={`group card-hover bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant p-md rounded-xl flex items-center gap-md animate-fade-in-up`}
+            style={{ animationDelay: `${300 + i * 75}ms` }}
+          >
+            <div className={`w-10 h-10 ${m.bg} rounded-xl flex items-center justify-center ${m.color} flex-shrink-0 transition-transform duration-300 group-hover:scale-110`}>
+              <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>{m.icon}</span>
             </div>
             <div>
               <p className="text-[11px] font-medium text-on-surface-variant">{m.label}</p>

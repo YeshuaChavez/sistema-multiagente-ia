@@ -126,25 +126,7 @@ html.dark {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-/* ─── Custom Card Component ─── */
-.custom-card {
-  background: rgb(var(--color-surface-container-lowest));
-  border: 1px solid rgb(var(--color-surface-container));
-  box-shadow: 0px 4px 20px rgba(30, 58, 95, 0.04);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.custom-card:hover {
-  box-shadow: 0px 6px 24px rgba(30, 58, 95, 0.08);
-}
-
-html.dark .custom-card {
-  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.25);
-}
-
-html.dark .custom-card:hover {
-  box-shadow: 0px 6px 24px rgba(0, 0, 0, 0.35);
-}
+/* ─── Custom Card Component — defined below with enhanced hover ─── */
 
 /* ─── Glass Card ─── */
 .glass-card {
@@ -249,6 +231,150 @@ select {
 
 html.dark select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238faabb' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+}
+
+/* ─── Keyframes ─── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; }
+  50%       { box-shadow: 0 0 0 6px transparent; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-4px); }
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ─── Animation utilities ─── */
+.animate-fade-in-up  { animation: fade-in-up  0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in     { animation: fade-in     0.3s ease-out both; }
+.animate-scale-in    { animation: scale-in    0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-right { animation: slide-in-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-slide-left  { animation: slide-in-left  0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-float       { animation: float 3s ease-in-out infinite; }
+.animate-spin-slow   { animation: spin-slow 8s linear infinite; }
+
+/* ─── Stagger delays ─── */
+.delay-0   { animation-delay: 0ms; }
+.delay-75  { animation-delay: 75ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-225 { animation-delay: 225ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-375 { animation-delay: 375ms; }
+.delay-450 { animation-delay: 450ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* ─── Hover card lift ─── */
+.card-hover {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  cursor: default;
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(30, 58, 95, 0.12);
+}
+html.dark .card-hover:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Glow badge (semáforo) ─── */
+.badge-glow-green  { box-shadow: 0 0 12px rgba(16, 185, 129, 0.5); }
+.badge-glow-orange { box-shadow: 0 0 12px rgba(245, 158, 11, 0.5); }
+.badge-glow-red    { box-shadow: 0 0 12px rgba(239, 68, 68, 0.5); }
+
+/* ─── Sidebar active indicator ─── */
+.nav-active-indicator {
+  position: relative;
+}
+.nav-active-indicator::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: rgb(var(--color-primary));
+  border-radius: 0 2px 2px 0;
+  transition: height 0.2s ease;
+}
+
+/* ─── Ripple button effect ─── */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.1s ease, opacity 0.2s ease;
+}
+.btn-primary:active { transform: scale(0.97); }
+
+/* ─── Icon bounce on hover ─── */
+.icon-hover {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.icon-hover:hover {
+  transform: scale(1.2);
+}
+
+/* ─── Metric value shimmer (loading state) ─── */
+.shimmer {
+  background: linear-gradient(90deg,
+    rgb(var(--color-surface-container-high)) 25%,
+    rgb(var(--color-surface-container-highest)) 50%,
+    rgb(var(--color-surface-container-high)) 75%
+  );
+  background-size: 200% auto;
+  animation: shimmer 1.5s linear infinite;
+  border-radius: 6px;
+}
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+
+/* ─── Tooltip fade ─── */
+.tooltip-fade {
+  animation: fade-in 0.15s ease-out;
+}
+
+/* ─── Custom card — enhanced hover ─── */
+.custom-card {
+  background: rgb(var(--color-surface-container-lowest));
+  border: 1px solid rgb(var(--color-surface-container));
+  box-shadow: 0px 2px 12px rgba(30, 58, 95, 0.04);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.custom-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0px 8px 28px rgba(30, 58, 95, 0.1);
+  border-color: rgb(var(--color-outline-variant));
+}
+html.dark .custom-card {
+  box-shadow: 0px 2px 12px rgba(0, 0, 0, 0.25);
+}
+html.dark .custom-card:hover {
+  box-shadow: 0px 8px 28px rgba(0, 0, 0, 0.45);
 }
 
 /* ─── Fade-in Animation ─── */

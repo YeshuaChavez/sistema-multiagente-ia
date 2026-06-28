@@ -121,16 +121,17 @@ export default function InfoView() {
           <span className="material-symbols-outlined text-[18px]">smart_toy</span>
           Los 6 Agentes del Sistema
         </h3>
-        <div className="space-y-md stagger-children">
-          {agents.map((agent) => (
+        <div className="space-y-md">
+          {agents.map((agent, i) => (
             <div
               key={agent.id}
-              className="custom-card rounded-xl p-lg animate-fade-in-up hover:scale-[1.005] transition-transform"
+              className="custom-card rounded-xl p-lg animate-fade-in-up group"
+              style={{ animationDelay: `${i * 80}ms` }}
             >
               <div className="flex items-start gap-lg">
                 {/* Agent Icon */}
-                <div className={`w-14 h-14 rounded-xl ${agent.color} flex items-center justify-center text-white flex-shrink-0 shadow-md`}>
-                  <span className="material-symbols-outlined text-[28px]">{agent.icon}</span>
+                <div className={`w-14 h-14 rounded-xl ${agent.color} flex items-center justify-center text-white flex-shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}>
+                  <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
                 </div>
 
                 <div className="flex-1">
@@ -170,7 +171,8 @@ export default function InfoView() {
                     {agent.tech.map((t) => (
                       <span
                         key={t}
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${agent.colorLight} text-on-surface-variant`}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${agent.colorLight} text-on-surface-variant
+                          transition-all duration-150 hover:scale-105 hover:shadow-sm cursor-default`}
                       >
                         {t}
                       </span>
@@ -195,8 +197,10 @@ export default function InfoView() {
               <div className="flex items-center gap-sm">
                 {row.map((agent, idx) => (
                   <React.Fragment key={agent.id}>
-                    <div className={`flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[130px]`}>
-                      <span className="material-symbols-outlined text-[24px]">{agent.icon}</span>
+                    <div className={`group/box flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[130px] cursor-default
+                      transition-all duration-200 hover:-translate-y-1 hover:shadow-xl`}>
+                      <span className="material-symbols-outlined text-[24px] transition-transform duration-200 group-hover/box:scale-110"
+                        style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
                         <p className="text-[13px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
@@ -218,15 +222,23 @@ export default function InfoView() {
 
       {/* Tech Stack */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-lg">
-        {techStack.map((stack) => (
-          <div key={stack.category} className="custom-card rounded-xl p-lg">
-            <h4 className="text-label-md font-bold text-primary uppercase tracking-wider mb-md">
+        {techStack.map((stack, i) => (
+          <div
+            key={stack.category}
+            className="custom-card rounded-xl p-lg animate-fade-in-up"
+            style={{ animationDelay: `${i * 75}ms` }}
+          >
+            <h4 className="text-label-md font-bold text-primary uppercase tracking-wider mb-md flex items-center gap-xs">
+              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
               {stack.category}
             </h4>
             <div className="space-y-sm">
               {stack.items.map((item) => (
-                <div key={item} className="flex items-center gap-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                <div
+                  key={item}
+                  className="flex items-center gap-sm group/item p-xs rounded-lg hover:bg-surface-container transition-colors duration-150 cursor-default"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary transition-transform duration-200 group-hover/item:scale-150 flex-shrink-0" />
                   <span className="text-[13px] text-on-surface">{item}</span>
                 </div>
               ))}

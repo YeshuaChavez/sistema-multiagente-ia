@@ -4,9 +4,9 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 // Risk badge styling
 const riskStyles = {
-  "Endémico": { bg: "bg-[#10b981]/10", text: "text-[#00714d]", border: "border-[#10b981]/20", label: "Endémico", icon: "check_circle", ensemble: "bg-[#10b981]" },
-  Alerta:     { bg: "bg-[#ea580c]/10", text: "text-[#ea580c]", border: "border-[#ea580c]/20", label: "Alerta",    icon: "warning",       ensemble: "bg-[#ea580c]" },
-  Epidemia:   { bg: "bg-[#ba1a1a]/10", text: "text-[#ba1a1a]", border: "border-[#ba1a1a]/20", label: "Epidemia",  icon: "emergency",     ensemble: "bg-[#ba1a1a]" },
+  "Endémico": { bg: "bg-[#10b981]/10", text: "text-[#00714d]", border: "border-[#10b981]/30", label: "Endémico", icon: "check_circle", ensemble: "bg-[#10b981]", glow: "badge-glow-green" },
+  Alerta:     { bg: "bg-[#ea580c]/10", text: "text-[#ea580c]", border: "border-[#ea580c]/30", label: "Alerta",    icon: "warning",       ensemble: "bg-[#ea580c]", glow: "badge-glow-orange" },
+  Epidemia:   { bg: "bg-[#ba1a1a]/10", text: "text-[#ba1a1a]", border: "border-[#ba1a1a]/30", label: "Epidemia",  icon: "emergency",     ensemble: "bg-[#ba1a1a]", glow: "badge-glow-red" },
 };
 
 // Configuration of ranges, labels, and steps for model features
@@ -627,22 +627,23 @@ export default function PredictorView({
 
             {/* RESULTS RENDERING */}
             {result && !loading && (
-              <div className="flex flex-col gap-md animate-fade-in-up">
+              <div className="flex flex-col gap-md animate-scale-in">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                   {/* XGBoost */}
-                  <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#ea580c] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
+                  <div className="card-hover bg-white dark:bg-zinc-900 border-l-4 border-l-[#ea580c] border border-outline-variant rounded-xl p-lg flex flex-col justify-between h-48 group">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-label-md text-on-surface-variant">Agente ML · R²=91.5%</p>
                         <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
                       </div>
-                      <span className="material-symbols-outlined text-[#ea580c]">analytics</span>
+                      <span className="material-symbols-outlined text-[#ea580c] text-[28px] transition-transform duration-300 group-hover:scale-110"
+                        style={{ fontVariationSettings: "'FILL' 1" }}>analytics</span>
                     </div>
                     <div className="flex items-end justify-between">
                       <span className="text-[42px] font-black text-[#ea580c]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
                         {result.prediccion_ml.toFixed(1)}
                       </span>
-                      <span className={`${getRisk(result.riesgo_ml).bg} ${getRisk(result.riesgo_ml).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_ml).border}`}>
+                      <span className={`${getRisk(result.riesgo_ml).bg} ${getRisk(result.riesgo_ml).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_ml).border} ${getRisk(result.riesgo_ml).glow}`}>
                         {getRisk(result.riesgo_ml).label}
                       </span>
                     </div>
@@ -650,19 +651,20 @@ export default function PredictorView({
 
                   {/* LSTM PyTorch */}
                   {result.prediccion_lstm != null && (
-                    <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#0891b2] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
+                    <div className="card-hover bg-white dark:bg-zinc-900 border-l-4 border-l-[#0891b2] border border-outline-variant rounded-xl p-lg flex flex-col justify-between h-48 group">
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=90.4%</p>
                           <h4 className="text-headline-md text-primary font-bold">LSTM PyTorch</h4>
                         </div>
-                        <span className="material-symbols-outlined text-[#0891b2]">timeline</span>
+                        <span className="material-symbols-outlined text-[#0891b2] text-[28px] transition-transform duration-300 group-hover:scale-110"
+                          style={{ fontVariationSettings: "'FILL' 1" }}>timeline</span>
                       </div>
                       <div className="flex items-end justify-between">
                         <span className="text-[42px] font-black text-[#0891b2]" style={{ fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
                           {result.prediccion_lstm.toFixed(1)}
                         </span>
-                        <span className={`${getRisk(result.riesgo_lstm).bg} ${getRisk(result.riesgo_lstm).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_lstm).border}`}>
+                        <span className={`${getRisk(result.riesgo_lstm).bg} ${getRisk(result.riesgo_lstm).text} px-sm py-xs rounded-lg text-label-md border ${getRisk(result.riesgo_lstm).border} ${getRisk(result.riesgo_lstm).glow}`}>
                           {getRisk(result.riesgo_lstm).label}
                         </span>
                       </div>
@@ -670,18 +672,15 @@ export default function PredictorView({
                   )}
                 </div>
 
-
-
-
                 {/* Consensus Hero Card */}
-                <div className="relative overflow-hidden bg-primary text-on-primary rounded-xl p-xl shadow-xl flex flex-col items-center justify-center text-center">
+                <div className="relative overflow-hidden bg-primary text-on-primary rounded-xl p-xl shadow-xl flex flex-col items-center justify-center text-center animate-fade-in-up delay-150">
                   <div className="relative z-10 space-y-md w-full">
                     <div className="flex flex-col items-center gap-xs">
-                      <div className="w-12 h-12 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center mb-sm">
-                        <span className="material-symbols-outlined text-[32px]">hub</span>
+                      <div className="w-14 h-14 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center mb-sm shadow-lg">
+                        <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>hub</span>
                       </div>
                       <p className="text-label-md text-primary-fixed-dim uppercase tracking-widest font-bold">Consenso Global del Sistema</p>
-                      <h4 className="text-headline-lg text-white font-bold">Fusión Ensemble Promedio (Agente 5)</h4>
+                      <h4 className="text-headline-lg text-white font-bold">Fusión Ensemble (Agente 5)</h4>
                     </div>
 
                     <div className="py-sm">
@@ -694,8 +693,8 @@ export default function PredictorView({
                     </div>
 
                     <div className="flex flex-col items-center gap-md">
-                      <div className={`${getRisk(result.riesgo_ensemble).ensemble} text-white px-lg py-sm rounded-full text-headline-sm font-bold shadow-lg flex items-center gap-sm border border-white/20`}>
-                        <span className="material-symbols-outlined">{getRisk(result.riesgo_ensemble).icon}</span>
+                      <div className={`${getRisk(result.riesgo_ensemble).ensemble} text-white px-lg py-sm rounded-full text-headline-sm font-bold shadow-lg flex items-center gap-sm border border-white/20 ${getRisk(result.riesgo_ensemble).glow}`}>
+                        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>{getRisk(result.riesgo_ensemble).icon}</span>
                         Nivel de Alerta: {getRisk(result.riesgo_ensemble).label}
                       </div>
 
