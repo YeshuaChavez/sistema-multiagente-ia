@@ -23,6 +23,35 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
+      - name: Descargar datos necesarios desde S3
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION:    us-east-2
+        run: |
+          python -c "
+          import sys, os
+          sys.path.insert(0, 'agents')
+          import s3_client as s3
+
+          # Features procesadas (necesarias para calcular distribución de referencia del drift)
+          os.makedirs('data/processed', exist_ok=True)
+          os.makedirs('data/raw', exist_ok=True)
+          os.makedirs('data/models', exist_ok=True)
+
+          archivos = [
+              (s3.PREFIX_PROCESADOS + 'dataset_features_latam.csv', 'data/processed/dataset_features_latam.csv'),
+              (s3.PREFIX_CRUDOS     + 'departamentos_coordenadas.csv', 'data/raw/departamentos_coordenadas.csv'),
+              (s3.PREFIX_MODELOS    + 'data_version.json', 'data/models/data_version.json'),
+          ]
+          for key, local in archivos:
+              try:
+                  s3.download(key, local)
+                  print(f'Descargado: {key} -> {local}')
+              except Exception as e:
+                  print(f'Advertencia: no se pudo descargar {key}: {e}')
+          "
+
       - name: Verificar nueva versión OpenDengue + drift climático
         id: check
         env:
