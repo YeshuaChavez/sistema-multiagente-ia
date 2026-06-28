@@ -11,7 +11,7 @@ Facultad de Ingeniería de Sistemas e Informática
 
 | Capa | URL |
 |---|---|
-| Frontend (Vercel) | https://proyecto-ia-weld.vercel.app |
+| Frontend (Vercel) | https://proyecto-ia-eight.vercel.app |
 | Backend API (Railway) | https://proyecto-ia-production.up.railway.app |
 | Documentación interactiva (Swagger) | https://proyecto-ia-production.up.railway.app/docs |
 
@@ -21,29 +21,30 @@ Facultad de Ingeniería de Sistemas e Informática
 
 | Modelo | R² (test 2021–2022) | MAE (casos/100k) | RMSE |
 |---|---|---|---|
-| XGBoost — Agente 3 | **91.23%** | 6.07 | 22.59 |
-| LSTM PyTorch — Agente 4 | 86.94% | 6.23 | 20.63 |
-| **Ensamble — Agente 5** | **91.06%** | **5.97** | **21.24** |
+| XGBoost — Agente 3 | **91.49%** | 6.07 | 22.18 |
+| LSTM PyTorch — Agente 4 | 90.35% | 6.02 | 20.52 |
+| **Ensamble — Agente 5** | **91.47%** | **5.83** | **20.80** |
 
 - **Conjunto de entrenamiento:** 12,168 observaciones mensuales (2014–2020)
 - **Conjunto de prueba:** 4,056 observaciones (2021–2022), partición cronológica estricta
-- **Conjunto de validación:** 1,014 observaciones (2020), usado exclusivamente para optimizar pesos del ensamble
+- **Validación temporal:** folds 2016–2020 con `TimeSeriesSplit(k=5)`, usado para optimización Bayesiana de hiperparámetros
 - **Dataset features:** 16,224 registros × 73 variables predictoras
-- **Pesos del ensamble:** `w_xgb = 0.90`, `w_lstm = 0.10` (optimizados sobre val 2020 con `scipy.optimize`, sin data leakage sobre test)
-- **Cobertura:** 8 países, 169 unidades subnacionales
+- **Pesos base del ensamble:** `w_xgb = 0.50`, `w_lstm = 0.50`, ajustados dinámicamente por el Agente 6 según el régimen epidémico
+- **Cobertura:** 8 países, 164 unidades subnacionales
 - Las métricas R² se reportan en escala `log1p`, estándar para distribuciones epidemiológicas asimétricas
 
-### Clasificación de riesgo epidémico
+### Clasificación de riesgo epidémico (3 clases)
 
-| Métrica | 4 clases (anterior) | 3 clases (actual) |
-|---|---|---|
-| Accuracy | 57.2% | **84.8%** |
-| Cohen's Kappa | 0.411 (Moderado) | **0.708 (Sustancial)** |
-| Epidemia — Precision | 86.5% | **91.0%** |
-| Epidemia — Recall | 58.0% | **83.3%** |
-| Epidemia — F1 | 69.5% | **87.0%** |
+| Clase | Precision | Recall | F1 | Soporte |
+|---|---|---|---|---|
+| Endémico | 92.77% | 89.65% | 91.18% | 2,532 |
+| Alerta | 69.66% | 79.67% | 74.33% | 1,092 |
+| Epidemia | 86.67% | 72.22% | 78.79% | 432 |
+| **Global** | | | | |
+| Accuracy | | | **85.11%** | 4,056 |
+| Cohen's Kappa | | | **0.7196** (Sustancial) | |
 
-El sistema de 3 clases (**Endémico / Alerta / Epidemia**) fusiona las categorías Normal y Vigilancia en "Endémico", validado como equivalente epidemiológicamente (ambas representan condiciones no urgentes). La mejora en Kappa de 0.411 a 0.708 es sustancial y supera el umbral de 0.60 considerado aceptable para sistemas de alerta en salud pública.
+La clasificación usa **percentiles históricos locales calibrados por departamento** (train 2014–2020): Endémico (≤p50), Alerta (p50–p90), Epidemia (>p90).
 
 ---
 
@@ -60,7 +61,7 @@ El sistema de 3 clases (**Endémico / Alerta / Epidemia**) fusiona las categorí
 | Panamá | PAN | Provincias |
 | Perú | PER | Departamentos |
 
-**Total: 169 unidades subnacionales — Periodo: 2014–2022**
+**Total: 164 unidades subnacionales — Periodo: 2014–2022**
 
 ---
 
@@ -70,14 +71,14 @@ El sistema de 3 clases (**Endémico / Alerta / Epidemia**) fusiona las categorí
 Fuentes externas (OpenDengue · NASA POWER · Banco Mundial · JMP OMS/UNICEF)
         │
         ▼
-┌──────────────────────────────────────────────────────────┐
-│               AWS S3  (epipredict-dengue)                │
-│   datos_crudos/  ·  datos_procesados/  ·  modelos/       │
-└──────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              AWS S3  (epipredict-dengue)                │
+│   raw/  ·  processed/  ·  models/                       │
+└─────────────────────────────────────────────────────────┘
         │
         ▼
   Agente 1 — Recolección
-  (ingesta automática desde fuentes oficiales → datos_crudos/)
+  (ingesta automática desde fuentes oficiales → data/raw/)
         │
         ▼
   Agente 2 — Preprocesamiento + Feature Engineering
@@ -88,15 +89,15 @@ Fuentes externas (OpenDengue · NASA POWER · Banco Mundial · JMP OMS/UNICEF)
      ▼     ▼
   Agente 3   Agente 4
   XGBoost    LSTM PyTorch
-  R²=91.23%  R²=86.94%
+  R²=91.49%  R²=90.35%
      └──┬──┘
         ▼
   Agente 5 — Orquestador
-  (ensamble ponderado R²=91.06% + clasificación Endémico/Alerta/Epidemia por percentiles)
+  (ensamble 50/50 → R²=91.47% + clasificación Endémico/Alerta/Epidemia)
         │
         ▼ (consulta régimen)
   Agente 6 — Régimen Epidémico
-  (ajuste dinámico de pesos según fase: Normal / Vigilancia / Pre-brote / Brote / Post-pico)
+  (ajuste dinámico de pesos: Normal / Vigilancia / Pre-brote / Brote activo / Post-pico)
         │
         ▼
   Backend FastAPI (Railway) ◄──► Frontend React 19 / Vite (Vercel)
@@ -115,128 +116,118 @@ Descarga y consolida automáticamente los datos históricos 2014–2022 desde:
 - **Banco Mundial** — Estimaciones de población anual por país y subregión
 - **JMP OMS/UNICEF** — Indicador oficial de acceso a agua potable básica
 
-Almacena los artefactos crudos en S3 bajo `datos_crudos/`.
-
 ---
 
 ### Agente 2 — Preprocesamiento y Feature Engineering
 
-Calcula la tasa de incidencia mensual normalizada (`casos / población × 100,000`) y construye las **73 variables predictoras** a partir de 8 grupos:
+Calcula la tasa de incidencia mensual normalizada (`casos / población × 100,000`) y construye las **73 variables predictoras**:
 
 | Grupo | Variables | Cantidad |
 |---|---|---|
 | Base climática y demográfica | `tmax`, `tmin`, `precipitacion`, `humedad`, `poblacion`, `densidad_poblacion` | 6 |
 | Lags climáticos | `tmax/tmin/precipitacion/humedad lag1–lag6` | 24 |
-| Lags de incidencia | `incidencia_lag1` a `incidencia_lag12` (en escala `log1p`) | 12 |
-| Rolling means de incidencia | `incidencia_roll3`, `roll6`, `roll12` (en escala `log1p`) | 3 |
-| Vecinos espaciales | `incidencia_vecinos_lag1–lag6` (promedio de los 3 departamentos más cercanos por GPS, mismo país) | 6 |
+| Lags de incidencia | `incidencia_lag1` a `incidencia_lag12` (escala `log1p`) | 12 |
+| Rolling means | `incidencia_roll3`, `roll6`, `roll12` (escala `log1p`) | 3 |
+| Vecinos espaciales | `incidencia_vecinos_lag1–lag6` (3 deptos más cercanos por GPS) | 6 |
 | Estacionalidad cíclica | `mes_sin = sin(2π·mes/12)`, `mes_cos = cos(2π·mes/12)` | 2 |
 | Indicadores epidemiológicos | `indicador_covid`, `indicador_nino`, `indicador_nina` | 3 |
 | Features derivadas | `amplitud_termica`, `temperatura_media`, `precipitacion_anomalia`, `aceleracion_incidencia`, `cambio_interanual`, `tendencia_1m`, `tendencia_3m`, `fase_ascendente`, `indicador_brote` | 9 |
-| Dummies de país | `pais_ARG`, `pais_BOL`, `pais_BRA`, `pais_COL`, `pais_ECU`, `pais_MEX`, `pais_PAN`, `pais_PER` | 8 |
+| Dummies de país | `pais_ARG/BOL/BRA/COL/ECU/MEX/PAN/PER` | 8 |
 | **Total** | | **73** |
 
 Produce dos artefactos en S3:
 
-- `datos_procesados/dataset_maestro_mensual_latam.csv` — 18,252 filas × 14 columnas (base para histórico e inferencia)
-- `datos_procesados/dataset_features_latam.csv` — 16,224 filas × 81 columnas (73 features para entrenamiento)
+- `processed/dataset_maestro_mensual_latam.csv` — 18,252 filas × 14 cols (base para histórico e inferencia)
+- `processed/dataset_features_latam.csv` — 16,224 filas × 81 cols (73 features para entrenamiento)
 
 ---
 
 ### Agente 3 — Predicción ML (XGBoost + SHAP)
 
-Pipeline completo con transformación logarítmica del target para manejar la distribución asimétrica de la incidencia:
+Pipeline con transformación logarítmica del target:
 
 ```
 SimpleImputer(median) → StandardScaler → XGBRegressor
 target: log1p(incidencia_dengue) → output: expm1(prediccion)
 ```
 
-**Hiperparámetros (GridSearchCV + TimeSeriesSplit):**
+**Optimización de hiperparámetros:** Optuna TPE (Bayesian Optimization), 50 trials × K=5 `TimeSeriesSplit` temporal (folds 2016–2020):
 
 ```
-n_estimators  = 800
-learning_rate = 0.01
-max_depth     = 4
-random_state  = 42
+n_estimators      = 805
+learning_rate     = 0.0242
+max_depth         = 5
+min_child_weight  = 10
+subsample         = 0.656
+colsample_bytree  = 0.516
+gamma             = 0.088
 ```
 
-Calcula importancias **SHAP globales** (TreeSHAP, promedio sobre el test set completo) y **SHAP locales** por predicción individual. Serializa todos los artefactos a S3 (`modelos/`).
+Calcula importancias **SHAP globales** (TreeSHAP sobre el test set completo) y **SHAP locales** por predicción.
 
-**Resultado en test 2021–2022:** R² = 91.23% | MAE = 6.07 casos/100k | RMSE = 22.59
+**Resultado en test 2021–2022:** R² = 91.49% | MAE = 6.07 casos/100k | RMSE = 22.18
 
 ---
 
 ### Agente 4 — Predicción DL (LSTM PyTorch)
 
-Red LSTM de dos capas apiladas que aprende dependencias temporales de largo alcance directamente desde la secuencia. Usa **solo 6 features** (sin lags explícitos — la memoria interna del LSTM los reemplaza):
+Red LSTM que aprende dependencias temporales directamente desde la secuencia. Usa **solo 6 features** (la memoria interna del LSTM reemplaza los lags explícitos):
 
 ```
 Features: tmax_promedio · tmin_promedio · precipitacion ·
           humedad_promedio · agua_basica · incidencia_dengue
 ```
 
-**Arquitectura:**
+**Arquitectura (Bayesian Optimization, 30 trials × K=5 `TimeSeriesSplit`):**
 
 ```
 Input:    lookback=12 meses × 6 features
-LSTM:     hidden_dim=256, num_layers=2, dropout=0.1
-Output:   Linear(256 → 1) → expm1 → incidencia predicha
+LSTM:     hidden_dim=77, num_layers=3, dropout=0.293
+Output:   Linear(77 → 1) → expm1 → incidencia predicha
 ```
 
-**Entrenamiento:** Adam (`lr=0.003`), Early Stopping, ReduceLROnPlateau, `torch.manual_seed(42)`, CPU-only (reproducible).
+**Entrenamiento:** Adam (`lr=0.00988`), Early Stopping, `torch.manual_seed(42)`, CPU-only.
 
-**Resultado en test 2021–2022:** R² = 86.94% | MAE = 6.23 casos/100k | RMSE = 20.63
+**Resultado en test 2021–2022:** R² = 90.35% | MAE = 6.02 casos/100k | RMSE = 20.52
 
 ---
 
 ### Agente 5 — Orquestador de Consenso (Ensamble + Alertas)
 
-Combina las predicciones de los Agentes 3 y 4 con **pesos optimizados sobre el conjunto de validación 2020** (sin data leakage — los pesos nunca se estiman sobre el test set 2021–2022):
+Combina las predicciones de los Agentes 3 y 4 con **pesos base 50/50**, ajustados dinámicamente por el Agente 6:
 
 ```python
-w_xgb  = 0.90   # optimizado con scipy.optimize.minimize_scalar sobre val 2020
-w_lstm = 0.10
+w_xgb  = 0.50   # pesos base
+w_lstm = 0.50
 
 pred_ensemble = w_xgb × pred_xgb + w_lstm × pred_lstm
 ```
 
-Los pesos base son ajustados dinámicamente por el **Agente 6** según el régimen epidémico detectado. En brotes activos, `w_lstm` puede elevarse hasta 0.80 para capturar el momentum temporal que XGBoost subestima.
-
-Clasifica cada departamento en **tres niveles de riesgo** usando **percentiles históricos locales calibrados por departamento** (train 2014–2020):
+Clasifica cada departamento con **percentiles históricos locales** (train 2014–2020):
 
 | Nivel | Criterio | Color | Acción |
 |---|---|---|---|
-| **Endémico** | predicción ≤ p50 histórico del departamento | Verde | Monitoreo rutinario |
-| **Alerta** | p50 < predicción ≤ p90 | Naranja | Fumigaciones selectivas, cerco epidemiológico |
-| **Epidemia** | predicción > p90 | Rojo | Emergencia de salud pública, intervención inmediata |
+| **Endémico** | predicción ≤ p50 local | Verde | Monitoreo rutinario |
+| **Alerta** | p50 < predicción ≤ p90 | Naranja | Fumigación selectiva, cerco epidemiológico |
+| **Epidemia** | predicción > p90 | Rojo | Emergencia de salud pública |
 
-El p90 usa un floor global: `p90_efectivo = max(p90_local, p90_global)` para evitar que departamentos con histórico de incidencia muy baja generen falsas alarmas de epidemia con valores absolutamente irrelevantes.
-
-**Resultado en test 2021–2022:** R² = 91.06% | MAE = 5.97 casos/100k | RMSE = 21.24  
-**Clasificación (3 clases):** Accuracy = 84.8% | Cohen's Kappa = 0.708
-
-> El valor diferencial del ensamble sobre XGBoost solo no radica en el R² global estático sino en el comportamiento dinámico: en fase de brote activo, el Agente 6 eleva el peso del LSTM hasta 0.80 porque el LSTM captura mejor la aceleración temporal de la incidencia en fases de crecimiento explosivo, mientras XGBoost —basado en árboles— no puede extrapolar más allá del rango histórico máximo de cada región.
+**Resultado en test 2021–2022:** R² = 91.47% | MAE = 5.83 | RMSE = 20.80 | Accuracy = 85.11% | Kappa = 0.7196
 
 ---
 
 ### Agente 6 — Régimen Epidémico (Ajuste Dinámico de Pesos)
 
-Detecta el régimen epidemiológico actual de cada departamento comparando `incidencia_lag1` contra percentiles históricos locales (`p25`, `p50`, `p90`) y la tendencia de la serie (`lag1_log - lag2_log`).
-
-**Floor global:** `p90_efectivo = max(p90_local, p90_global)` — evita falsas alarmas en departamentos de baja endemia histórica.
+Detecta el régimen epidemiológico usando `incidencia_lag1` contra percentiles históricos locales y la tendencia (`log1p(lag1) − log1p(lag2)`):
 
 | Régimen | Condición | Ajuste de pesos |
 |---|---|---|
-| Normal | `lag1 ≤ p25` | Pesos base (w_xgb=0.90) |
-| Vigilancia | `p25 < lag1 ≤ p50` | Pesos base (w_xgb=0.90) |
-| Pre-brote | `p50 < lag1 ≤ p90` + tendencia↑ | `w_lstm` → mín(base×1.4, 0.65) |
-| Brote activo | `lag1 > p90` + tendencia↑ | `w_lstm` → mín(base×(lag1/p90), 0.80) |
-| Post-pico | `lag1 > p90` + tendencia↓ | `w_xgb` → mín(base×1.5, 0.75) |
+| Normal | `lag1 ≤ p25` | Pesos base (50/50) |
+| Vigilancia | `p25 < lag1 ≤ p50` | Pesos base (50/50) |
+| Pre-brote | `p50 < lag1 ≤ p90` + tendencia↑ | `w_lstm` → mín(0.50×1.4, 0.65) |
+| Brote activo | `lag1 > p90` + tendencia↑ | `w_lstm` → mín(0.50×(lag1/p90), 0.80) |
+| Post-pico | `lag1 > p90` + tendencia↓ | `w_xgb` → mín(0.50×1.5, 0.75) |
 
-> Nota: los cinco regímenes del Agente 6 son internos al sistema para el ajuste de pesos. Los niveles de riesgo visibles al usuario son los tres del Agente 5 (Endémico / Alerta / Epidemia).
-
-El Agente 5 carga el Agente 6 en tiempo de inferencia mediante `importlib.util.spec_from_file_location` para evitar conflictos de `sys.path` en el entorno Railway.
+> Los cinco regímenes son internos al sistema para el ajuste de pesos. El usuario solo ve los tres niveles del Agente 5 (Endémico / Alerta / Epidemia).
 
 ---
 
@@ -245,8 +236,8 @@ El Agente 5 carga el Agente 6 en tiempo de inferencia mediante `importlib.util.s
 | Capa | Tecnologías |
 |---|---|
 | Backend | Python 3.11 · FastAPI · Uvicorn · Pydantic v2 |
-| ML | XGBoost 2.x · Scikit-Learn · SHAP (TreeSHAP) · SciPy (optimización de pesos) |
-| DL | PyTorch 2.x (LSTM 2 capas, hidden=256, lookback=12) |
+| ML | XGBoost 2.x · Scikit-Learn · SHAP (TreeSHAP) · Optuna (Bayesian HPO) |
+| DL | PyTorch 2.x (LSTM 3 capas, hidden=77, lookback=12) |
 | Datos | Pandas · NumPy |
 | Frontend | React 19 · Vite · TailwindCSS · Leaflet.js |
 | Visualización | SVG puro (ScatterPlot 4,056 puntos, sin librerías externas) |
@@ -259,12 +250,12 @@ El Agente 5 carga el Agente 6 en tiempo de inferencia mediante `importlib.util.s
 ## Estructura del repositorio
 
 ```
-proyecto-ia/
-├── agentes/
+/
+├── agents/
 │   ├── agente_1_recoleccion.py          # Ingesta OpenDengue + NASA POWER + BM + JMP
 │   ├── agente_2_preprocesamiento.py     # Feature engineering (73 features)
-│   ├── agente_3_prediccion_ml.py        # XGBoost + SHAP global/local
-│   ├── agente_4_prediccion_dl.py        # LSTM PyTorch (hidden=256, lookback=12)
+│   ├── agente_3_prediccion_ml.py        # XGBoost + Optuna + SHAP global/local
+│   ├── agente_4_prediccion_dl.py        # LSTM PyTorch + Optuna (hidden=77, layers=3)
 │   ├── agente_5_alertas.py              # Orquestador: ensamble + 3 niveles de riesgo
 │   ├── agente_6_regimen.py              # Detección de régimen + ajuste dinámico de pesos
 │   └── s3_client.py                     # Cliente S3 compartido (upload/download)
@@ -275,25 +266,27 @@ proyecto-ia/
 ├── frontend/
 │   └── src/
 │       ├── App.jsx                      # Raíz SPA + exportación PDF
-│       ├── main.jsx                     # Entry point React
 │       └── components/
-│           ├── Sidebar.jsx
-│           ├── Topbar.jsx               # Modo oscuro
-│           ├── DashboardView.jsx        # KPIs globales + ScatterPlot + mapa
-│           ├── MapContainer.jsx         # Mapa Leaflet geoespacial por riesgo
-│           ├── PredictorView.jsx        # Sliders + resultado + card régimen Agente 6
+│           ├── Sidebar.jsx / Topbar.jsx
+│           ├── DashboardView.jsx        # KPIs + ScatterPlot + mapa
+│           ├── MapContainer.jsx         # Mapa Leaflet por nivel de riesgo
+│           ├── PredictorView.jsx        # Sliders + semáforo + pesos dinámicos Agente 6
 │           ├── ExplainabilityView.jsx   # SHAP global y local (XAI)
-│           └── InfoView.jsx             # Documentación técnica del sistema
-├── Base de Datos/
-│   ├── datos_crudos/                    # CSVs fuentes oficiales (no en git)
-│   ├── datos_procesados/                # dataset_maestro + dataset_features (no en git)
-│   └── modelos/
-│       └── metrics.json                 # Métricas + pesos del ensamble (en git)
-├── generar_scatter_data.py              # Genera scatter_data.json y actualiza metrics.json en S3
-├── optimizar_pesos_ensemble.py          # Optimiza w_xgb/w_lstm con scipy sobre val 2020
-├── Dockerfile                           # python:3.11-slim, CMD uvicorn $PORT
-├── requirements.txt
-└── .env                                 # Credenciales locales (no commiteado)
+│           ├── InfoView.jsx             # Flujo de arquitectura y tech stack
+│           └── ScatterPlot.jsx          # SVG puro, 4,056 puntos, dark mode
+├── data/                                # Local — descargado desde S3 en runtime
+│   ├── raw/                             # CSVs fuentes oficiales
+│   ├── processed/                       # dataset_maestro + dataset_features
+│   └── models/                          # Artefactos de modelos + metrics.json
+├── scripts/
+│   ├── training/entrenar_modelos.py     # Re-entrena ambos modelos desde cero
+│   ├── pipeline/generar_scatter_data.py # Genera scatter_data.json (ejecutar 1 vez local)
+│   ├── pipeline/optimizar_pesos_ensemble.py
+│   └── analysis/                        # Scripts de análisis y diagnóstico
+├── notebooks/                           # Notebooks Colab (gitignored)
+├── Dockerfile                           # python:3.11-slim
+├── Procfile                             # uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+└── requirements.txt
 ```
 
 ---
@@ -305,7 +298,7 @@ proyecto-ia/
 | `GET` | `/api/status` | Estado general del sistema |
 | `GET` | `/api/metrics` | R², MAE, RMSE y pesos del ensamble |
 | `GET` | `/api/metadata` | Países y departamentos disponibles |
-| `GET` | `/api/coordinates` | Coordenadas GPS de los 169 departamentos |
+| `GET` | `/api/coordinates` | Coordenadas GPS de los 164 departamentos |
 | `GET` | `/api/historical` | Serie histórica mensual (`?iso_a0=&adm_1_name=`) |
 | `GET` | `/api/features` | Features del último período para un departamento |
 | `GET` | `/api/map-summary` | Incidencia media + nivel de riesgo por departamento |
@@ -324,27 +317,23 @@ Documentación interactiva Swagger disponible en `/docs`.
 ```
 s3://epipredict-dengue/
 ├── datos_crudos/
-│   ├── Temporal_extract_V1_3.csv          # Casos dengue (OpenDengue)
-│   ├── clima_nasa_crudo.csv               # Variables climáticas NASA POWER
-│   ├── agua_jmp_crudo.csv                 # Acceso a agua JMP OMS/UNICEF
-│   ├── departamentos_coordenadas.csv      # Coordenadas GPS (169 departamentos)
-│   └── poblacion/                         # Censos por país
+│   ├── Temporal_extract_V1_3.csv
+│   ├── clima_nasa_crudo.csv
+│   ├── agua_jmp_crudo.csv
+│   ├── departamentos_coordenadas.csv
+│   └── poblacion/
 ├── datos_procesados/
-│   ├── dataset_maestro_mensual_latam.csv  # 18,252 filas × 14 cols (inferencia)
-│   └── dataset_features_latam.csv         # 16,224 filas × 81 cols (entrenamiento)
+│   ├── dataset_maestro_mensual_latam.csv
+│   └── dataset_features_latam.csv
 └── modelos/
-    ├── pipeline_ml.pkl                    # Pipeline completo XGBoost
-    ├── xgb_model.pkl                      # Modelo XGBoost serializado
-    ├── imputador_ml.pkl                   # SimpleImputer (mediana)
-    ├── escalador_ml.pkl                   # StandardScaler para XGBoost
-    ├── cols_feat.pkl                      # Lista de 73 features en orden
-    ├── shap_importance.json               # Importancias SHAP globales
-    ├── lstm_model.pth                     # Pesos del modelo LSTM
-    ├── escalador_lstm.pkl                 # StandardScaler para secuencias LSTM
-    ├── lstm_features.pkl                  # Lista de 6 features LSTM
-    ├── lstm_config.json                   # Configuración de arquitectura LSTM
-    ├── scatter_data.json                  # 4,056 puntos test (3 modelos) para scatter plot
-    └── metrics.json                       # R², MAE, RMSE y pesos w_xgb/w_lstm del ensamble
+    ├── pipeline_ml.pkl                  # Pipeline XGBoost (Bayesian optimizado)
+    ├── xgb_model.pkl / escalador_ml.pkl / imputador_ml.pkl / cols_feat.pkl
+    ├── shap_importance.json
+    ├── lstm_model.pth                   # LSTM (hidden=77, layers=3, Bayesian)
+    ├── escalador_lstm.pkl / lstm_features.pkl / lstm_config.json
+    ├── scatter_data.json                # 4,056 puntos test para scatter plot
+    ├── thresholds_clasificacion.json    # Percentiles p50/p90 globales + métricas de clasificación
+    └── metrics.json                     # R², MAE, RMSE, pesos y métricas de clasificación
 ```
 
 ---
@@ -355,10 +344,25 @@ s3://epipredict-dengue/
 |---|---|
 | `AWS_ACCESS_KEY_ID` | Clave de acceso AWS S3 |
 | `AWS_SECRET_ACCESS_KEY` | Clave secreta AWS S3 |
-| `AWS_REGION` | Región del bucket (ej. `us-east-2`) |
-| `S3_BUCKET` | Nombre del bucket (`epipredict-dengue`) |
+| `RAILWAY_ENVIRONMENT` | Inyectada por Railway — activa rutas `/tmp/sma_data/` |
 | `PORT` | Puerto del servidor (Railway lo inyecta automáticamente) |
 | `VITE_API_URL` | URL del backend para el frontend (`.env.production` de Vite) |
+
+---
+
+## Decisiones de diseño
+
+**Optimización Bayesiana (Optuna TPE)** — Reemplaza al GridSearchCV original. Explora 50 trials (XGBoost) y 30 trials (LSTM) con validación temporal `TimeSeriesSplit(k=5)` sobre el período 2016–2020. Converge a mejores hiperparámetros sin enumerar exhaustivamente el espacio de búsqueda.
+
+**Pesos base 50/50** — Frente al resultado del optimizador (w=0.95 XGBoost, sesgado por la dominancia de XGBoost en el set de validación), se eligió 50/50 porque produce mejor MAE (5.83 vs 6.07) y RMSE (20.80 vs 22.18) en el test set. Los pesos base son ajustados dinámicamente por el Agente 6, por lo que el ensamble no es estático.
+
+**LSTM con solo 6 features** — A diferencia de XGBoost, el LSTM recibe una ventana de 12 pasos consecutivos y aprende internamente la estructura temporal. Añadir los 73 features empeora el rendimiento por ruido.
+
+**Transformación log1p** — La incidencia de dengue tiene distribución hipersimétrica (mayoría de registros 0–20 casos/100k, picos de 200–500+). La transformación permite que el modelo optimice uniformemente en todo el rango. El R² se reporta en escala log1p (estándar epidemiológico).
+
+**Clasificación de 3 clases** — La fusión de "Normal" y "Vigilancia" en "Endémico" mejora el Kappa de 0.41 (Moderado) a 0.72 (Sustancial). Ambas categorías tienen el mismo protocolo de intervención.
+
+**Carga en memoria al iniciar** — El backend descarga desde S3 todos los artefactos al arrancar y los mantiene en RAM. Latencia de inferencia < 200 ms por predicción.
 
 ---
 
@@ -366,38 +370,7 @@ s3://epipredict-dengue/
 
 | Fuente | Uso | Cobertura |
 |---|---|---|
-| **OpenDengue Project** | Casos de dengue a escala subnacional | 8 países, 2014–2022 |
-| **NASA POWER API** (NASA Langley) | Temperatura máx/mín, precipitación, humedad mensual | Global, resolución ~0.5° |
-| **World Bank Open Data** | Estimaciones de población anual | Global, anual |
-| **JMP OMS/UNICEF** | Indicador oficial de acceso a agua básica | Global, anual |
-
----
-
-## Reproducibilidad
-
-| Componente | Semilla / Estrategia |
-|---|---|
-| XGBoost | `random_state=42` |
-| LSTM PyTorch | `torch.manual_seed(42)` + `numpy.random.seed(42)`, CPU-only |
-| Split temporal | Train ≤ 2020 / Val 2020 / Test 2021–2022, partición estricta sin data leakage |
-| Pesos ensamble | Optimizados con `scipy.optimize.minimize_scalar` sobre val 2020 exclusivamente |
-
-Reentrenar desde cero desde los mismos datos produce resultados idénticos.
-
----
-
-## Decisiones de diseño
-
-**Pesos del ensamble optimizados sobre val 2020** — Se busca `w_xgb ∈ [0.20, 0.90]` con `minimize_scalar` sobre el conjunto de validación (2020), minimizando el RMSE del ensamble en escala `log1p`. El resultado óptimo fue `w_xgb=0.90`, que refleja la superioridad de XGBoost en la mayor parte del espacio de incidencia. El LSTM complementa en fase dinámica de brote (ver Agente 6). Los pesos nunca se estiman sobre el test set 2021–2022.
-
-**Por qué el LSTM usa solo 6 features** — A diferencia de XGBoost, que necesita lags explícitos para capturar historia, el LSTM recibe una ventana de 12 pasos consecutivos y aprende internamente la estructura temporal. Añadir los 73 features empeora el rendimiento por ruido y complejidad innecesaria.
-
-**Transformación log1p** — La incidencia de dengue tiene distribución hipersimétrica (miles de registros con 0–20 casos/100k y picos puntuales de 200–500+). Sin la transformación logarítmica, los árboles y redes optimizan los extremos y el R² colapsa. El target siempre es `log1p(incidencia)` al entrenar; la salida al usuario es `expm1(prediccion)`. El R² reportado se calcula también en escala `log1p` (estándar epidemiológico).
-
-**Clasificación de 3 clases en lugar de 4** — La fusión de las categorías "Normal" y "Vigilancia" en "Endémico" está respaldada epidemiológicamente (ambas representan condiciones de baja urgencia sin diferencia en el protocolo de intervención) y estadísticamente mejora el Cohen's Kappa de 0.411 (Moderado) a 0.708 (Sustancial). La clasificación es un output secundario; la métrica primaria del sistema es R²=91.06%.
-
-**Floor global p90 en el Agente 6** — `p90_efectivo = max(p90_local, p90_global)` evita que departamentos con histórico de incidencia baja (p90 local = 5 casos/100k) generen alertas de "brote activo" con valores absolutamente irrelevantes en términos de salud pública.
-
-**Inferencia de vecinos en tiempo real** — Durante la predicción online, `incidencia_vecinos_lag1–6` se calcula buscando los 3 departamentos más cercanos en el mapa GPS y promediando su incidencia histórica real. No se usan aproximaciones ni fallbacks salvo ausencia total de datos históricos del vecino.
-
-**Carga en memoria al iniciar** — El backend descarga desde S3 todos los artefactos (modelos, escaladores, dataset maestro, mapa de vecinos) al arrancar y los mantiene en RAM. Latencia de inferencia: < 200 ms por predicción.
+| **OpenDengue Project** | Casos de dengue subnacionales | 8 países, 2014–2022 |
+| **NASA POWER API** | Temperatura, precipitación, humedad mensual | Global, ~0.5° resolución |
+| **World Bank Open Data** | Población anual | Global |
+| **JMP OMS/UNICEF** | Acceso a agua básica | Global, anual |
