@@ -19,7 +19,7 @@ function niceMax(v) {
   return steps.find((s) => s >= v) ?? Math.ceil(v / 200) * 200;
 }
 
-export default function ScatterPlot({ data, darkMode }) {
+export default function ScatterPlot({ data, darkMode, metrics }) {
   const c = {
     grid:    darkMode ? "#2a3a50" : "#e2e8f0",
     tick:    darkMode ? "#8faabb" : "#94a3b8",
@@ -34,7 +34,15 @@ export default function ScatterPlot({ data, darkMode }) {
   const [hovered, setHovered] = useState(null);
 
   const points = data?.[model] ?? [];
-  const meta   = data?.metricas?.[model];
+  const rawMeta = data?.metricas?.[model];
+  const meta = (() => {
+    const apiMeta = {
+      ensemble: metrics?.r2_ensemble != null ? { r2: metrics.r2_ensemble, mae: metrics.mae_ensemble?.toFixed(2), rmse: metrics.rmse_ensemble?.toFixed(2) } : null,
+      xgb:      metrics?.r2_xgb      != null ? { r2: metrics.r2_xgb,      mae: metrics.mae_xgb?.toFixed(2),      rmse: metrics.rmse_xgb?.toFixed(2)      } : null,
+      lstm:     metrics?.r2_lstm     != null ? { r2: metrics.r2_lstm,     mae: metrics.mae_lstm?.toFixed(2),     rmse: metrics.rmse_lstm?.toFixed(2)     } : null,
+    };
+    return apiMeta[model] ?? rawMeta;
+  })();
 
   const maxVal = useMemo(() => {
     if (!points.length) return 200;

@@ -402,7 +402,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
 
       {/* Scatter Plot */}
       {scatterData !== undefined && (
-        <ScatterPlot data={scatterData} darkMode={darkMode} />
+        <ScatterPlot data={scatterData} darkMode={darkMode} metrics={metrics} />
       )}
 
       {/* REPORT GENERATION MODAL */}
