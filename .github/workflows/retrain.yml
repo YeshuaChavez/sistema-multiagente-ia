@@ -9,6 +9,9 @@ jobs:
   verificar-y-reentrenar:
     runs-on: ubuntu-latest
     timeout-minutes: 180    # LSTM puede tardar hasta 60 min
+    permissions:
+      contents: read
+      issues: write          # necesario para crear issues de alerta de drift
 
     steps:
       - name: Checkout del repositorio
@@ -162,8 +165,8 @@ jobs:
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo:  context.repo.repo,
-              title: '⚠️ Drift climático detectado — revisar cuando llegue nueva versión OpenDengue',
-              body:  '**Drift alto detectado** en features climáticas (PSI ≥ 0.2).\n\nEl dataset de OpenDengue no tiene nueva versión aún, por lo que el reentrenamiento automático no aplica.\nCuando OpenDengue publique nuevos datos, el drift de concepto podrá evaluarse.\n\nVer `data/models/drift_report.json` para detalles.',
+              title: 'Drift climatico detectado - revisar cuando llegue nueva version OpenDengue',
+              body:  '**Drift alto detectado** en features climaticas (PSI >= 0.2).\n\nEl dataset de OpenDengue no tiene nueva version aun, por lo que el reentrenamiento automatico no aplica.\nCuando OpenDengue publique nuevos datos, el drift de concepto podra evaluarse.\n\nVer `data/models/drift_report.json` para detalles.',
               labels: ['drift', 'model-monitoring']
             })
 
