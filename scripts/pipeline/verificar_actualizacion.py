@@ -233,7 +233,7 @@ def detectar_drift():
             "features": {},
             "psi_max": None,
             "alerta_drift": False,
-            "nota": "No se encontró dataset_features_latam.csv para calcular referencia PSI.",
+            "nota": "No se encontro dataset_features_latam.csv para calcular referencia PSI.",
         }
         with open(DRIFT_FILE, "w") as f:
             json.dump(reporte, f, indent=2)
@@ -249,7 +249,7 @@ def detectar_drift():
             "features": {},
             "psi_max": None,
             "alerta_drift": False,
-            "nota": "NASA POWER no devolvió datos recientes. Drift no calculado; se revisará en el próximo ciclo.",
+            "nota": "NASA POWER no devolvio datos recientes. Drift no calculado; se revisara en el proximo ciclo.",
         }
         with open(DRIFT_FILE, "w") as f:
             json.dump(reporte, f, indent=2)
@@ -282,7 +282,7 @@ def detectar_drift():
             "Drift detectado en features de entrada (covariable shift). "
             "El drift de concepto no puede evaluarse hasta disponer de nuevos "
             "datos etiquetados de OpenDengue." if alerta_drift else
-            "Distribución de features climáticas estable respecto al período de entrenamiento."
+            "Distribucion de features climaticas estable respecto al periodo de entrenamiento."
         ),
     }
 
