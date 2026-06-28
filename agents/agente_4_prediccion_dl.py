@@ -26,6 +26,8 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 import s3_client as s3
+import optuna
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 if sys.platform.startswith('win'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -87,11 +89,11 @@ class AgentePrediccionDL:
     # MODO ENTRENAMIENTO
     # ─────────────────────────────────────────────────────────────
 
-    def _entrenar_lstm(self, X_tr_sc, y_tr_log, hidden_dim, lr, dropout, epochs, seed):
+    def _entrenar_lstm(self, X_tr_sc, y_tr_log, hidden_dim, lr, dropout, epochs, seed, num_layers=2):
         """Entrena un LSTM y retorna el modelo entrenado."""
         torch.manual_seed(seed)
         np.random.seed(seed)
-        m   = DengueLSTMModel(X_tr_sc.shape[2], hidden_dim, dropout=dropout)
+        m   = DengueLSTMModel(X_tr_sc.shape[2], hidden_dim, num_layers=num_layers, dropout=dropout)
         opt = optim.Adam(m.parameters(), lr=lr, weight_decay=1e-4)
         crit = nn.MSELoss()
         Xt = torch.tensor(X_tr_sc, dtype=torch.float32)
@@ -128,9 +130,9 @@ class AgentePrediccionDL:
                     con lookback=12 meses y 6 variables climaticas/epidemiologicas
           Fase 6a — Entrenamiento baseline LSTM simple (1 capa, hidden=32, lr=0.01, 40 epocas)
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
-          Fase 8  — Optimizacion de hiperparametros:
-                    Entrenamiento inicial: Optuna TPE, 30 trials x K=5 folds, GPU T4 (notebook Colab)
-                    Reentrenamiento auto:  Grid Search manual + TimeSeriesSplit temporal
+          Fase 8  — Optimizacion de hiperparametros: Optuna TPE, 20 trials x K=5 folds
+                    cronologicos; sampler TPESampler(seed=9); espacio: hidden_dim,
+                    num_layers, lr, dropout
           Fase 6b — Reentrenamiento con mejores hiperparametros + early stopping (max 300 epocas)
                     ReduceLROnPlateau(patience=5) + early stopping patience=15 epocas
           Fase 7b — Evaluacion final + calculo de pesos optimos del ensemble (minimos cuadrados)
@@ -203,69 +205,57 @@ class AgentePrediccionDL:
         r2_base, mae_base = self._evaluar_lstm(modelo_base, X_test_sc, y_test)
         print(f"   [Fase 7a] Baseline — R²={r2_base*100:.2f}%  MAE={mae_base:.4f}")
 
-        # ── Fase 8: Grid Search manual + TimeSeriesSplit temporal (5 folds) ──
-        # Para series temporales el fold siempre entrena en pasado y valida en futuro
-        # Fold 1: train anos<=2016, val anos==2016 (early split)
-        # Fold 2: train anos<=2016, val anos==2017
-        # Fold 3: train anos<=2017, val anos==2018
-        # Fold 4: train anos<=2018, val anos==2019
-        # Folds dinámicos: últimos 5 años del train set como años de validación sucesivos
-        print("\n   [Fase 8] Grid Search LSTM + TimeSeriesSplit (5 folds temporales)...")
+        # ── Fase 8: Bayesian Optimization (Optuna TPE) + folds cronologicos ──
+        N_TRIALS_LSTM  = 20
         anos_unicos_train = sorted(set(anos_train.tolist()))
-        fold_val_anos = anos_unicos_train[-5:]   # últimos 5 años del train
+        fold_val_anos  = anos_unicos_train[-5:]
         folds = [
             (anos_train < val_ano, anos_train == val_ano)
             for val_ano in fold_val_anos
         ]
+        print(f"\n   [Fase 8] Optuna TPE — {N_TRIALS_LSTM} trials x K=5 folds cronologicos...")
         print(f"   Folds val: {fold_val_anos}")
 
-        param_grid = [
-            {'hidden_dim': hd, 'lr': lr, 'dropout': dr}
-            for hd in [128, 256, 512]
-            for lr in [0.001, 0.003]
-            for dr in [0.1, 0.2]
-        ]
-        print(f"   Combinaciones: {len(param_grid)} x 5 folds = {len(param_grid)*5} entrenamientos")
-
-        mejores_params = None
-        mejor_r2_cv   = -np.inf
-        resultados_gs  = []
-
-        for params in param_grid:
-            r2_folds = []
+        def objective_lstm(trial):
+            hidden_dim = trial.suggest_int("hidden_dim", 64, 512, log=True)
+            num_layers = trial.suggest_int("num_layers", 1, 3)
+            lr         = trial.suggest_float("lr", 1e-4, 1e-2, log=True)
+            dropout    = trial.suggest_float("dropout", 0.0, 0.4)
+            r2s = []
             for tr_mask, val_mask in folds:
                 if val_mask.sum() == 0:
                     continue
-                X_tr = X_train[tr_mask]
-                y_tr = y_train_log[tr_mask]
-                X_vl = X_train[val_mask]
-                y_vl = y_train[val_mask]
-
-                # Escalar por fold (fit solo en train del fold)
+                X_tr = X_train[tr_mask]; y_tr = y_train_log[tr_mask]
+                X_vl = X_train[val_mask]; y_vl = y_train[val_mask]
                 sc_fold = StandardScaler()
                 X_tr_sc = sc_fold.fit_transform(
                     X_tr.reshape(-1, len(lstm_feats))).reshape(X_tr.shape)
                 X_vl_sc = sc_fold.transform(
                     X_vl.reshape(-1, len(lstm_feats))).reshape(X_vl.shape)
-
-                m = self._entrenar_lstm(X_tr_sc, y_tr, epochs=40, seed=self.semilla,
-                                        **params)
+                m = self._entrenar_lstm(X_tr_sc, y_tr, hidden_dim=hidden_dim,
+                                        num_layers=num_layers, lr=lr, dropout=dropout,
+                                        epochs=50, seed=self.semilla)
                 r2_fold, _ = self._evaluar_lstm(m, X_vl_sc, y_vl)
-                r2_folds.append(r2_fold)
+                r2s.append(r2_fold)
+            return float(np.mean(r2s))
 
-            r2_cv = float(np.mean(r2_folds))
-            resultados_gs.append({**params, 'r2_cv': r2_cv})
-            print(f"   hidden={params['hidden_dim']:3d} lr={params['lr']} "
-                  f"dropout={params['dropout']} -> R2_CV={r2_cv*100:.2f}%")
+        def cb_lstm(study, trial):
+            best = " <-- mejor" if trial.value == study.best_value else ""
+            p = trial.params
+            print(f"  Trial {trial.number+1:02d}  hidden={p['hidden_dim']}  "
+                  f"layers={p['num_layers']}  lr={p['lr']:.5f}  "
+                  f"dropout={p['dropout']:.2f}  R2_CV={trial.value*100:.2f}%{best}")
 
-            if r2_cv > mejor_r2_cv:
-                mejor_r2_cv   = r2_cv
-                mejores_params = params
-
-        print(f"\n   Mejores hiperparametros:")
-        for k, v in mejores_params.items():
+        study_lstm = optuna.create_study(
+            direction="maximize",
+            sampler=optuna.samplers.TPESampler(seed=self.semilla)
+        )
+        study_lstm.optimize(objective_lstm, n_trials=N_TRIALS_LSTM, callbacks=[cb_lstm])
+        best_lstm_trial = study_lstm.best_trial
+        mejores_params  = best_lstm_trial.params
+        print(f"\n   Mejor R2 CV: {best_lstm_trial.value*100:.2f}%")
+        for k, v in sorted(mejores_params.items()):
             print(f"     {k:12s}: {v}")
-        print(f"   Mejor R2 CV: {mejor_r2_cv*100:.2f}%")
 
         # ── Fase 6b: Reentrenar con mejores params + early stopping (max 300 épocas) ──
         # Valida en año 2020 con ReduceLROnPlateau (patience=5) y early stopping (patience=15)
@@ -279,6 +269,7 @@ class AgentePrediccionDL:
         torch.manual_seed(self.semilla); np.random.seed(self.semilla)
         modelo = DengueLSTMModel(len(lstm_feats),
                                   mejores_params['hidden_dim'],
+                                  num_layers=mejores_params['num_layers'],
                                   dropout=mejores_params['dropout'])
         opt_es  = optim.Adam(modelo.parameters(), lr=mejores_params['lr'], weight_decay=1e-4)
         sched   = optim.lr_scheduler.ReduceLROnPlateau(opt_es, patience=5, factor=0.5)
@@ -327,15 +318,21 @@ class AgentePrediccionDL:
             pickle.dump(lstm_feats, f)
 
         lstm_config = {
-            "seq_len":    LSTM_SEQ_LEN,
-            "input_dim":  len(lstm_feats),
-            "hidden_dim": mejores_params['hidden_dim'],
-            "lr":         mejores_params['lr'],
-            "dropout":    mejores_params['dropout'],
-            "r2":         round(r2, 4),
-            "mae":        round(mae, 4),
-            "r2_baseline":round(r2_base, 4),
-            "grid_search_resultados": resultados_gs,
+            "seq_len":      LSTM_SEQ_LEN,
+            "input_dim":    len(lstm_feats),
+            "hidden_dim":   mejores_params['hidden_dim'],
+            "num_layers":   mejores_params['num_layers'],
+            "lr":           mejores_params['lr'],
+            "dropout":      mejores_params['dropout'],
+            "r2":           round(float(r2_log_lstm), 4),
+            "mae":          round(float(mae), 4),
+            "r2_baseline":  round(float(r2_base), 4),
+            "r2_cv_mejor":  round(float(best_lstm_trial.value), 4),
+            "k_folds":      5,
+            "optimizer":    "Optuna/TPE",
+            "n_trials":     N_TRIALS_LSTM,
+            "trials": [{"trial": t.number, "params": t.params, "r2_cv": round(t.value, 4)}
+                       for t in study_lstm.trials],
         }
         with open(os.path.join(self.model_dir, "lstm_config.json"), "w") as f:
             json.dump(lstm_config, f, indent=4)

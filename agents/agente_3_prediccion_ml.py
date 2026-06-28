@@ -18,7 +18,8 @@ import shap
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
-from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+import optuna
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 from sklearn.metrics import mean_absolute_error, r2_score
 from xgboost import XGBRegressor
 
@@ -59,9 +60,8 @@ class AgentePrediccionML:
                     (SimpleImputer + StandardScaler + XGBRegressor)
           Fase 6a — Entrenamiento baseline con parametros por defecto
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
-          Fase 8  — Optimizacion de hiperparametros:
-                    Entrenamiento inicial: Optuna TPE, 50 trials x K=5 folds (notebook Colab)
-                    Reentrenamiento auto:  GridSearchCV + TimeSeriesSplit(5 folds)
+          Fase 8  — Optimizacion de hiperparametros: Optuna TPE, 50 trials x K=5 folds
+                    cronologicos; sampler TPESampler(seed=42)
           Fase 6b — Reentrenamiento con best_estimator_ (parametros optimos, refit=True)
           Fase 7b — Evaluacion final del modelo optimizado
           Fase 9  — Implementacion: serializacion y subida a AWS S3, carga en FastAPI/Railway
@@ -124,39 +124,75 @@ class AgentePrediccionML:
         mae_base  = mean_absolute_error(y_test, pred_base)
         print(f"   [Fase 7a] Baseline — R²={r2_base*100:.2f}%  MAE={mae_base:.4f}")
 
-        # ── Fase 8: GridSearchCV + TimeSeriesSplit ──
-        print("\n   [Fase 8] GridSearchCV con TimeSeriesSplit (5 folds)...")
-        param_grid = {
-            'modelo__n_estimators':     [600, 800],
-            'modelo__learning_rate':    [0.01],
-            'modelo__max_depth':        [4, 5],
-            'modelo__min_child_weight': [3],
-            'modelo__gamma':            [0.1],
-        }
-        total = 1
-        for v in param_grid.values():
-            total *= len(v)
-        print(f"   Combinaciones: {total} x 5 folds = {total*5} entrenamientos")
+        # ── Fase 8: Bayesian Optimization (Optuna TPE) + folds cronologicos ──
+        N_TRIALS_XGB   = 50
+        anos_train_arr = df_train['ano'].values
+        fold_val_anos  = sorted(set(anos_train_arr.tolist()))[-5:]
+        folds_xgb = [
+            (anos_train_arr < val_ano, anos_train_arr == val_ano)
+            for val_ano in fold_val_anos
+        ]
+        X_tr_np      = X_train_raw.values
+        y_tr_log_np  = y_train_log.values
 
-        pipeline_grid = Pipeline([
+        print(f"\n   [Fase 8] Optuna TPE — {N_TRIALS_XGB} trials x K=5 folds cronologicos...")
+        print(f"   Folds val: {fold_val_anos}")
+
+        def objective_xgb(trial):
+            params = {
+                "n_estimators":     trial.suggest_int("n_estimators", 200, 1200),
+                "learning_rate":    trial.suggest_float("learning_rate", 0.001, 0.1, log=True),
+                "max_depth":        trial.suggest_int("max_depth", 3, 8),
+                "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
+                "subsample":        trial.suggest_float("subsample", 0.5, 1.0),
+                "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+                "gamma":            trial.suggest_float("gamma", 0.0, 0.5),
+                "objective": "reg:squarederror",
+                "random_state": self.semilla, "verbosity": 0, "n_jobs": -1,
+            }
+            r2s = []
+            for tr_mask, val_mask in folds_xgb:
+                if val_mask.sum() == 0:
+                    continue
+                imp = SimpleImputer(strategy='median')
+                sc  = StandardScaler()
+                Xtr = sc.fit_transform(imp.fit_transform(X_tr_np[tr_mask]))
+                Xvl = sc.transform(imp.transform(X_tr_np[val_mask]))
+                m   = XGBRegressor(**params)
+                m.fit(Xtr, y_tr_log_np[tr_mask])
+                pv  = m.predict(Xvl)
+                r2s.append(r2_score(y_tr_log_np[val_mask], pv))
+            return float(np.mean(r2s))
+
+        def cb_xgb(study, trial):
+            best = " <-- mejor" if trial.value == study.best_value else ""
+            p = trial.params
+            print(f"  Trial {trial.number+1:02d}  n_est={p['n_estimators']}  "
+                  f"lr={p['learning_rate']:.4f}  depth={p['max_depth']}  "
+                  f"R2_CV={trial.value*100:.2f}%{best}")
+
+        study_xgb = optuna.create_study(
+            direction="maximize",
+            sampler=optuna.samplers.TPESampler(seed=self.semilla)
+        )
+        study_xgb.optimize(objective_xgb, n_trials=N_TRIALS_XGB, callbacks=[cb_xgb])
+        best_trial = study_xgb.best_trial
+        print(f"\n   Mejor R2 CV: {best_trial.value*100:.2f}%")
+        for k, v in sorted(best_trial.params.items()):
+            print(f"     {k:22s}: {v}")
+
+        # ── Fase 6b: Reentrenar con mejores params en todo el train set ──
+        best_xgb_params = {
+            **best_trial.params,
+            "objective": "reg:squarederror",
+            "random_state": self.semilla, "verbosity": 0, "n_jobs": -1,
+        }
+        pipeline = Pipeline([
             ('imputador', SimpleImputer(strategy='median')),
             ('escalador', StandardScaler()),
-            ('modelo',    XGBRegressor(subsample=0.8, colsample_bytree=0.8,
-                                       random_state=self.semilla, n_jobs=-1, verbosity=0))
+            ('modelo',    XGBRegressor(**best_xgb_params))
         ])
-
-        tscv   = TimeSeriesSplit(n_splits=5)
-        search = GridSearchCV(pipeline_grid, param_grid, cv=tscv,
-                              scoring='r2', n_jobs=-1, refit=True, verbose=0)
-        search.fit(X_train_raw, y_train_log)
-
-        print(f"   Mejor R² en CV: {search.best_score_:.4f}")
-        print(f"   Mejores hiperparametros:")
-        for k, v in sorted(search.best_params_.items()):
-            print(f"     {k.replace('modelo__',''):22s}: {v}")
-
-        # ── Fase 6b+7b: Modelo optimizado = best_estimator_ (ya reentrenado por GridSearchCV) ──
-        pipeline = search.best_estimator_
+        pipeline.fit(X_train_raw, y_train_log)
         pred_log = pipeline.predict(X_test_raw)
         pred     = np.expm1(pred_log)
         r2       = r2_score(y_test, pred)
@@ -189,9 +225,25 @@ class AgentePrediccionML:
         with open(os.path.join(self.model_dir, "shap_importance.json"), "w") as f:
             json.dump(shap_dict, f, indent=4)
 
+        xgb_config = {
+            "best_params":    best_trial.params,
+            "r2":             round(float(r2_log), 4),
+            "mae":            round(float(mae), 4),
+            "r2_baseline":    round(float(r2_base), 4),
+            "r2_cv_mejor":    round(float(best_trial.value), 4),
+            "k_folds":        5,
+            "optimizer":      "Optuna/TPE",
+            "n_trials":       N_TRIALS_XGB,
+            "trials": [{"trial": t.number, "params": t.params, "r2_cv": round(t.value, 4)}
+                       for t in study_xgb.trials],
+        }
+        with open(os.path.join(self.model_dir, "xgb_config.json"), "w") as f:
+            json.dump(xgb_config, f, indent=4)
+
         # Subir a S3
         for fname in ["pipeline_ml.pkl", "xgb_model.pkl", "imputador_ml.pkl",
-                      "escalador_ml.pkl", "cols_feat.pkl", "shap_importance.json"]:
+                      "escalador_ml.pkl", "cols_feat.pkl", "shap_importance.json",
+                      "xgb_config.json"]:
             s3.upload(os.path.join(self.model_dir, fname), s3.PREFIX_MODELOS + fname)
 
         print("SUCCESS: [Agente 3] XGBoost entrenado y subido a S3.")

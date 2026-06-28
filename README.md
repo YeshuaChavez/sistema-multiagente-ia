@@ -171,7 +171,7 @@ max_depth        = 5       gamma            = 0.088
 min_child_weight = 10
 ```
 
-> El reentrenamiento automatico (GitHub Actions) usa GridSearchCV como alternativa sin GPU. Los modelos en S3 fueron entrenados con Optuna.
+> Mismo algoritmo en entrenamiento inicial (Colab, GPU T4) y reentrenamiento automatico (GitHub Actions, CPU).
 
 Genera **importancias SHAP globales** (TreeSHAP sobre el set de prueba completo) y **SHAP locales** por prediccion individual.
 
