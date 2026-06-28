@@ -1,4 +1,5 @@
 import React from "react";
+import MosquitoIcon from "./MosquitoIcon";
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard",        icon: "dashboard" },
@@ -14,12 +15,7 @@ export default function Sidebar({ currentView, setCurrentView, onOpenSettings, o
       {/* Logo */}
       <div className="px-md mb-xl">
         <div className="flex items-center gap-sm mb-xs">
-          <span
-            className="material-symbols-outlined text-primary text-[28px] animate-float"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-          >
-            coronavirus
-          </span>
+          <MosquitoIcon size={28} className="text-primary animate-float flex-shrink-0" />
           <h1 className="font-black text-headline-md text-primary">DenguePredict</h1>
         </div>
         <p className="text-label-md text-on-surface-variant pl-[36px]">Vigilancia y Alerta Temprana</p>
