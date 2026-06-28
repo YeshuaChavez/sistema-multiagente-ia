@@ -129,7 +129,7 @@ class AgentePrediccionDL:
           Fase 6a — Entrenamiento baseline LSTM simple (1 capa, hidden=32, lr=0.01, 40 epocas)
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
           Fase 8  — Optimizacion de hiperparametros: Grid Search manual + TimeSeriesSplit temporal
-                    12 combinaciones x 3 folds cronologicos = 36 entrenamientos
+                    12 combinaciones x 5 folds cronologicos = 60 entrenamientos
           Fase 6b — Reentrenamiento con mejores hiperparametros + early stopping (max 300 epocas)
                     ReduceLROnPlateau(patience=5) + early stopping patience=15, val=ano 2020
           Fase 7b — Evaluacion final + calculo de pesos optimos del ensemble (minimos cuadrados)
@@ -195,13 +195,17 @@ class AgentePrediccionDL:
         r2_base, mae_base = self._evaluar_lstm(modelo_base, X_test_sc, y_test)
         print(f"   [Fase 7a] Baseline — R²={r2_base*100:.2f}%  MAE={mae_base:.4f}")
 
-        # ── Fase 8: Grid Search manual + TimeSeriesSplit temporal (3 folds) ──
+        # ── Fase 8: Grid Search manual + TimeSeriesSplit temporal (5 folds) ──
         # Para series temporales el fold siempre entrena en pasado y valida en futuro
-        # Fold 1: train anos<=2017, val anos==2018
-        # Fold 2: train anos<=2018, val anos==2019
-        # Fold 3: train anos<=2019, val anos==2020
-        print("\n   [Fase 8] Grid Search LSTM + TimeSeriesSplit (3 folds temporales)...")
+        # Fold 1: train anos<=2016, val anos==2016 (early split)
+        # Fold 2: train anos<=2016, val anos==2017
+        # Fold 3: train anos<=2017, val anos==2018
+        # Fold 4: train anos<=2018, val anos==2019
+        # Fold 5: train anos<=2019, val anos==2020
+        print("\n   [Fase 8] Grid Search LSTM + TimeSeriesSplit (5 folds temporales)...")
         folds = [
+            (anos_train <= 2016, anos_train == 2016),
+            (anos_train <= 2016, anos_train == 2017),
             (anos_train <= 2017, anos_train == 2018),
             (anos_train <= 2018, anos_train == 2019),
             (anos_train <= 2019, anos_train == 2020),
@@ -213,7 +217,7 @@ class AgentePrediccionDL:
             for lr in [0.001, 0.003]
             for dr in [0.1, 0.2]
         ]
-        print(f"   Combinaciones: {len(param_grid)} x 3 folds = {len(param_grid)*3} entrenamientos")
+        print(f"   Combinaciones: {len(param_grid)} x 5 folds = {len(param_grid)*5} entrenamientos")
 
         mejores_params = None
         mejor_r2_cv   = -np.inf
@@ -408,6 +412,7 @@ class AgentePrediccionDL:
         agente.modelo_lstm  = DengueLSTMModel(
             input_dim=config.get("input_dim", len(agente.lstm_features)),
             hidden_dim=config.get("hidden_dim", 64),
+            num_layers=config.get("num_layers", 2),
             dropout=config.get("dropout", 0.2),
         )
         agente.modelo_lstm.load_state_dict(
@@ -464,3 +469,9 @@ class AgentePrediccionDL:
         with torch.no_grad():
             pred_log = float(self.modelo_lstm(torch.tensor(scaled, dtype=torch.float32)).numpy()[0][0])
         return max(0.0, np.expm1(pred_log))
+
+
+if __name__ == '__main__':
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    agente = AgentePrediccionDL(base_dir=base)
+    agente.entrenar_modelo()

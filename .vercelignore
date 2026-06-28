@@ -1,0 +1,16 @@
+# Datasets y modelos — solo se necesita el frontend
+Base de Datos/
+agentes/
+scripts/
+backend/
+colab_*.ipynb
+gen_*.py
+requirements.txt
+Procfile
+.railwayignore
+__pycache__/
+*.pyc
+*.pkl
+*.pth
+*.csv
+*.json.bak

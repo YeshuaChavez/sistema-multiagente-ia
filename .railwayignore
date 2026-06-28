@@ -1,0 +1,16 @@
+# Datasets y modelos grandes — se descargan desde S3 en runtime
+Base de Datos/
+
+# Frontend — se despliega en Vercel
+frontend/
+
+# Notebooks y scripts de entrenamiento
+scripts/
+colab_*.ipynb
+gen_*.py
+
+# Temporales
+__pycache__/
+*.pyc
+*.pyo
+.env

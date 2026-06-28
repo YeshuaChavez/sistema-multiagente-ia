@@ -35,7 +35,7 @@ const agents = [
       "Entrena y ejecuta un modelo XGBoost (Gradient Boosting basado en árboles) para la predicción de la tasa de incidencia de dengue. Utiliza hiperparámetros optimizados mediante GridSearchCV + TimeSeriesSplit (n_estimators=800, lr=0.01, max_depth=4) y genera importancias SHAP locales y globales mediante TreeSHAP.",
     tech: ["XGBoost", "Scikit-Learn", "SHAP (TreeSHAP)", "Joblib"],
     input: "Dataset preprocesado + 73 features ingenieriles",
-    output: "Predicción ML (R²=91.23%) + SHAP values",
+    output: "Predicción ML (R²=91.5%) + SHAP values",
   },
   {
     id: 4,
@@ -47,7 +47,7 @@ const agents = [
       "Implementa una red neuronal LSTM (Long Short-Term Memory) con PyTorch para capturar dependencias temporales de largo plazo en los datos epidemiológicos. Utiliza 12 meses de lookback, capas recurrentes con dropout y entrenamiento con Adam optimizer + early stopping (ReduceLROnPlateau).",
     tech: ["PyTorch (CPU)", "torch.nn (LSTM)", "Adam Optimizer", "Early Stopping"],
     input: "Secuencias temporales de 12 meses (clima + incidencia)",
-    output: "Predicción DL (R²=86.94%) con patrón estacional",
+    output: "Predicción DL (R²=90.4%) con patrón estacional",
   },
   {
     id: 5,
@@ -192,15 +192,15 @@ export default function InfoView() {
         <div className="flex flex-wrap items-center justify-center gap-sm">
           {agents.map((agent, idx) => (
             <React.Fragment key={agent.id}>
-              <div className={`flex items-center gap-sm px-4 py-3 rounded-xl ${agent.color} text-white shadow-md`}>
-                <span className="material-symbols-outlined text-[20px]">{agent.icon}</span>
+              <div className={`flex items-center gap-xs px-3 py-2 rounded-lg ${agent.color} text-white shadow-md`}>
+                <span className="material-symbols-outlined text-[16px]">{agent.icon}</span>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
-                  <p className="text-[12px] font-bold">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
+                  <p className="text-[11px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
                 </div>
               </div>
               {idx < agents.length - 1 && (
-                <span className="material-symbols-outlined text-outline text-[24px]">arrow_forward</span>
+                <span className="material-symbols-outlined text-outline text-[18px]">arrow_forward</span>
               )}
             </React.Fragment>
           ))}

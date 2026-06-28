@@ -150,10 +150,9 @@ def predict_raw(req: RawPredictionRequest):
 @app.get("/api/metrics", tags=["General"])
 def get_metrics():
     import json as _json
-    metrics_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "Base de Datos", "modelos", "metrics.json"
-    )
+    if prediction_service is None:
+        raise HTTPException(status_code=503, detail="Servicio no inicializado aún.")
+    metrics_path = os.path.join(prediction_service.model_dir, "metrics.json")
     if not os.path.exists(metrics_path):
         raise HTTPException(status_code=404, detail="Archivo de métricas no encontrado.")
     with open(metrics_path, "r") as f:
@@ -193,12 +192,11 @@ def get_features(
 def get_scatter_data():
     """Retorna puntos predicho vs real del set de prueba (2021-2022) para el diagrama de dispersión."""
     import json as _json
-    scatter_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "Base de Datos", "modelos", "scatter_data.json"
-    )
+    if prediction_service is None:
+        raise HTTPException(status_code=503, detail="Servicio no inicializado aún.")
+    scatter_path = os.path.join(prediction_service.model_dir, "scatter_data.json")
     if not os.path.exists(scatter_path):
-        raise HTTPException(status_code=404, detail="Scatter data no generado aún. Ejecuta generar_scatter_data.py")
+        raise HTTPException(status_code=404, detail="Scatter data no generado aún.")
     with open(scatter_path, "r") as f:
         return _json.load(f)
 

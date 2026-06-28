@@ -591,7 +591,7 @@ export default function PredictorView({
                   <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Agente ML · R²=89.9%</p>
+                        <p className="text-label-md text-on-surface-variant">Agente ML · R²=91.5%</p>
                         <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
                       </div>
                       <span className="material-symbols-outlined text-outline">analytics</span>
@@ -604,7 +604,7 @@ export default function PredictorView({
                   <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-outline-variant border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 opacity-50">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=85.8%</p>
+                        <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=90.4%</p>
                         <h4 className="text-headline-md text-primary font-bold">LSTM PyTorch</h4>
                       </div>
                       <span className="material-symbols-outlined text-outline">timeline</span>
@@ -633,7 +633,7 @@ export default function PredictorView({
                   <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#ea580c] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="text-label-md text-on-surface-variant">Agente ML · R²=89.9%</p>
+                        <p className="text-label-md text-on-surface-variant">Agente ML · R²=91.5%</p>
                         <h4 className="text-headline-md text-primary font-bold">XGBoost</h4>
                       </div>
                       <span className="material-symbols-outlined text-[#ea580c]">analytics</span>
@@ -653,7 +653,7 @@ export default function PredictorView({
                     <div className="bg-white dark:bg-zinc-900 border-l-4 border-l-[#0891b2] border border-outline-variant rounded-lg p-lg flex flex-col justify-between h-48 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=85.8%</p>
+                          <p className="text-label-md text-on-surface-variant">Agente Seq. · R²=90.4%</p>
                           <h4 className="text-headline-md text-primary font-bold">LSTM PyTorch</h4>
                         </div>
                         <span className="material-symbols-outlined text-[#0891b2]">timeline</span>
@@ -699,6 +699,32 @@ export default function PredictorView({
                         Nivel de Alerta: {getRisk(result.riesgo_ensemble).label}
                       </div>
 
+                      {/* Régimen epidémico (Agente 6) */}
+                      {result.regimen_epidemico && (
+                        <p className="text-[12px] text-surface-variant italic">
+                          {result.regimen_descripcion}
+                        </p>
+                      )}
+
+                      {/* Barra de pesos dinámica */}
+                      {result.ensemble_w_xgb != null && (
+                        <div className="w-full max-w-xs space-y-xs">
+                          <div className="flex justify-between text-[11px] text-surface-variant font-mono">
+                            <span>XGB {Math.round(result.ensemble_w_xgb * 100)}%</span>
+                            <span>LSTM {Math.round(result.ensemble_w_lstm * 100)}%</span>
+                          </div>
+                          <div className="flex h-2 rounded-full overflow-hidden bg-white/10">
+                            <div
+                              className="bg-blue-400 transition-all duration-500"
+                              style={{ width: `${result.ensemble_w_xgb * 100}%` }}
+                            />
+                            <div
+                              className="bg-violet-400 transition-all duration-500"
+                              style={{ width: `${result.ensemble_w_lstm * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -709,7 +735,7 @@ export default function PredictorView({
                   <div className="space-y-xs">
                     <p className="text-label-md font-bold text-primary">Nota de Verificación</p>
                     <p>
-                      El ensemble combina <strong>XGBoost</strong> (R²=91.2%) y <strong>LSTM PyTorch</strong> (R²=86.9%) con pesos optimizados sobre el conjunto de validación 2020 (w_XGB=0.90, w_LSTM=0.10), ajustados internamente por el Agente 6 según el estado epidémico del departamento. La clasificación de riesgo usa percentiles locales calibrados por departamento: Endémico (&le;p50), Alerta (p50–p90), Epidemia (&gt;p90).
+                      El ensemble combina <strong>XGBoost</strong> (R²=91.5%) y <strong>LSTM PyTorch</strong> (R²=90.4%) con pesos base 50/50, ajustados dinámicamente por el Agente 6 según el régimen epidémico del departamento. La clasificación de riesgo usa percentiles locales calibrados por departamento: Endémico (&le;p50), Alerta (p50–p90), Epidemia (&gt;p90).
                     </p>
                   </div>
                 </div>

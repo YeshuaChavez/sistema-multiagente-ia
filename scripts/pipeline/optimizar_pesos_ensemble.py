@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Optimiza los pesos del ensemble en un validation set (año 2020)
+Optimiza los pesos del ensemble en un validation set (años 2018-2019-2020)
 usando scipy.optimize. Los pesos se buscan en log1p-space para consistencia
 con el entrenamiento. El test set (2021-2022) nunca se toca durante la búsqueda.
+Usar 3 años de validación reduce el sesgo de calibrar sobre un único año
+atípico (2020 fue afectado por COVID-19).
 
 Flujo:
-  1. Val 2020  → minimize_scalar(neg R²) → w_xgb_opt
+  1. Val 2018-2020  → minimize_scalar(neg R²) → w_xgb_opt
   2. Test 2021-2022 → evaluar con w_xgb_opt → reportar métricas finales
   3. Actualizar metrics.json en disco y S3.
 
@@ -95,9 +97,9 @@ def _get_aligned_preds(year_mask):
     return np.array(y_l), np.array(xgb_l), np.array(lstm_l)
 
 
-# ── Validation set: año 2020 ──────────────────────────────────────────────────
-print("[4/5] Optimizando pesos en validation set (2020)...")
-y_v, lxgb_v, llstm_v = _get_aligned_preds(df['ano'] == 2020)
+# ── Validation set: años 2018-2019-2020 ──────────────────────────────────────
+print("[4/5] Optimizando pesos en validation set (2018-2019-2020)...")
+y_v, lxgb_v, llstm_v = _get_aligned_preds(df['ano'].isin([2018, 2019, 2020]))
 ly_v = np.log1p(y_v)
 # lxgb_v ya está en log1p (salida directa del pipeline)
 # llstm_v ya está en log1p (salida directa del modelo LSTM)
@@ -131,7 +133,7 @@ r2_ens  = r2_score(ly_t, ens_log)
 mae_ens = mean_absolute_error(y_t, ens_raw)
 
 print(f"\n{'='*58}")
-print(f"  ENSEMBLE OPTIMIZADO — pesos hallados en val 2020")
+print(f"  ENSEMBLE OPTIMIZADO — pesos hallados en val 2018-2020")
 print(f"  w_xgb={w_xgb_opt:.4f}  w_lstm={w_lstm_opt:.4f}")
 print(f"  XGBoost  : R²={r2_xgb*100:.2f}%  MAE={mae_xgb:.2f}")
 print(f"  LSTM     : R²={r2_lstm*100:.2f}%  MAE={mae_lstm:.2f}")

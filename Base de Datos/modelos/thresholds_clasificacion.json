@@ -1,0 +1,15 @@
+{
+  "p50_global": 1.9975,
+  "p90_global": 36.5428,
+  "acc_test": 0.8511,
+  "kappa_test": 0.7196,
+  "endemico_precision": 0.9277,
+  "endemico_recall": 0.8965,
+  "endemico_f1": 0.9118,
+  "alerta_precision": 0.6966,
+  "alerta_recall": 0.7967,
+  "alerta_f1": 0.7433,
+  "epidemia_precision": 0.8667,
+  "epidemia_recall": 0.7222,
+  "epidemia_f1": 0.7879
+}

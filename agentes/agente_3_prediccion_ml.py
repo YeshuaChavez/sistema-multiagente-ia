@@ -59,8 +59,8 @@ class AgentePrediccionML:
                     (SimpleImputer + StandardScaler + XGBRegressor)
           Fase 6a — Entrenamiento baseline con parametros por defecto
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
-          Fase 8  — Optimizacion de hiperparametros: GridSearchCV + TimeSeriesSplit(3 folds)
-                    72 combinaciones x 3 folds = 216 entrenamientos
+          Fase 8  — Optimizacion de hiperparametros: GridSearchCV + TimeSeriesSplit(5 folds)
+                    72 combinaciones x 5 folds = 360 entrenamientos
           Fase 6b — Reentrenamiento con best_estimator_ (parametros optimos, refit=True)
           Fase 7b — Evaluacion final del modelo optimizado
           Fase 9  — Implementacion: serializacion y subida a AWS S3, carga en FastAPI/Railway
@@ -116,7 +116,7 @@ class AgentePrediccionML:
         print(f"   [Fase 7a] Baseline — R²={r2_base*100:.2f}%  MAE={mae_base:.4f}")
 
         # ── Fase 8: GridSearchCV + TimeSeriesSplit ──
-        print("\n   [Fase 8] GridSearchCV con TimeSeriesSplit (3 folds)...")
+        print("\n   [Fase 8] GridSearchCV con TimeSeriesSplit (5 folds)...")
         param_grid = {
             'modelo__n_estimators':     [600, 800],
             'modelo__learning_rate':    [0.01],
@@ -127,7 +127,7 @@ class AgentePrediccionML:
         total = 1
         for v in param_grid.values():
             total *= len(v)
-        print(f"   Combinaciones: {total} x 3 folds = {total*3} entrenamientos")
+        print(f"   Combinaciones: {total} x 5 folds = {total*5} entrenamientos")
 
         pipeline_grid = Pipeline([
             ('imputador', SimpleImputer(strategy='median')),
@@ -136,7 +136,7 @@ class AgentePrediccionML:
                                        random_state=self.semilla, n_jobs=-1, verbosity=0))
         ])
 
-        tscv   = TimeSeriesSplit(n_splits=3)
+        tscv   = TimeSeriesSplit(n_splits=5)
         search = GridSearchCV(pipeline_grid, param_grid, cv=tscv,
                               scoring='r2', n_jobs=-1, refit=True, verbose=0)
         search.fit(X_train_raw, y_train_log)
@@ -212,9 +212,11 @@ class AgentePrediccionML:
             # Pipeline completo: imputa + escala + predice en un solo paso
             with open(pipeline_path, "rb") as f:
                 agente.pipeline = pickle.load(f)
-            agente.modelo    = agente.pipeline.named_steps['modelo']
-            agente.imputador = agente.pipeline.named_steps['imputador']
-            agente.escalador = agente.pipeline.named_steps['escalador']
+            steps = agente.pipeline.named_steps
+            # Compatible con pipelines nuevos (scaler/model) y antiguos (imputador/escalador/modelo)
+            agente.modelo    = steps.get('modelo') or steps.get('model')
+            agente.escalador = steps.get('escalador') or steps.get('scaler')
+            agente.imputador = steps.get('imputador')
         else:
             # Compatibilidad con artefactos anteriores (sin pipeline)
             with open(os.path.join(model_dir, "xgb_model.pkl"),    "rb") as f: agente.modelo    = pickle.load(f)

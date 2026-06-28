@@ -19,7 +19,17 @@ function niceMax(v) {
   return steps.find((s) => s >= v) ?? Math.ceil(v / 200) * 200;
 }
 
-export default function ScatterPlot({ data }) {
+export default function ScatterPlot({ data, darkMode }) {
+  const c = {
+    grid:    darkMode ? "#2a3a50" : "#e2e8f0",
+    tick:    darkMode ? "#8faabb" : "#94a3b8",
+    axis:    darkMode ? "#8faabb" : "#334155",
+    label:   darkMode ? "#aec8d8" : "#475569",
+    tipBg:   darkMode ? "#1a2737" : "white",
+    tipBord: darkMode ? "#2a3a50" : "#cbd5e1",
+    tipHead: darkMode ? "#adc8e5" : "#1e3a5f",
+    tipText: darkMode ? "#8faabb" : "#475569",
+  };
   const [model, setModel] = useState("ensemble");
   const [hovered, setHovered] = useState(null);
 
@@ -101,21 +111,21 @@ export default function ScatterPlot({ data }) {
         {ticks.map((t) => (
           <g key={t}>
             <line x1={sx(t)} y1={PAD.top} x2={sx(t)} y2={PAD.top + PH}
-              stroke="#e2e8f0" strokeWidth="1" />
+              stroke={c.grid} strokeWidth="1" />
             <line x1={PAD.left} y1={sy(t)} x2={PAD.left + PW} y2={sy(t)}
-              stroke="#e2e8f0" strokeWidth="1" />
+              stroke={c.grid} strokeWidth="1" />
             <text x={sx(t)} y={H - PAD.bottom + 16} textAnchor="middle"
-              fontSize="10" fill="#94a3b8">{t}</text>
+              fontSize="10" fill={c.tick}>{t}</text>
             {t > 0 && (
               <text x={PAD.left - 8} y={sy(t) + 4} textAnchor="end"
-                fontSize="10" fill="#94a3b8">{t}</text>
+                fontSize="10" fill={c.tick}>{t}</text>
             )}
           </g>
         ))}
 
         {/* Perfect prediction diagonal */}
         <line x1={sx(0)} y1={sy(0)} x2={sx(maxVal)} y2={sy(maxVal)}
-          stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="6,4" />
+          stroke={c.tick} strokeWidth="1.5" strokeDasharray="6,4" />
 
         {/* Points */}
         {points.map((p, i) => (
@@ -134,14 +144,14 @@ export default function ScatterPlot({ data }) {
           return (
             <g>
               <rect x={tipX} y={tipY} width="116" height="44" rx="5"
-                fill="white" stroke="#cbd5e1" strokeWidth="1" filter="drop-shadow(0 2px 4px rgba(0,0,0,.12))" />
-              <text x={tipX + 7} y={tipY + 15} fontSize="10.5" fill="#1e3a5f" fontWeight="700">
+                fill={c.tipBg} stroke={c.tipBord} strokeWidth="1" filter="drop-shadow(0 2px 4px rgba(0,0,0,.18))" />
+              <text x={tipX + 7} y={tipY + 15} fontSize="10.5" fill={c.tipHead} fontWeight="700">
                 {ISO_NAMES[hovered.iso] ?? hovered.iso} · {hovered.ano}
               </text>
-              <text x={tipX + 7} y={tipY + 29} fontSize="10" fill="#475569">
+              <text x={tipX + 7} y={tipY + 29} fontSize="10" fill={c.tipText}>
                 Real: <tspan fontWeight="600">{hovered.actual}</tspan>
               </text>
-              <text x={tipX + 7} y={tipY + 41} fontSize="10" fill="#475569">
+              <text x={tipX + 7} y={tipY + 41} fontSize="10" fill={c.tipText}>
                 Pred: <tspan fontWeight="600">{hovered.pred}</tspan>
               </text>
             </g>
@@ -150,18 +160,18 @@ export default function ScatterPlot({ data }) {
 
         {/* Axes */}
         <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + PH}
-          stroke="#334155" strokeWidth="1.5" />
+          stroke={c.axis} strokeWidth="1.5" />
         <line x1={PAD.left} y1={PAD.top + PH} x2={PAD.left + PW} y2={PAD.top + PH}
-          stroke="#334155" strokeWidth="1.5" />
+          stroke={c.axis} strokeWidth="1.5" />
 
         {/* Axis labels */}
         <text x={PAD.left + PW / 2} y={H - 4} textAnchor="middle"
-          fontSize="11" fill="#475569" fontWeight="600">
+          fontSize="11" fill={c.label} fontWeight="600">
           Incidencia real (casos/100k hab.)
         </text>
         <text
           transform={`translate(13,${PAD.top + PH / 2}) rotate(-90)`}
-          textAnchor="middle" fontSize="11" fill="#475569" fontWeight="600">
+          textAnchor="middle" fontSize="11" fill={c.label} fontWeight="600">
           Predicción (casos/100k hab.)
         </text>
       </svg>
@@ -176,7 +186,7 @@ export default function ScatterPlot({ data }) {
         ))}
         <span className="flex items-center gap-xs text-[11px] text-on-surface-variant ml-auto">
           <svg width="22" height="10">
-            <line x1="0" y1="5" x2="22" y2="5" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="5,3" />
+            <line x1="0" y1="5" x2="22" y2="5" stroke={c.tick} strokeWidth="1.5" strokeDasharray="5,3" />
           </svg>
           Predicción perfecta (y=x)
         </span>

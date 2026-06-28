@@ -48,15 +48,22 @@ class PredictionService:
     """
 
     def __init__(self, base_dir=None):
-        if base_dir is None:
-            self.base_dir = r"c:\Users\yeshu\Documents\Inteligencia Artificial\Proyecto Final"
+        # En producción (Railway) descargamos todo de S3 a /tmp para evitar rutas con espacios
+        if os.environ.get("RAILWAY_ENVIRONMENT"):
+            _tmp           = "/tmp/sma_data"
+            self.base_dir  = _tmp
+            self.model_dir     = os.path.join(_tmp, "modelos")
+            self.processed_dir = os.path.join(_tmp, "datos_procesados")
+            self.raw_dir       = os.path.join(_tmp, "datos_crudos")
         else:
-            self.base_dir = base_dir
-
-        self.db_dir        = os.path.join(self.base_dir, "Base de Datos")
-        self.model_dir     = os.path.join(self.db_dir, "modelos")
-        self.processed_dir = os.path.join(self.db_dir, "datos_procesados")
-        self.raw_dir       = os.path.join(self.db_dir, "datos_crudos")
+            if base_dir is None:
+                self.base_dir = r"c:\Users\yeshu\Documents\Inteligencia Artificial\Proyecto Final"
+            else:
+                self.base_dir = base_dir
+            self.db_dir        = os.path.join(self.base_dir, "Base de Datos")
+            self.model_dir     = os.path.join(self.db_dir, "modelos")
+            self.processed_dir = os.path.join(self.db_dir, "datos_procesados")
+            self.raw_dir       = os.path.join(self.db_dir, "datos_crudos")
 
         self.orquestador: AgenteOrquestador = None
         self.inicializar_servicio()
