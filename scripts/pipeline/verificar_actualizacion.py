@@ -185,7 +185,9 @@ def obtener_clima_reciente(n_meses: int = 12):
     muestra = df_coords.groupby("iso_a0").first().reset_index()
 
     ano_actual = datetime.now().year
-    ano_inicio = ano_actual - 1  # últimos ~12 meses
+    # NASA POWER publica con ~6 meses de latencia; usar año anterior como límite seguro
+    ano_fin    = ano_actual - 1
+    ano_inicio = ano_fin - 1  # 2 años de datos recientes para comparar
 
     registros = []
     for _, row in muestra.iterrows():
@@ -196,7 +198,7 @@ def obtener_clima_reciente(n_meses: int = 12):
             "longitude": row["lon"],
             "latitude":  row["lat"],
             "start":     str(ano_inicio),
-            "end":       str(ano_actual),
+            "end":       str(ano_fin),
             "format":    "JSON",
         }
         try:
@@ -256,14 +258,14 @@ def detectar_drift():
 
     resultados = {}
     print(f"\n   {'Feature':<25} {'PSI':>8}  {'Nivel'}")
-    print(f"   {'─'*25} {'─'*8}  {'─'*10}")
+    print(f"   {'-'*25} {'-'*8}  {'-'*10}")
     for feat in CLIMATE_FEATURES:
         vals_actual = df_actual[feat].dropna().values
         if len(vals_actual) < 5:
             continue
         psi = calcular_psi(ref[feat], vals_actual)
         nivel = nivel_drift(psi)
-        simbolo = "✓" if nivel == "estable" else ("⚠" if nivel == "moderado" else "✗")
+        simbolo = "OK" if nivel == "estable" else ("!!" if nivel == "moderado" else "XX")
         print(f"   {feat:<25} {psi:>8.4f}  {simbolo} {nivel}")
         resultados[feat] = {"psi": psi, "nivel": nivel}
 
@@ -287,7 +289,7 @@ def detectar_drift():
     with open(DRIFT_FILE, "w") as f:
         json.dump(reporte, f, indent=2)
     print(f"\n   [Drift] Reporte guardado en {DRIFT_FILE}")
-    print(f"   [Drift] PSI máximo: {psi_max:.4f} → {'⚠ ALERTA' if alerta_drift else '✓ Estable'}")
+    print(f"   [Drift] PSI maximo: {psi_max:.4f} -> {'!! ALERTA' if alerta_drift else 'OK Estable'}")
     return reporte
 
 
@@ -350,12 +352,12 @@ def main():
     drift_alto = reporte_drift and reporte_drift.get("alerta_drift", False)
 
     if drift_alto:
-        print("\n   ⚠  Drift alto en features climáticas.")
+        print("\n   [!!] Drift alto en features climaticas.")
         print("   Nota: el drift de concepto no puede evaluarse sin nuevos datos de OpenDengue.")
 
-    print("\n" + "─" * 65)
+    print("\n" + "-" * 65)
     if reentrenar and args.retrain:
-        print("  → Iniciando reentrenamiento completo (nueva versión OpenDengue)...")
+        print("  -> Iniciando reentrenamiento completo (nueva version OpenDengue)...")
         import subprocess
         result = subprocess.run(
             [sys.executable, os.path.join(ROOT, "scripts", "training", "entrenar_modelos.py")],
@@ -367,15 +369,15 @@ def main():
             s3.upload(METRICS_FILE,  s3.PREFIX_MODELOS + "metrics.json")
             s3.upload(DRIFT_FILE,    s3.PREFIX_MODELOS + "drift_report.json")
             s3.upload(VERSION_FILE,  s3.PREFIX_MODELOS + "data_version.json")
-            print("  ✓ Reentrenamiento completado y artefactos subidos a S3.")
+            print("  OK Reentrenamiento completado y artefactos subidos a S3.")
         else:
-            print("  ✗ El reentrenamiento falló — revisar logs.")
+            print("  FAIL El reentrenamiento fallo -- revisar logs.")
     elif reentrenar:
-        print("  → Nueva versión disponible. Ejecuta con --retrain para reentrenar.")
+        print("  -> Nueva version disponible. Ejecuta con --retrain para reentrenar.")
     else:
-        print("  ✓ Sin cambios en el dataset. Sin reentrenamiento necesario.")
+        print("  OK Sin cambios en el dataset. Sin reentrenamiento necesario.")
         if drift_alto:
-            print("  ⚠  Drift climático alto registrado en drift_report.json.")
+            print("  [!!] Drift climatico alto registrado en drift_report.json.")
 
     print("=" * 65)
 
