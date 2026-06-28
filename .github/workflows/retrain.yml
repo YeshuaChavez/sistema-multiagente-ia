@@ -60,6 +60,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION:    us-east-2
         run: |
+          set -o pipefail
           python scripts/pipeline/verificar_actualizacion.py 2>&1 | tee check_output.txt
           # Detectar si hay nueva versión para decidir si reentrenar
           if grep -q "Nueva versión detectada" check_output.txt; then
