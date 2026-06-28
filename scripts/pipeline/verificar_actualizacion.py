@@ -1,16 +1,39 @@
 # -*- coding: utf-8 -*-
 """
 verificar_actualizacion.py — DenguePredict SMA-ML/DL
+=====================================================
+FASE 10 DEL CICLO DE VIDA: Monitoreo y Mantenimiento
 -----------------------------------------------------
-Compara la versión local del dataset OpenDengue con la publicada en GitHub.
-Si hay una nueva versión, descarga y puede disparar el reentrenamiento.
-Adicionalmente detecta drift de covariables (features climáticas) via PSI
-usando NASA POWER para los últimos 12 meses comparado con distribución de entrenamiento.
+Implementa la etapa de mantenimiento continuo del SMA-ML/DL:
 
-Uso:
+  10a — Deteccion de nueva version de datos:
+        Consulta la API de GitHub para obtener el SHA del ultimo commit
+        en la carpeta data/releases del repositorio OpenDengue.
+        Si el SHA difiere del guardado localmente, hay datos nuevos disponibles.
+
+  10b — Deteccion de drift de covariables (PSI — Population Stability Index):
+        Descarga datos climaticos recientes de NASA POWER para una muestra
+        representativa de departamentos (1 por pais) y calcula el PSI para
+        cada feature climatica respecto a la distribucion de entrenamiento.
+        PSI < 0.1  → estable    (sin accion)
+        PSI 0.1-0.2 → moderado  (monitorear)
+        PSI >= 0.2  → alto      (priorizar reentrenamiento)
+
+  10c — Reentrenamiento automatico (con --retrain):
+        Si hay nueva version, descarga el dataset, ejecuta el pipeline completo
+        de entrenamiento (agentes 2, 3, 4) y sube los modelos a S3.
+
+  Nota: El drift de concepto (cambio en la relacion features→target) no puede
+  evaluarse automaticamente porque OpenDengue publica datos con 6-12 meses de
+  latencia respecto al tiempo real. Solo el drift de covariables es detectable
+  en tiempo casi-real via variables climaticas de NASA POWER.
+
+Ejecutado automaticamente el 1ro de cada mes via GitHub Actions (.github/workflows/retrain.yml).
+
+Uso manual:
     python scripts/pipeline/verificar_actualizacion.py
-    python scripts/pipeline/verificar_actualizacion.py --retrain   # reentrenar si hay cambios
-    python scripts/pipeline/verificar_actualizacion.py --drift-only # solo chequear drift
+    python scripts/pipeline/verificar_actualizacion.py --retrain    # reentrenar si hay nueva version
+    python scripts/pipeline/verificar_actualizacion.py --drift-only # solo calcular drift
 """
 
 import os, sys, json, argparse, hashlib, requests

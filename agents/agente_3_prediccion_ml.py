@@ -53,7 +53,8 @@ class AgentePrediccionML:
                     a escala subnacional mensual (ver documentacion del SMA)
           Fase 2  — Recoleccion de datos: ejecutada por Agente 1 (agente_1_recoleccion.py)
           Fase 3  — Preparacion de datos: ejecutada por Agente 2 (agente_2_preprocesamiento.py)
-          Fase 4  — Division del conjunto: particion cronologica train<=2020, test 2021-2022
+          Fase 4  — Division del conjunto: particion cronologica dinamica (ultimos 2 anos = test,
+                    resto = train); permite reentrenamiento automatico sin cambiar codigo
           Fase 5  — Seleccion del modelo: XGBRegressor dentro de Pipeline sklearn
                     (SimpleImputer + StandardScaler + XGBRegressor)
           Fase 6a — Entrenamiento baseline con parametros por defecto
@@ -63,7 +64,9 @@ class AgentePrediccionML:
           Fase 6b — Reentrenamiento con best_estimator_ (parametros optimos, refit=True)
           Fase 7b — Evaluacion final del modelo optimizado
           Fase 9  — Implementacion: serializacion y subida a AWS S3, carga en FastAPI/Railway
-          Fase 10 — Mantenimiento: reentrenar con nuevos datos ejecutando entrenar_modelos.py
+          Fase 10 — Mantenimiento: drift detection (PSI sobre features climaticas NASA POWER)
+                    + reentrenamiento automatico via GitHub Actions cuando llega nueva version
+                    OpenDengue (verificar_actualizacion.py ejecutado el 1ro de cada mes)
         """
         print("=" * 70)
         print("  ENTRENANDO — AGENTE 3: XGBoost")
