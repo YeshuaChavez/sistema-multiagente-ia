@@ -125,30 +125,35 @@ export default function InfoView() {
           {agents.map((agent, i) => (
             <div
               key={agent.id}
-              className="custom-card rounded-xl p-lg animate-fade-in-up group"
+              className="custom-card rounded-xl p-md sm:p-lg animate-fade-in-up group"
               style={{ animationDelay: `${i * 80}ms` }}
             >
-              <div className="flex items-start gap-lg">
-                {/* Agent Icon */}
+              {/* Mobile: cabecera con icono + badge en fila, luego contenido abajo */}
+              <div className="flex items-center gap-md mb-md sm:hidden">
+                <div className={`w-12 h-12 rounded-xl ${agent.color} flex items-center justify-center text-white flex-shrink-0 shadow-md`}>
+                  <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-bold text-white px-2 py-0.5 rounded-full bg-primary-container">
+                    AGENTE {agent.id}
+                  </span>
+                  <h4 className="text-[14px] font-bold text-primary mt-[2px] leading-tight">{agent.name}</h4>
+                </div>
+              </div>
+
+              {/* Desktop: layout original horizontal */}
+              <div className="hidden sm:flex items-start gap-lg">
                 <div className={`w-14 h-14 rounded-xl ${agent.color} flex items-center justify-center text-white flex-shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}>
                   <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
                 </div>
-
                 <div className="flex-1">
-                  {/* Header */}
                   <div className="flex items-center gap-sm mb-sm">
                     <span className="text-[10px] font-bold text-white px-2 py-0.5 rounded-full bg-primary-container">
                       AGENTE {agent.id}
                     </span>
                     <h4 className="text-[15px] font-bold text-primary">{agent.name}</h4>
                   </div>
-
-                  {/* Description */}
-                  <p className="text-[13px] text-on-surface-variant leading-relaxed mb-md">
-                    {agent.description}
-                  </p>
-
-                  {/* I/O */}
+                  <p className="text-[13px] text-on-surface-variant leading-relaxed mb-md">{agent.description}</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-sm mb-md">
                     <div className="flex items-start gap-xs">
                       <span className="material-symbols-outlined text-sky-500 text-[16px] mt-0.5">input</span>
@@ -165,19 +170,37 @@ export default function InfoView() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Tech Tags */}
                   <div className="flex flex-wrap gap-xs">
                     {agent.tech.map((t) => (
-                      <span
-                        key={t}
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${agent.colorLight} text-on-surface-variant
-                          transition-all duration-150 hover:scale-105 hover:shadow-sm cursor-default`}
-                      >
-                        {t}
-                      </span>
+                      <span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${agent.colorLight} text-on-surface-variant transition-all duration-150 hover:scale-105 hover:shadow-sm cursor-default`}>{t}</span>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Mobile: contenido completo debajo del header */}
+              <div className="sm:hidden">
+                <p className="text-[12px] text-on-surface-variant leading-relaxed mb-md">{agent.description}</p>
+                <div className="grid grid-cols-1 gap-xs mb-md">
+                  <div className="flex items-start gap-xs bg-surface-container rounded-lg p-xs">
+                    <span className="material-symbols-outlined text-sky-500 text-[14px] mt-0.5 flex-shrink-0">input</span>
+                    <div>
+                      <p className="text-[9px] font-bold text-on-surface-variant uppercase">Entrada</p>
+                      <p className="text-[11px] text-on-surface">{agent.input}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-xs bg-surface-container rounded-lg p-xs">
+                    <span className="material-symbols-outlined text-emerald-500 text-[14px] mt-0.5 flex-shrink-0">output</span>
+                    <div>
+                      <p className="text-[9px] font-bold text-on-surface-variant uppercase">Salida</p>
+                      <p className="text-[11px] text-on-surface">{agent.output}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-xs">
+                  {agent.tech.map((t) => (
+                    <span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${agent.colorLight} text-on-surface-variant cursor-default`}>{t}</span>
+                  ))}
                 </div>
               </div>
             </div>
@@ -191,7 +214,28 @@ export default function InfoView() {
           <span className="material-symbols-outlined text-[18px]">account_tree</span>
           Flujo de la Arquitectura
         </h3>
-        <div className="flex flex-col items-center gap-md">
+        {/* Mobile: lista vertical con flechas hacia abajo */}
+        <div className="flex flex-col items-stretch gap-xs sm:hidden">
+          {agents.map((agent, idx) => (
+            <React.Fragment key={agent.id}>
+              <div className={`flex items-center gap-sm px-4 py-3 rounded-xl ${agent.color} text-white shadow-md`}>
+                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
+                  <p className="text-[12px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
+                </div>
+              </div>
+              {idx < agents.length - 1 && (
+                <div className="flex justify-center">
+                  <span className="material-symbols-outlined text-outline text-[20px]">arrow_downward</span>
+                </div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+
+        {/* Desktop: grid 2 filas × 3 columnas */}
+        <div className="hidden sm:flex flex-col items-center gap-md">
           {[agents.slice(0, 3), agents.slice(3, 6)].map((row, rowIdx) => (
             <React.Fragment key={rowIdx}>
               <div className="flex items-center gap-sm">

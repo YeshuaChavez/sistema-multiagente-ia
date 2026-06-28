@@ -202,20 +202,18 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
             key={kpi.label}
             className={`group card-hover bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant rounded-xl overflow-hidden animate-fade-in-up ${kpi.delay} relative`}
           >
-            {/* Colored top stripe */}
             <div className={`h-1 w-full ${kpi.topBar}`} />
-            <div className="p-lg flex items-center gap-md">
-              {/* Gradient icon */}
-              <div className={`w-14 h-14 bg-gradient-to-br ${kpi.iconGrad} rounded-xl flex items-center justify-center ${kpi.iconColor} flex-shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}>
-                <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{kpi.icon}</span>
+            {/* Mobile: columna centrada · sm+: fila */}
+            <div className="p-md sm:p-lg flex flex-col sm:flex-row items-center sm:items-center gap-sm sm:gap-md">
+              <div className={`w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br ${kpi.iconGrad} rounded-xl flex items-center justify-center ${kpi.iconColor} flex-shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}>
+                <span className="material-symbols-outlined text-[22px] sm:text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{kpi.icon}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">{kpi.label}</p>
-                <h3 className="text-[26px] font-black text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>{kpi.value}</h3>
-                <p className="text-[10px] text-on-surface-variant truncate">{kpi.sub}</p>
+              <div className="flex-1 min-w-0 text-center sm:text-left">
+                <p className="text-[10px] sm:text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">{kpi.label}</p>
+                <h3 className="text-[20px] sm:text-[26px] font-black text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>{kpi.value}</h3>
+                <p className="text-[9px] sm:text-[10px] text-on-surface-variant truncate">{kpi.sub}</p>
               </div>
-              {/* Corner badge */}
-              <span className="absolute top-4 right-3 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/40 hidden group-hover:block transition-opacity">
+              <span className="absolute top-3 right-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/40 hidden group-hover:block">
                 {kpi.badge}
               </span>
             </div>
@@ -224,7 +222,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
       </div>
 
       {/* Model Performance Row — 5 tarjetas de métricas */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-lg">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-md sm:gap-lg">
         {[
           {
             label: "Ensemble R²",
@@ -274,17 +272,17 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
         ].map((m, i) => (
           <div
             key={m.label}
-            className={`group card-hover bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant ${m.accent} ${m.ring} p-md rounded-xl animate-fade-in-up`}
+            className={`group card-hover bg-white dark:bg-zinc-900 dark:border-zinc-800 border border-outline-variant ${m.accent} ${m.ring} p-sm sm:p-md rounded-xl animate-fade-in-up ${i === 4 ? "col-span-2 sm:col-span-1" : ""}`}
             style={{ animationDelay: `${300 + i * 75}ms` }}
           >
-            <div className="flex items-center gap-sm mb-sm">
-              <div className={`w-8 h-8 bg-gradient-to-br ${m.iconGrad} rounded-lg flex items-center justify-center text-white flex-shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md`}>
-                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>{m.icon}</span>
+            <div className={`flex items-center gap-sm mb-xs sm:mb-sm ${i === 4 ? "sm:flex-col sm:items-start md:flex-row" : ""}`}>
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br ${m.iconGrad} rounded-lg flex items-center justify-center text-white flex-shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:shadow-md`}>
+                <span className="material-symbols-outlined text-[14px] sm:text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>{m.icon}</span>
               </div>
               <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wide leading-tight">{m.label}</p>
             </div>
-            <h3 className="text-[22px] font-black text-primary leading-none mb-xs" style={{ fontVariantNumeric: "tabular-nums" }}>{m.value}</h3>
-            <p className="text-[10px] text-on-surface-variant">{m.sub}</p>
+            <h3 className="text-[18px] sm:text-[22px] font-black text-primary leading-none mb-xs" style={{ fontVariantNumeric: "tabular-nums" }}>{m.value}</h3>
+            <p className="text-[9px] sm:text-[10px] text-on-surface-variant">{m.sub}</p>
           </div>
         ))}
       </div>
