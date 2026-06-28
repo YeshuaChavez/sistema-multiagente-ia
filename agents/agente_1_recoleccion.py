@@ -319,13 +319,55 @@ class AgenteRecoleccion:
         print(f"SUCCESS: [Agente 1] Agua JMP guardada en '{self.agua_jmp_path}' ({len(df_agua)} registros).")
         return df_agua
 
+    # URLs candidatas de OpenDengue (GitHub raw) — se prueban en orden
+    OPENDENGUE_URLS = [
+        "https://raw.githubusercontent.com/OpenDengue/master-repo/main/data/Temporal_extract_V1_3.csv",
+        "https://raw.githubusercontent.com/OpenDengue/master-repo/main/data/Temporal_extract_V1_2.csv",
+        "https://raw.githubusercontent.com/OpenDengue/master-repo/main/data/Temporal_extract_V1_1.csv",
+    ]
+
+    def _descargar_opendengue(self):
+        """
+        Descarga el CSV de OpenDengue desde GitHub si no existe localmente.
+        Prueba las URLs candidatas en orden hasta que una funcione.
+        Nota: OpenDengue no tiene API REST — publica CSVs en GitHub con latencia
+        de 6-12 meses respecto a los datos oficiales de cada país.
+        """
+        os.makedirs(os.path.dirname(self.dengue_path), exist_ok=True)
+        for url in self.OPENDENGUE_URLS:
+            version = url.split("/")[-1]
+            print(f"   [OpenDengue] Intentando descargar {version}...")
+            try:
+                r = requests.get(url, timeout=180, stream=True)
+                if r.status_code == 200:
+                    total = int(r.headers.get("content-length", 0))
+                    descargado = 0
+                    with open(self.dengue_path, "wb") as f:
+                        for chunk in r.iter_content(chunk_size=1024 * 256):
+                            f.write(chunk)
+                            descargado += len(chunk)
+                    mb = descargado / 1_048_576
+                    print(f"   [OpenDengue] OK — {mb:.1f} MB descargados desde {version}")
+                    return
+                else:
+                    print(f"   [OpenDengue] HTTP {r.status_code} en {version}, probando siguiente...")
+            except Exception as e:
+                print(f"   [OpenDengue] Error en {version}: {e}, probando siguiente...")
+        raise RuntimeError(
+            "No se pudo descargar el dataset de OpenDengue. "
+            "Descárgalo manualmente desde https://github.com/OpenDengue/master-repo "
+            "y colócalo en data/raw/Temporal_extract_V1_3.csv"
+        )
+
     def recolectar_casos_dengue(self):
         """
         Carga y filtra los casos de dengue de OpenDengue.
+        Si el CSV no existe localmente, lo descarga desde GitHub.
         """
         print("[Agente 1] Cargando series epidemiológicas de casos de dengue (OpenDengue)...")
         if not os.path.exists(self.dengue_path):
-            raise FileNotFoundError(f"Error crítico: No se encontró el archivo de casos crudos '{self.dengue_path}'")
+            print(f"   [OpenDengue] Archivo local no encontrado. Descargando desde GitHub...")
+            self._descargar_opendengue()
             
         # Columnas a leer para optimizar memoria
         cols_to_use = ['ISO_A0', 'adm_1_name', 'Year', 'dengue_total', 'calendar_start_date', 'T_res']
