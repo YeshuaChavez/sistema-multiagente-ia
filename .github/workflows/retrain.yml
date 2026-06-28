@@ -57,7 +57,29 @@ jobs:
           python scripts/training/entrenar_modelos.py
           python scripts/pipeline/generar_scatter_data.py
 
-      - name: Subir artefactos a S3 y actualizar métricas
+      - name: Subir drift_report y data_version a S3 (siempre)
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION:    us-east-2
+        run: |
+          python -c "
+          import sys, os
+          sys.path.insert(0, 'agents')
+          import s3_client as s3
+
+          for local, key in [
+              ('data/models/drift_report.json',  'drift_report.json'),
+              ('data/models/data_version.json',  'data_version.json'),
+          ]:
+              if os.path.exists(local):
+                  s3.upload(local, s3.PREFIX_MODELOS + key)
+                  print(f'Subido: {key}')
+              else:
+                  print(f'No existe localmente: {local}')
+          "
+
+      - name: Subir modelos a S3 y actualizar métricas (solo si hay nueva versión)
         if: steps.check.outputs.nueva_version == 'true'
         env:
           AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -71,23 +93,35 @@ jobs:
           from datetime import datetime, timezone
           import json
 
-          # Subir modelos
-          for f in ['pipeline_ml.pkl', 'lstm_model.pt', 'lstm_scaler.pkl',
-                    'cols_feat.pkl', 'shap_global.json', 'scatter_data.json']:
-              path = f'data/models/{f}'
+          # Nombres reales en S3 (verificados en consola AWS)
+          modelos = [
+              ('pipeline_ml.pkl',        'pipeline_ml.pkl'),
+              ('xgb_model.pkl',          'xgb_model.pkl'),
+              ('xgb_config.json',        'xgb_config.json'),
+              ('lstm_model.pth',         'lstm_model.pth'),
+              ('escalador_lstm.pkl',     'escalador_lstm.pkl'),
+              ('lstm_config.json',       'lstm_config.json'),
+              ('lstm_features.pkl',      'lstm_features.pkl'),
+              ('cols_feat.pkl',          'cols_feat.pkl'),
+              ('escalador_ml.pkl',       'escalador_ml.pkl'),
+              ('imputador_ml.pkl',       'imputador_ml.pkl'),
+              ('shap_importance.json',   'shap_importance.json'),
+              ('scatter_data.json',      'scatter_data.json'),
+              ('thresholds_clasificacion.json', 'thresholds_clasificacion.json'),
+          ]
+          for fname, key in modelos:
+              path = f'data/models/{fname}'
               if os.path.exists(path):
-                  s3.upload(path, s3.PREFIX_MODELOS + f)
+                  s3.upload(path, s3.PREFIX_MODELOS + key)
+                  print(f'Subido: {key}')
 
-          # Actualizar trained_at en metrics.json
           with open('data/models/metrics.json') as f:
               m = json.load(f)
           m['trained_at'] = datetime.now(timezone.utc).isoformat()
           with open('data/models/metrics.json', 'w') as f:
               json.dump(m, f, indent=2)
-          s3.upload('data/models/metrics.json',    s3.PREFIX_MODELOS + 'metrics.json')
-          s3.upload('data/models/drift_report.json', s3.PREFIX_MODELOS + 'drift_report.json')
-          s3.upload('data/models/data_version.json', s3.PREFIX_MODELOS + 'data_version.json')
-          print('Artefactos subidos a S3.')
+          s3.upload('data/models/metrics.json', s3.PREFIX_MODELOS + 'metrics.json')
+          print('Artefactos de modelos subidos a S3.')
           "
 
       - name: Crear issue si hay drift alto sin nueva versión
