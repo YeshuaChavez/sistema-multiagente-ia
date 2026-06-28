@@ -83,7 +83,7 @@ class AgentePrediccionDL:
 
         self.model_dir = os.path.join(self.base_dir, "data", "models")
         self.feat_path = os.path.join(self.base_dir, "data", "processed", "dataset_features_latam.csv")
-        self.semilla   = 9
+        self.semilla   = 42
 
     # ─────────────────────────────────────────────────────────────
     # MODO ENTRENAMIENTO
