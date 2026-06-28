@@ -189,18 +189,27 @@ export default function InfoView() {
           <span className="material-symbols-outlined text-[18px]">account_tree</span>
           Flujo de la Arquitectura
         </h3>
-        <div className="flex flex-wrap items-center justify-center gap-sm">
-          {agents.map((agent, idx) => (
-            <React.Fragment key={agent.id}>
-              <div className={`flex items-center gap-xs px-3 py-2 rounded-lg ${agent.color} text-white shadow-md`}>
-                <span className="material-symbols-outlined text-[16px]">{agent.icon}</span>
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
-                  <p className="text-[11px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
-                </div>
+        <div className="flex flex-col items-center gap-md">
+          {[agents.slice(0, 3), agents.slice(3, 6)].map((row, rowIdx) => (
+            <React.Fragment key={rowIdx}>
+              <div className="flex items-center gap-sm">
+                {row.map((agent, idx) => (
+                  <React.Fragment key={agent.id}>
+                    <div className={`flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[130px]`}>
+                      <span className="material-symbols-outlined text-[24px]">{agent.icon}</span>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
+                        <p className="text-[13px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
+                      </div>
+                    </div>
+                    {idx < 2 && (
+                      <span className="material-symbols-outlined text-outline text-[22px]">arrow_forward</span>
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
-              {idx < agents.length - 1 && (
-                <span className="material-symbols-outlined text-outline text-[18px]">arrow_forward</span>
+              {rowIdx === 0 && (
+                <span className="material-symbols-outlined text-outline text-[22px]">arrow_downward</span>
               )}
             </React.Fragment>
           ))}
