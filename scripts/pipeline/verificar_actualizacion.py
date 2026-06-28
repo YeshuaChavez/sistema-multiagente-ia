@@ -196,17 +196,40 @@ def obtener_clima_reciente(n_meses: int = 12):
 
 
 def detectar_drift():
-    """Calcula PSI para cada feature climática y guarda el reporte."""
+    """Calcula PSI para cada feature climática y guarda el reporte (siempre)."""
     print("\n[Drift] Calculando drift de covariables (clima NASA POWER)...")
+    os.makedirs(os.path.dirname(DRIFT_FILE), exist_ok=True)
+
     ref = distribucion_referencia()
     if ref is None:
-        return None
+        reporte = {
+            "verificado_en": datetime.now(timezone.utc).isoformat(),
+            "estado": "sin_datos_referencia",
+            "features": {},
+            "psi_max": None,
+            "alerta_drift": False,
+            "nota": "No se encontró dataset_features_latam.csv para calcular referencia PSI.",
+        }
+        with open(DRIFT_FILE, "w") as f:
+            json.dump(reporte, f, indent=2)
+        print(f"   [Drift] Reporte guardado (sin referencia): {DRIFT_FILE}")
+        return reporte
 
-    print(f"   [Drift] Descargando datos climáticos recientes (muestra por país)...")
+    print("   [Drift] Descargando datos climáticos recientes (muestra por país)...")
     df_actual = obtener_clima_reciente()
     if df_actual is None or df_actual.empty:
-        print("   [Drift] Sin datos recientes disponibles.")
-        return None
+        reporte = {
+            "verificado_en": datetime.now(timezone.utc).isoformat(),
+            "estado": "sin_datos_recientes",
+            "features": {},
+            "psi_max": None,
+            "alerta_drift": False,
+            "nota": "NASA POWER no devolvió datos recientes. Drift no calculado; se revisará en el próximo ciclo.",
+        }
+        with open(DRIFT_FILE, "w") as f:
+            json.dump(reporte, f, indent=2)
+        print(f"   [Drift] Reporte guardado (NASA POWER sin datos): {DRIFT_FILE}")
+        return reporte
 
     resultados = {}
     print(f"\n   {'Feature':<25} {'PSI':>8}  {'Nivel'}")
@@ -226,9 +249,10 @@ def detectar_drift():
 
     reporte = {
         "verificado_en": datetime.now(timezone.utc).isoformat(),
-        "features":      resultados,
-        "psi_max":       round(psi_max, 4),
-        "alerta_drift":  alerta_drift,
+        "estado": "calculado",
+        "features": resultados,
+        "psi_max": round(psi_max, 4),
+        "alerta_drift": alerta_drift,
         "nota": (
             "Drift detectado en features de entrada (covariable shift). "
             "El drift de concepto no puede evaluarse hasta disponer de nuevos "
@@ -237,7 +261,6 @@ def detectar_drift():
         ),
     }
 
-    os.makedirs(os.path.dirname(DRIFT_FILE), exist_ok=True)
     with open(DRIFT_FILE, "w") as f:
         json.dump(reporte, f, indent=2)
     print(f"\n   [Drift] Reporte guardado en {DRIFT_FILE}")
