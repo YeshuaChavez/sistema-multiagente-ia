@@ -206,6 +206,18 @@ def explain_global():
         raise HTTPException(status_code=404, detail="Explicabilidad SHAP global no disponible.")
     return prediction_service.shap_importance
 
+@app.get("/api/drift-status", tags=["General"])
+def get_drift_status():
+    """Retorna el ultimo reporte de drift de covariables (PSI sobre features climaticas NASA POWER)."""
+    import json as _json
+    if prediction_service is None:
+        raise HTTPException(status_code=503, detail="Servicio no inicializado aun.")
+    drift_path = os.path.join(prediction_service.model_dir, "drift_report.json")
+    if not os.path.exists(drift_path):
+        raise HTTPException(status_code=404, detail="Reporte de drift no disponible aun.")
+    with open(drift_path, "r") as f:
+        return _json.load(f)
+
 # Iniciar servidor local si se ejecuta de forma directa
 if __name__ == "__main__":
     import uvicorn
