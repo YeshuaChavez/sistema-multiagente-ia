@@ -128,8 +128,9 @@ class AgentePrediccionDL:
                     con lookback=12 meses y 6 variables climaticas/epidemiologicas
           Fase 6a — Entrenamiento baseline LSTM simple (1 capa, hidden=32, lr=0.01, 40 epocas)
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
-          Fase 8  — Optimizacion de hiperparametros: Grid Search manual + TimeSeriesSplit temporal
-                    12 combinaciones x 5 folds cronologicos = 60 entrenamientos
+          Fase 8  — Optimizacion de hiperparametros:
+                    Entrenamiento inicial: Optuna TPE, 30 trials x K=5 folds, GPU T4 (notebook Colab)
+                    Reentrenamiento auto:  Grid Search manual + TimeSeriesSplit temporal
           Fase 6b — Reentrenamiento con mejores hiperparametros + early stopping (max 300 epocas)
                     ReduceLROnPlateau(patience=5) + early stopping patience=15 epocas
           Fase 7b — Evaluacion final + calculo de pesos optimos del ensemble (minimos cuadrados)

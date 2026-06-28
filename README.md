@@ -162,14 +162,16 @@ SimpleImputer(median) -> StandardScaler -> XGBRegressor
 target: log1p(incidencia) -> salida: expm1(prediccion)
 ```
 
-**Optimizacion de hiperparametros:** GridSearchCV + `TimeSeriesSplit(k=5)` sobre el set de entrenamiento. Mejores parametros encontrados:
+**Optimizacion de hiperparametros:** Bayesian Optimization (Optuna TPE), 50 trials × K=5 folds cronologicos (2016-2020), ejecutado en Google Colab (`notebooks/colab_bayesian_xgb_lstm.ipynb`). Mejores hiperparametros encontrados:
 
 ```
-n_estimators     = 600 / 800    subsample        = 0.8
-learning_rate    = 0.01         colsample_bytree = 0.8
-max_depth        = 4 / 5        gamma            = 0.1
-min_child_weight = 3
+n_estimators     = 805     subsample        = 0.656
+learning_rate    = 0.0242  colsample_bytree = 0.516
+max_depth        = 5       gamma            = 0.088
+min_child_weight = 10
 ```
+
+> El reentrenamiento automatico (GitHub Actions) usa GridSearchCV como alternativa sin GPU. Los modelos en S3 fueron entrenados con Optuna.
 
 Genera **importancias SHAP globales** (TreeSHAP sobre el set de prueba completo) y **SHAP locales** por prediccion individual.
 
@@ -186,15 +188,16 @@ tmax_promedio · tmin_promedio · precipitacion ·
 humedad_promedio · agua_basica · incidencia_dengue
 ```
 
-**Arquitectura (Grid Search manual + `TimeSeriesSplit(k=5)`):**
+**Optimizacion de hiperparametros:** Bayesian Optimization (Optuna TPE), 30 trials × K=5 folds cronologicos, GPU T4 en Google Colab. Mejores hiperparametros:
 
 ```
-Input:  12 pasos x 6 features
-LSTM:   hidden_dim=77, num_layers=3, dropout=0.293
-Output: Linear(77 -> 1) -> expm1 -> incidencia predicha
+Input:    12 pasos x 6 features
+LSTM:     hidden_dim=77, num_layers=3, dropout=0.293
+Output:   Linear(77 -> 1) -> expm1 -> incidencia predicha
+lr=0.00988
 ```
 
-**Entrenamiento:** Adam (`lr=0.00988`), ReduceLROnPlateau (patience=5), Early Stopping (patience=15), `torch.manual_seed(42)`, CPU.
+**Entrenamiento:** Adam, ReduceLROnPlateau (patience=5), Early Stopping (patience=15), `torch.manual_seed(42)`, GPU T4 (Colab) / CPU (produccion).
 
 **Resultado en test:** R² = 90.35% | MAE = 6.02 casos/100k | RMSE = 20.52
 

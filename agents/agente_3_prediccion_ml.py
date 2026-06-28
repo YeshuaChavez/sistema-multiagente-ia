@@ -59,8 +59,9 @@ class AgentePrediccionML:
                     (SimpleImputer + StandardScaler + XGBRegressor)
           Fase 6a — Entrenamiento baseline con parametros por defecto
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
-          Fase 8  — Optimizacion de hiperparametros: GridSearchCV + TimeSeriesSplit(5 folds)
-                    72 combinaciones x 5 folds = 360 entrenamientos
+          Fase 8  — Optimizacion de hiperparametros:
+                    Entrenamiento inicial: Optuna TPE, 50 trials x K=5 folds (notebook Colab)
+                    Reentrenamiento auto:  GridSearchCV + TimeSeriesSplit(5 folds)
           Fase 6b — Reentrenamiento con best_estimator_ (parametros optimos, refit=True)
           Fase 7b — Evaluacion final del modelo optimizado
           Fase 9  — Implementacion: serializacion y subida a AWS S3, carga en FastAPI/Railway
