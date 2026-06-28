@@ -30,7 +30,7 @@ Facultad de Ingeniería de Sistemas e Informática
 - **Validación temporal:** folds 2016–2020 con `TimeSeriesSplit(k=5)`, usado para optimización Bayesiana de hiperparámetros
 - **Dataset features:** 16,224 registros × 73 variables predictoras
 - **Pesos base del ensamble:** `w_xgb = 0.50`, `w_lstm = 0.50`, ajustados dinámicamente por el Agente 6 según el régimen epidémico
-- **Cobertura:** 8 países, 164 unidades subnacionales
+- **Cobertura:** 8 países, 169 unidades subnacionales
 - Las métricas R² se reportan en escala `log1p`, estándar para distribuciones epidemiológicas asimétricas
 
 ### Clasificación de riesgo epidémico (3 clases)
@@ -61,7 +61,7 @@ La clasificación usa **percentiles históricos locales calibrados por departame
 | Panamá | PAN | Provincias |
 | Perú | PER | Departamentos |
 
-**Total: 164 unidades subnacionales — Periodo: 2014–2022**
+**Total: 169 unidades subnacionales — Periodo: 2014–2022**
 
 ---
 
@@ -298,7 +298,7 @@ Detecta el régimen epidemiológico usando `incidencia_lag1` contra percentiles 
 | `GET` | `/api/status` | Estado general del sistema |
 | `GET` | `/api/metrics` | R², MAE, RMSE y pesos del ensamble |
 | `GET` | `/api/metadata` | Países y departamentos disponibles |
-| `GET` | `/api/coordinates` | Coordenadas GPS de los 164 departamentos |
+| `GET` | `/api/coordinates` | Coordenadas GPS de los 169 departamentos |
 | `GET` | `/api/historical` | Serie histórica mensual (`?iso_a0=&adm_1_name=`) |
 | `GET` | `/api/features` | Features del último período para un departamento |
 | `GET` | `/api/map-summary` | Incidencia media + nivel de riesgo por departamento |

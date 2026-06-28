@@ -193,7 +193,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           },
           {
             icon: "location_city", iconGrad: "from-indigo-500 to-violet-600", iconColor: "text-white",
-            label: "Departamentos", value: metrics?.n_departamentos ?? 164, sub: "subregiones activas",
+            label: "Departamentos", value: metrics?.n_departamentos ?? 169, sub: "subregiones activas",
             topBar: "bg-gradient-to-r from-indigo-500/60 to-indigo-500/20",
             badge: "subregiones", delay: "delay-225",
           },
