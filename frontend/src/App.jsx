@@ -95,17 +95,30 @@ export default function App() {
     doc.text(`Generado: ${fecha}`, 14, 31);
 
     // Métricas del sistema
-    let metrics = { records: "16,224", r2_xgb: "91.23%", r2_lstm: "86.94%", r2_ens: "89.79%", mae: "5.97" };
+    let metrics = {
+      records: "16,224", paises: "8", departamentos: "169",
+      r2_xgb: "91.49%", r2_lstm: "90.35%", r2_ens: "91.47%",
+      mae: "5.83", rmse: "20.67",
+      mae_xgb: "6.07", rmse_xgb: "22.18",
+      mae_lstm: "6.02", rmse_lstm: "20.52",
+    };
     try {
       const r = await fetch(`${API_URL}/api/metrics`);
       if (r.ok) {
         const m = await r.json();
         metrics = {
-          records:  m.records_procesados?.toLocaleString() ?? metrics.records,
-          r2_xgb:   m.r2_xgb   != null ? `${(m.r2_xgb   * 100).toFixed(2)}%` : metrics.r2_xgb,
-          r2_lstm:  m.r2_lstm  != null ? `${(m.r2_lstm  * 100).toFixed(2)}%` : metrics.r2_lstm,
-          r2_ens:   m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : metrics.r2_ens,
-          mae:      m.mae_ensemble != null ? m.mae_ensemble.toFixed(2) : metrics.mae,
+          records:       m.records_procesados?.toLocaleString()                        ?? metrics.records,
+          paises:        m.n_paises?.toString()                                         ?? metrics.paises,
+          departamentos: m.n_departamentos?.toString()                                  ?? metrics.departamentos,
+          r2_xgb:        m.r2_xgb      != null ? `${(m.r2_xgb      * 100).toFixed(2)}%` : metrics.r2_xgb,
+          r2_lstm:       m.r2_lstm     != null ? `${(m.r2_lstm     * 100).toFixed(2)}%` : metrics.r2_lstm,
+          r2_ens:        m.r2_ensemble != null ? `${(m.r2_ensemble * 100).toFixed(2)}%` : metrics.r2_ens,
+          mae:           m.mae_ensemble  != null ? m.mae_ensemble.toFixed(2)             : metrics.mae,
+          rmse:          m.rmse_ensemble != null ? m.rmse_ensemble.toFixed(2)            : metrics.rmse,
+          mae_xgb:       m.mae_xgb      != null ? m.mae_xgb.toFixed(2)                  : metrics.mae_xgb,
+          rmse_xgb:      m.rmse_xgb     != null ? m.rmse_xgb.toFixed(2)                 : metrics.rmse_xgb,
+          mae_lstm:      m.mae_lstm     != null ? m.mae_lstm.toFixed(2)                  : metrics.mae_lstm,
+          rmse_lstm:     m.rmse_lstm    != null ? m.rmse_lstm.toFixed(2)                 : metrics.rmse_lstm,
         };
       }
     } catch (_) {}
@@ -118,11 +131,10 @@ export default function App() {
       head: [["Indicador", "Valor"]],
       body: [
         ["Registros históricos procesados", `${metrics.records} obs. (2014–2022)`],
-        ["Países en América Latina", "18 países"],
-        ["R² — Agente 3 (XGBoost)", metrics.r2_xgb],
-        ["R² — Agente 4 (LSTM PyTorch)", metrics.r2_lstm],
-        ["R² — Ensemble Final (Agentes 3+4)", metrics.r2_ens],
-        ["MAE Ensemble", `${metrics.mae} casos/100k hab.`],
+        ["Cobertura geográfica", `${metrics.paises} países · ${metrics.departamentos} departamentos`],
+        ["R² — Agente 3 (XGBoost)",            `${metrics.r2_xgb}  |  MAE ${metrics.mae_xgb}  |  RMSE ${metrics.rmse_xgb}`],
+        ["R² — Agente 4 (LSTM PyTorch)",        `${metrics.r2_lstm} |  MAE ${metrics.mae_lstm} |  RMSE ${metrics.rmse_lstm}`],
+        ["R² — Ensemble Final (Agentes 3+4+6)", `${metrics.r2_ens}  |  MAE ${metrics.mae}      |  RMSE ${metrics.rmse}`],
       ],
       headStyles: { fillColor: PRIMARY },
       alternateRowStyles: { fillColor: [245, 248, 255] },
@@ -163,11 +175,12 @@ export default function App() {
       startY: y2 + 14,
       head: [["Agente", "Rol", "Tecnología"]],
       body: [
-        ["Agente 1", "Recolección de datos",          "OpenDengue + NASA POWER API"],
-        ["Agente 2", "Preprocesamiento",              "Pandas, NumPy, Scikit-Learn"],
-        ["Agente 3", "Predicción ML",                 "XGBoost + SHAP (TreeSHAP)"],
-        ["Agente 4", "Predicción DL (series de tiempo)", "LSTM PyTorch (2 capas, 12-mes lookback)"],
-        ["Agente 5", "Orquestación y alertas",        "Ensemble averaging + percentiles calibrados"],
+        ["Agente 1", "Ingesta de datos",                  "OpenDengue + NASA POWER API"],
+        ["Agente 2", "Preprocesamiento",                  "Pandas, NumPy, Scikit-Learn (StandardScaler)"],
+        ["Agente 3", "Predicción ML",                     "XGBoost + SHAP (TreeSHAP) · R²=91.49%"],
+        ["Agente 4", "Predicción DL (series temporales)", "LSTM PyTorch · 2 capas · 12-mes lookback · R²=90.35%"],
+        ["Agente 5", "Consenso Ensemble",                 "Ponderación adaptativa (w=0.50/0.50) + percentiles calibrados · R²=91.47%"],
+        ["Agente 6", "Detección de Régimen Epidémico",   "Percentiles locales p25/p50/p90 + ajuste dinámico de pesos ensemble"],
       ],
       headStyles: { fillColor: [79, 70, 229] },
       alternateRowStyles: { fillColor: [245, 245, 255] },

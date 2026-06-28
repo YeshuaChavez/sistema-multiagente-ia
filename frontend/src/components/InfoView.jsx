@@ -56,7 +56,7 @@ const agents = [
     color: "bg-emerald-600",
     colorLight: "bg-emerald-50",
     description:
-      "Combina las predicciones de los Agentes 3 y 4 usando pesos ajustados dinámicamente por el Agente 6. En régimen normal usa pesos proporcionales al R² (w_XGB=0.512, w_LSTM=0.488). Clasifica la predicción final en niveles de riesgo calibrados con percentiles históricos por departamento.",
+      "Combina las predicciones de los Agentes 3 y 4 usando pesos ajustados dinámicamente por el Agente 6. En régimen normal usa pesos iguales (w_XGB=0.50, w_LSTM=0.50). Clasifica la predicción final en niveles de riesgo calibrados con percentiles históricos por departamento.",
     tech: ["NumPy", "Percentiles Calibrados (p25, p50, p90)"],
     input: "Predicciones de Agente 3 (ML) + Agente 4 (DL) + Pesos de Agente 6",
     output: "Predicción final + Nivel de riesgo (Normal/Vigilancia/Alerta/Epidemia)",
