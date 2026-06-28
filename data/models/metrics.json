@@ -8,7 +8,7 @@
   "rmse_lstm": 20.515,
   "r2_ensemble": 0.9147,
   "mae_ensemble": 5.831,
-  "rmse_ensemble": 20.802,
+  "rmse_ensemble": 20.674,
   "ensemble_w_xgb": 0.5,
   "ensemble_w_lstm": 0.5,
   "acc_clasificacion": 0.8511,
@@ -28,5 +28,8 @@
   "n_train": 12168,
   "n_test": 4056,
   "n_paises": 8,
-  "n_departamentos": 164
+  "n_departamentos": 169,
+  "trained_at": "2026-06-22T00:00:00+00:00",
+  "data_sha_github": "desconocido",
+  "data_fecha": "2024 (OpenDengue V1.3)"
 }
