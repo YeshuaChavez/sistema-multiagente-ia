@@ -7,6 +7,13 @@ const viewSubtabs = {
   info: [],
 };
 
+const viewTitles = {
+  dashboard: "Dashboard de Vigilancia",
+  predictor: "Predictor en Vivo",
+  explain: "Análisis de Explicabilidad (XAI)",
+  info: "Información Técnica",
+};
+
 export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onOpenSettings, darkMode, setDarkMode }) {
   const tabs = viewSubtabs[currentView] || [];
   const [showNotifs, setShowNotifs] = useState(false);
@@ -21,7 +28,9 @@ export default function Topbar({ currentView, activeSubtab, setActiveSubtab, onO
     <header className="sticky top-0 z-40 bg-surface border-b border-outline-variant">
       {/* ── Fila principal ── */}
       <div className="h-14 flex justify-between items-center w-full px-md sm:px-lg">
-        <span className="text-title-lg font-bold text-primary truncate">DenguePredict</span>
+        <span className="text-[18px] font-bold text-primary truncate">
+          {viewTitles[currentView] || "DenguePredict"}
+        </span>
 
         <div className="flex items-center gap-xs sm:gap-sm relative">
           {/* Subtabs — solo en desktop md+ */}
