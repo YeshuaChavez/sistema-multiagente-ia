@@ -348,6 +348,10 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
       {/* Header Section */}
       <div className="mb-lg flex flex-col md:flex-row md:items-end justify-between gap-md">
         <div>
+          <div className="flex items-center gap-sm mb-xs">
+            <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+            <span className="text-secondary text-label-md font-bold uppercase tracking-wider">Inteligencia Artificial Explicable (XAI)</span>
+          </div>
           <h1 className="text-headline-lg text-primary font-bold mb-xs">
             Módulo de Explicabilidad Local y Global (SHAP)
           </h1>
