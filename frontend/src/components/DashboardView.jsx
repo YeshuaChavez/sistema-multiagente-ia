@@ -37,7 +37,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
   const [topDepts, setTopDepts] = useState([]);
 
   const [backendReady, setBackendReady] = useState(false);
-  const [stats, setStats] = useState({ records: "16,224", r2: "89.79%" });
+  const [stats, setStats] = useState({ records: "16,224", r2: "91.47%" });
   const [metrics, setMetrics] = useState(null);
   const [scatterData, setScatterData] = useState(undefined); // undefined=loading, null=unavailable
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("ALL");
@@ -118,9 +118,9 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           ["Registros consolidados", stats.records + " obs."],
           ["Rango temporal", "2014 — 2022"],
           ["Precisión del sistema (R² Ensemble)", stats.r2],
-          ["XGBoost R²", metrics?.r2_xgb != null ? `${(metrics.r2_xgb * 100).toFixed(2)}%` : "91.23%"],
-          ["LSTM PyTorch R²", metrics?.r2_lstm != null ? `${(metrics.r2_lstm * 100).toFixed(2)}%` : "86.94%"],
-          ["MAE Ensemble", metrics?.mae_ensemble != null ? `${metrics.mae_ensemble.toFixed(2)} casos/100k` : "5.97 casos/100k"],
+          ["XGBoost R²", metrics?.r2_xgb != null ? `${(metrics.r2_xgb * 100).toFixed(2)}%` : "91.49%"],
+          ["LSTM PyTorch R²", metrics?.r2_lstm != null ? `${(metrics.r2_lstm * 100).toFixed(2)}%` : "90.35%"],
+          ["MAE Ensemble", metrics?.mae_ensemble != null ? `${metrics.mae_ensemble.toFixed(2)} casos/100k` : "5.83 casos/100k"],
         ],
         headStyles: { fillColor: [30, 58, 95] },
         alternateRowStyles: { fillColor: [245, 248, 255] },

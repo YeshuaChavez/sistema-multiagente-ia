@@ -454,8 +454,8 @@ export default function App() {
                 <p className="font-bold text-primary text-label-md">¿Qué significan las métricas?</p>
                 <ul className="text-body-md text-on-surface-variant mt-xs space-y-sm list-disc pl-md">
                   <li><strong>Tasa de Incidencia:</strong> Número de casos registrados de dengue por cada 100,000 habitantes.</li>
-                  <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (~89.8% para el Ensemble XGBoost + LSTM).</li>
-                  <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (~5.97 casos/100k hab. para el Ensemble).</li>
+                  <li><strong>R² (Coeficiente de Determinación):</strong> Porcentaje de variabilidad de los datos explicado por el modelo. A mayor R², mayor fidelidad predictiva (91.47% para el Ensemble XGBoost + LSTM).</li>
+                  <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (5.83 casos/100k hab. para el Ensemble).</li>
                 </ul>
               </div>
               <div className="border-t border-outline-variant pt-md">
