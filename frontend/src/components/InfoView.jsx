@@ -82,6 +82,20 @@ const techStack = [
   { category: "Frontend", items: ["React 19", "Vite", "TailwindCSS", "Leaflet.js"] },
 ];
 
+const getAgentDelay = (id) => {
+  const mapping = { 1: 0, 2: 0.9, 3: 1.8, 4: 2.7, 5: 3.6, 6: 4.5 };
+  return `${mapping[id] || 0}s`;
+};
+
+const desktopGridPlacements = {
+  1: "col-start-1 row-start-1",
+  2: "col-start-3 row-start-1",
+  3: "col-start-5 row-start-1",
+  4: "col-start-5 row-start-3",
+  5: "col-start-3 row-start-3",
+  6: "col-start-1 row-start-3",
+};
+
 export default function InfoView() {
   return (
     <div className="max-w-[1400px] mx-auto space-y-lg">
@@ -199,7 +213,7 @@ export default function InfoView() {
                 </div>
                 <div className="flex flex-wrap gap-xs">
                   {agent.tech.map((t) => (
-                    <span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${agent.colorLight} text-on-surface-variant cursor-default`}>{t}</span>
+                     <span key={t} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${agent.colorLight} text-on-surface-variant cursor-default`}>{t}</span>
                   ))}
                 </div>
               </div>
@@ -382,34 +396,40 @@ export default function InfoView() {
       <div className="custom-card rounded-xl p-lg overflow-hidden">
         <style>{`
           @keyframes agentGlow {
-            0%, 14%, 100% { box-shadow: none; transform: scale(1) translateY(0); filter: brightness(1); }
-            5%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.95), 0 8px 30px rgba(0,0,0,0.22); transform: scale(1.06) translateY(-2px); filter: brightness(1.12); }
-            10% { box-shadow: 0 0 0 2px rgba(255,255,255,0.5), 0 4px 14px rgba(0,0,0,0.12); transform: scale(1.02) translateY(-1px); filter: brightness(1.05); }
+            0%, 100% { box-shadow: none; transform: scale(1) translateY(0); filter: brightness(1); }
+            8%  { box-shadow: 0 0 0 3px rgba(var(--color-primary), 0.25), 0 8px 24px rgba(var(--color-primary), 0.15); transform: scale(1.04) translateY(-2px); filter: brightness(1.05); }
+            16% { box-shadow: none; transform: scale(1) translateY(0); filter: brightness(1); }
           }
-          @keyframes dotH {
-            0%, 15%, 100% { left: 0px; opacity: 0; }
+          @keyframes dotHRight {
+            0%, 100% { left: 0px; opacity: 0; }
             2%  { left: 0px; opacity: 1; }
-            13% { left: calc(100% - 12px); opacity: 1; }
-            15% { left: calc(100% - 12px); opacity: 0; }
+            14% { left: calc(100% - 10px); opacity: 1; }
+            16% { left: calc(100% - 10px); opacity: 0; }
           }
-          @keyframes dotV {
-            0%, 15%, 100% { top: 0px; opacity: 0; }
+          @keyframes dotHLeft {
+            0%, 100% { right: 0px; opacity: 0; }
+            2%  { right: 0px; opacity: 1; }
+            14% { right: calc(100% - 10px); opacity: 1; }
+            16% { right: calc(100% - 10px); opacity: 0; }
+          }
+          @keyframes dotVDown {
+            0%, 100% { top: 0px; opacity: 0; }
             2%  { top: 0px; opacity: 1; }
-            13% { top: calc(100% - 12px); opacity: 1; }
-            15% { top: calc(100% - 12px); opacity: 0; }
+            14% { top: calc(100% - 10px); opacity: 1; }
+            16% { top: calc(100% - 10px); opacity: 0; }
           }
           @keyframes lineFlash {
-            0%, 13%, 100% { opacity: 0.25; }
-            6% { opacity: 0.8; }
+            0%, 100% { opacity: 0.25; }
+            8% { opacity: 0.8; }
           }
           .flow-dot {
-            width: 12px; height: 12px;
+            width: 10px; height: 10px;
             background: rgb(var(--color-primary));
-            box-shadow: 0 0 0 2px rgba(var(--color-primary), 0.25), 0 0 14px 5px rgba(var(--color-primary), 0.45);
+            box-shadow: 0 0 0 2px rgba(var(--color-primary), 0.25), 0 0 12px 4px rgba(var(--color-primary), 0.45);
           }
           .dark .flow-dot {
             background: white;
-            box-shadow: 0 0 0 2px rgba(255,255,255,0.2), 0 0 14px 5px rgba(255,255,255,0.6);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.2), 0 0 12px 4px rgba(255,255,255,0.6);
           }
         `}</style>
 
@@ -424,7 +444,7 @@ export default function InfoView() {
             <React.Fragment key={agent.id}>
               <div
                 className={`flex items-center gap-sm px-4 py-3 rounded-xl ${agent.color} text-white shadow-md`}
-                style={{ animation: "agentGlow 8s ease-in-out infinite", animationDelay: `${(idx * 1.33).toFixed(2)}s` }}
+                style={{ animation: "agentGlow 5s ease-in-out infinite", animationDelay: getAgentDelay(agent.id) }}
               >
                 <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
                 <div>
@@ -436,15 +456,15 @@ export default function InfoView() {
                 <div className="flex justify-center">
                   <div className="relative flex flex-col items-center" style={{ height: "30px", width: "12px" }}>
                     <div
-                      className="absolute left-1/2 -translate-x-1/2 w-px h-full bg-outline"
-                      style={{ animation: `lineFlash 8s ease-in-out infinite`, animationDelay: `${(idx * 1.33 + 0.75).toFixed(2)}s` }}
+                      className="absolute left-1/2 -translate-x-1/2 w-px h-full bg-outline/30"
+                      style={{ animation: `lineFlash 5s ease-in-out infinite`, animationDelay: `${(idx * 0.9 + 0.45).toFixed(2)}s` }}
                     />
                     <div
                       className="absolute flow-dot rounded-full"
                       style={{
                         left: "50%", transform: "translateX(-50%)",
-                        animation: "dotV 8s ease-in-out infinite",
-                        animationDelay: `${(idx * 1.33 + 0.75).toFixed(2)}s`,
+                        animation: "dotVDown 5s ease-in-out infinite",
+                        animationDelay: `${(idx * 0.9 + 0.45).toFixed(2)}s`,
                       }}
                     />
                   </div>
@@ -454,66 +474,86 @@ export default function InfoView() {
           ))}
         </div>
 
-        {/* Desktop: 2 filas × 3 columnas animadas */}
-        <div className="hidden sm:flex flex-col items-center">
-          {[agents.slice(0, 3), agents.slice(3, 6)].map((row, rowIdx) => (
-            <React.Fragment key={rowIdx}>
-              <div className="flex items-center">
-                {row.map((agent, colIdx) => {
-                  const flowIdx = rowIdx * 3 + colIdx;
-                  return (
-                    <React.Fragment key={agent.id}>
-                      {/* Tarjeta del agente */}
-                      <div
-                        className={`group/box flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[140px] cursor-default transition-shadow duration-200 hover:shadow-xl`}
-                        style={{ animation: "agentGlow 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33).toFixed(2)}s` }}
-                      >
-                        <span className="material-symbols-outlined text-[24px] transition-transform duration-200 group-hover/box:scale-110" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
-                          <p className="text-[13px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
-                        </div>
-                      </div>
-                      {/* Conector horizontal con partícula */}
-                      {colIdx < 2 && (
-                        <div className="relative flex items-center" style={{ width: "52px", height: "44px" }}>
-                          <div
-                            className="absolute top-1/2 left-0 right-3 h-px bg-outline -translate-y-1/2"
-                            style={{ animation: `lineFlash 8s ease-in-out infinite`, animationDelay: `${(flowIdx * 1.33 + 0.75).toFixed(2)}s` }}
-                          />
-                          <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/50 text-[16px]">chevron_right</span>
-                          <div
-                            className="absolute top-1/2 -translate-y-1/2 flow-dot rounded-full"
-                            style={{ animation: "dotH 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33 + 0.75).toFixed(2)}s` }}
-                          />
-                        </div>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
+        {/* Desktop: 2 filas × 3 columnas animadas en Grid CSS */}
+        <div className="hidden sm:grid grid-cols-[1fr_auto_1fr_auto_1fr] gap-y-sm items-center justify-items-center w-full max-w-4xl mx-auto relative">
+          {agents.map((agent) => (
+            <div
+              key={agent.id}
+              className={`group/box flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[150px] cursor-default transition-shadow duration-200 hover:shadow-xl ${desktopGridPlacements[agent.id]}`}
+              style={{ animation: "agentGlow 5s ease-in-out infinite", animationDelay: getAgentDelay(agent.id) }}
+            >
+              <span className="material-symbols-outlined text-[24px] transition-transform duration-200 group-hover/box:scale-110" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
+                <p className="text-[13px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
               </div>
-              {/* Conector vertical entre filas con partícula */}
-              {rowIdx === 0 && (
-                <div className="flex justify-center w-full">
-                  <div className="relative flex flex-col items-center" style={{ height: "32px", width: "12px" }}>
-                    <div
-                      className="absolute left-1/2 -translate-x-1/2 w-px h-full bg-outline"
-                      style={{ animation: `lineFlash 8s ease-in-out infinite`, animationDelay: `${(2 * 1.33 + 0.75).toFixed(2)}s` }}
-                    />
-                    <div
-                      className="absolute flow-dot rounded-full"
-                      style={{
-                        left: "50%", transform: "translateX(-50%)",
-                        animation: "dotV 8s ease-in-out infinite",
-                        animationDelay: `${(2 * 1.33 + 0.75).toFixed(2)}s`,
-                      }}
-                    />
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 material-symbols-outlined text-outline/50 text-[14px]">expand_more</span>
-                  </div>
-                </div>
-              )}
-            </React.Fragment>
+            </div>
           ))}
+
+          {/* Conector horizontal 1 -> 2 (Fila 1) */}
+          <div className="col-start-2 row-start-1 relative flex items-center w-[52px] h-[44px]">
+            <div
+              className="absolute top-1/2 left-0 right-3 h-px bg-outline-variant/30 -translate-y-1/2"
+              style={{ animation: `lineFlash 5s ease-in-out infinite`, animationDelay: "0.45s" }}
+            />
+            <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline-variant text-[14px]">chevron_right</span>
+            <div
+              className="absolute top-1/2 -translate-y-1/2 flow-dot rounded-full"
+              style={{ animation: "dotHRight 5s ease-in-out infinite", animationDelay: "0.45s" }}
+            />
+          </div>
+
+          {/* Conector horizontal 2 -> 3 (Fila 1) */}
+          <div className="col-start-4 row-start-1 relative flex items-center w-[52px] h-[44px]">
+            <div
+              className="absolute top-1/2 left-0 right-3 h-px bg-outline-variant/30 -translate-y-1/2"
+              style={{ animation: `lineFlash 5s ease-in-out infinite`, animationDelay: "1.35s" }}
+            />
+            <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline-variant text-[14px]">chevron_right</span>
+            <div
+              className="absolute top-1/2 -translate-y-1/2 flow-dot rounded-full"
+              style={{ animation: "dotHRight 5s ease-in-out infinite", animationDelay: "1.35s" }}
+            />
+          </div>
+
+          {/* Conector vertical 3 -> 4 (Caída derecha) */}
+          <div className="col-start-5 row-start-2 relative flex flex-col items-center h-[32px] w-[12px]">
+            <div
+              className="absolute left-1/2 -translate-x-1/2 w-px h-full bg-outline-variant/30"
+              style={{ animation: `lineFlash 5s ease-in-out infinite`, animationDelay: "2.25s" }}
+            />
+            <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 material-symbols-outlined text-outline-variant text-[14px]">expand_more</span>
+            <div
+              className="absolute left-1/2 -translate-x-1/2 flow-dot rounded-full"
+              style={{ animation: "dotVDown 5s ease-in-out infinite", animationDelay: "2.25s" }}
+            />
+          </div>
+
+          {/* Conector horizontal 4 -> 5 (Fila 2 - Flujo izquierda) */}
+          <div className="col-start-4 row-start-3 relative flex items-center w-[52px] h-[44px]">
+            <div
+              className="absolute top-1/2 left-3 right-0 h-px bg-outline-variant/30 -translate-y-1/2"
+              style={{ animation: `lineFlash 5s ease-in-out infinite`, animationDelay: "3.15s" }}
+            />
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline-variant text-[14px]">chevron_left</span>
+            <div
+              className="absolute top-1/2 -translate-y-1/2 flow-dot rounded-full"
+              style={{ animation: "dotHLeft 5s ease-in-out infinite", animationDelay: "3.15s" }}
+            />
+          </div>
+
+          {/* Conector horizontal 5 -> 6 (Fila 2 - Flujo izquierda) */}
+          <div className="col-start-2 row-start-3 relative flex items-center w-[52px] h-[44px]">
+            <div
+              className="absolute top-1/2 left-3 right-0 h-px bg-outline-variant/30 -translate-y-1/2"
+              style={{ animation: `lineFlash 5s ease-in-out infinite`, animationDelay: "4.05s" }}
+            />
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline-variant text-[14px]">chevron_left</span>
+            <div
+              className="absolute top-1/2 -translate-y-1/2 flow-dot rounded-full"
+              style={{ animation: "dotHLeft 5s ease-in-out infinite", animationDelay: "4.05s" }}
+            />
+          </div>
         </div>
       </div>
 
