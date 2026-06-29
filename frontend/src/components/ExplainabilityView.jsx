@@ -487,14 +487,10 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
                   {/* Legend */}
                   <div className="flex justify-between items-center border-t border-outline-variant pt-md">
                     <div className="flex items-center gap-sm">
-                      <div className="w-3 h-3 rounded-full bg-blue-500" />
-                      <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Atenuación del Riesgo (SHAP &lt; 0)</span>
+                      <div className="w-3 h-3 rounded-full bg-gradient-to-r from-primary to-secondary" />
+                      <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Mayor barra = mayor influencia en la predicción</span>
                     </div>
                     <span className="text-[11px] text-on-surface-variant/50">{shapData.length} variables · pág. {shapPage + 1}/{totalPages}</span>
-                    <div className="flex items-center gap-sm">
-                      <span className="text-[11px] text-on-surface-variant uppercase tracking-wider">Acrecentamiento del Riesgo (SHAP &gt; 0)</span>
-                      <div className="w-3 h-3 rounded-full bg-orange-500" />
-                    </div>
                   </div>
                 </div>
               );
