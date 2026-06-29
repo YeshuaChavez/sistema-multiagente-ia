@@ -9,7 +9,10 @@ const navItems = [
 
 export default function BottomNav({ currentView, setCurrentView }) {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-outline-variant flex items-stretch h-16">
+    <nav
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-outline-variant flex items-stretch"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", minHeight: "4rem" }}
+    >
       {navItems.map((item) => {
         const isActive = currentView === item.id;
         return (
