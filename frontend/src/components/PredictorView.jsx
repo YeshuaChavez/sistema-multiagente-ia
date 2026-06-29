@@ -498,12 +498,7 @@ export default function PredictorView({
 
                 {/* ENSO toggle */}
                 <div className="space-y-xs">
-                  <div className="flex items-center justify-between">
-                    <label className="text-body-md text-on-surface-variant">Fenómeno ENSO</label>
-                    <span className="text-[10px] text-on-surface-variant/50 font-mono">
-                      {enso === "nino" ? "+10–14% casos" : enso === "nina" ? "−4–8% casos" : "base"}
-                    </span>
-                  </div>
+                  <label className="text-body-md text-on-surface-variant">Fenómeno ENSO</label>
                   <div className="flex rounded-xl overflow-hidden border border-outline-variant">
                     {[
                       { key: "neutral", label: "Neutro",   icon: "water",       color: "text-on-surface-variant" },
