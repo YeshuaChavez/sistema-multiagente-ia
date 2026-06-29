@@ -382,29 +382,34 @@ export default function InfoView() {
       <div className="custom-card rounded-xl p-lg overflow-hidden">
         <style>{`
           @keyframes agentGlow {
-            0%, 14%, 100% { box-shadow: none; }
-            4%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 28px rgba(255,255,255,0.3); }
-            10% { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.35); }
+            0%, 14%, 100% { box-shadow: none; transform: scale(1) translateY(0); filter: brightness(1); }
+            5%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.95), 0 8px 30px rgba(0,0,0,0.22); transform: scale(1.06) translateY(-2px); filter: brightness(1.12); }
+            10% { box-shadow: 0 0 0 2px rgba(255,255,255,0.5), 0 4px 14px rgba(0,0,0,0.12); transform: scale(1.02) translateY(-1px); filter: brightness(1.05); }
           }
           @keyframes dotH {
             0%, 15%, 100% { left: 0px; opacity: 0; }
             2%  { left: 0px; opacity: 1; }
-            13% { left: calc(100% - 10px); opacity: 1; }
-            15% { left: calc(100% - 10px); opacity: 0; }
+            13% { left: calc(100% - 12px); opacity: 1; }
+            15% { left: calc(100% - 12px); opacity: 0; }
           }
           @keyframes dotV {
             0%, 15%, 100% { top: 0px; opacity: 0; }
             2%  { top: 0px; opacity: 1; }
-            13% { top: calc(100% - 10px); opacity: 1; }
-            15% { top: calc(100% - 10px); opacity: 0; }
+            13% { top: calc(100% - 12px); opacity: 1; }
+            15% { top: calc(100% - 12px); opacity: 0; }
+          }
+          @keyframes lineFlash {
+            0%, 13%, 100% { opacity: 0.25; }
+            6% { opacity: 0.8; }
           }
           .flow-dot {
+            width: 12px; height: 12px;
             background: rgb(var(--color-primary));
-            box-shadow: 0 0 10px 3px rgba(var(--color-primary), 0.4);
+            box-shadow: 0 0 0 2px rgba(var(--color-primary), 0.25), 0 0 14px 5px rgba(var(--color-primary), 0.45);
           }
           .dark .flow-dot {
             background: white;
-            box-shadow: 0 0 10px 3px rgba(255,255,255,0.6);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.2), 0 0 14px 5px rgba(255,255,255,0.6);
           }
         `}</style>
 
@@ -429,10 +434,13 @@ export default function InfoView() {
               </div>
               {idx < agents.length - 1 && (
                 <div className="flex justify-center">
-                  <div className="relative flex flex-col items-center" style={{ height: "28px", width: "2px" }}>
-                    <div className="w-px h-full bg-outline/30" />
+                  <div className="relative flex flex-col items-center" style={{ height: "30px", width: "12px" }}>
                     <div
-                      className="absolute flow-dot w-2.5 h-2.5 rounded-full"
+                      className="absolute left-1/2 -translate-x-1/2 w-px h-full bg-outline"
+                      style={{ animation: `lineFlash 8s ease-in-out infinite`, animationDelay: `${(idx * 1.33 + 0.75).toFixed(2)}s` }}
+                    />
+                    <div
+                      className="absolute flow-dot rounded-full"
                       style={{
                         left: "50%", transform: "translateX(-50%)",
                         animation: "dotV 8s ease-in-out infinite",
@@ -457,10 +465,10 @@ export default function InfoView() {
                     <React.Fragment key={agent.id}>
                       {/* Tarjeta del agente */}
                       <div
-                        className={`flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[140px] cursor-default`}
+                        className={`group/box flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[140px] cursor-default transition-shadow duration-200 hover:shadow-xl`}
                         style={{ animation: "agentGlow 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33).toFixed(2)}s` }}
                       >
-                        <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
+                        <span className="material-symbols-outlined text-[24px] transition-transform duration-200 group-hover/box:scale-110" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
                         <div>
                           <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
                           <p className="text-[13px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
@@ -469,10 +477,13 @@ export default function InfoView() {
                       {/* Conector horizontal con partícula */}
                       {colIdx < 2 && (
                         <div className="relative flex items-center" style={{ width: "52px", height: "44px" }}>
-                          <div className="absolute top-1/2 left-0 right-3 h-px bg-outline/25 -translate-y-1/2" />
-                          <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/40 text-[16px]">chevron_right</span>
                           <div
-                            className="absolute top-1/2 -translate-y-1/2 flow-dot w-2.5 h-2.5 rounded-full"
+                            className="absolute top-1/2 left-0 right-3 h-px bg-outline -translate-y-1/2"
+                            style={{ animation: `lineFlash 8s ease-in-out infinite`, animationDelay: `${(flowIdx * 1.33 + 0.75).toFixed(2)}s` }}
+                          />
+                          <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/50 text-[16px]">chevron_right</span>
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 flow-dot rounded-full"
                             style={{ animation: "dotH 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33 + 0.75).toFixed(2)}s` }}
                           />
                         </div>
@@ -484,17 +495,20 @@ export default function InfoView() {
               {/* Conector vertical entre filas con partícula */}
               {rowIdx === 0 && (
                 <div className="flex justify-center w-full">
-                  <div className="relative flex flex-col items-center" style={{ height: "32px", width: "2px" }}>
-                    <div className="w-px h-full bg-outline/25" />
+                  <div className="relative flex flex-col items-center" style={{ height: "32px", width: "12px" }}>
                     <div
-                      className="absolute flow-dot w-2.5 h-2.5 rounded-full"
+                      className="absolute left-1/2 -translate-x-1/2 w-px h-full bg-outline"
+                      style={{ animation: `lineFlash 8s ease-in-out infinite`, animationDelay: `${(2 * 1.33 + 0.75).toFixed(2)}s` }}
+                    />
+                    <div
+                      className="absolute flow-dot rounded-full"
                       style={{
                         left: "50%", transform: "translateX(-50%)",
                         animation: "dotV 8s ease-in-out infinite",
                         animationDelay: `${(2 * 1.33 + 0.75).toFixed(2)}s`,
                       }}
                     />
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 material-symbols-outlined text-outline/40 text-[14px]">expand_more</span>
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 material-symbols-outlined text-outline/50 text-[14px]">expand_more</span>
                   </div>
                 </div>
               )}
