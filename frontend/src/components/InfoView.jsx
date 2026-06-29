@@ -208,6 +208,176 @@ export default function InfoView() {
         </div>
       </div>
 
+      {/* ── Fundamentos Matemáticos ── */}
+      <div>
+        <h3 className="text-label-md font-bold text-primary uppercase tracking-wider mb-md flex items-center gap-sm">
+          <span className="material-symbols-outlined text-[18px]">functions</span>
+          Fundamentos Matemáticos del Sistema
+        </h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-lg">
+
+          {/* Fórmula 1: Tasa de Incidencia */}
+          <div className="custom-card rounded-xl p-lg animate-fade-in-up">
+            <div className="flex items-center gap-sm mb-md">
+              <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-sky-600 dark:text-sky-400 text-[20px]">calculate</span>
+              </div>
+              <h4 className="text-[14px] font-bold text-primary">Tasa de Incidencia Normalizada</h4>
+            </div>
+            <p className="text-[12px] text-on-surface-variant mb-md leading-relaxed">
+              Métrica estándar de salud pública que permite comparar la carga de enfermedad entre departamentos de distinta densidad demográfica.
+            </p>
+            {/* Fórmula principal */}
+            <div className="bg-surface-container rounded-xl px-lg py-md mb-md font-mono text-center border border-outline-variant/50">
+              <div className="text-[15px] text-primary font-bold mb-xs">
+                I<sub className="text-[11px]">t</sub> ={" "}
+                <span className="inline-flex flex-col items-center mx-xs">
+                  <span className="border-b border-on-surface px-xs text-on-surface text-[13px]">
+                    casos<sub className="text-[10px]">dengue</sub>(t)
+                  </span>
+                  <span className="text-on-surface text-[13px] pt-[2px]">
+                    población(t)
+                  </span>
+                </span>
+                × 100,000
+              </div>
+            </div>
+            {/* Leyenda */}
+            <div className="space-y-xs text-[11px]">
+              {[
+                ["I(t)", "Tasa de incidencia mensual en el período t"],
+                ["casos(t)", "Casos de dengue reportados en el mes t"],
+                ["población(t)", "Población total del departamento en el año t"],
+              ].map(([sym, desc]) => (
+                <div key={sym} className="flex items-start gap-sm">
+                  <code className="font-mono font-bold text-primary bg-surface-container px-xs py-[1px] rounded text-[11px] flex-shrink-0">{sym}</code>
+                  <span className="text-on-surface-variant">{desc}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-md pt-md border-t border-outline-variant/40 text-[11px] text-on-surface-variant">
+              Unidad de medida: <span className="font-bold text-on-surface">casos / 100,000 habitantes-mes</span>
+            </div>
+          </div>
+
+          {/* Fórmula 2: Ensemble Ponderado */}
+          <div className="custom-card rounded-xl p-lg animate-fade-in-up" style={{ animationDelay: "80ms" }}>
+            <div className="flex items-center gap-sm mb-md">
+              <div className="w-9 h-9 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-[20px]">hub</span>
+              </div>
+              <h4 className="text-[14px] font-bold text-primary">Ensemble Ponderado por R²</h4>
+            </div>
+            <p className="text-[12px] text-on-surface-variant mb-md leading-relaxed">
+              Combina las predicciones del Agente 3 (XGBoost) y el Agente 4 (LSTM) con pesos proporcionales al R² individual de cada modelo en el conjunto de prueba.
+            </p>
+            {/* Fórmula predicción */}
+            <div className="bg-surface-container rounded-xl px-lg py-md mb-sm font-mono border border-outline-variant/50">
+              <div className="text-[14px] text-primary font-bold text-center">
+                ŷ<sub className="text-[10px]">ens</sub> = w<sub className="text-[10px]">XGB</sub> · ŷ<sub className="text-[10px]">XGB</sub>{" "}
+                + w<sub className="text-[10px]">LSTM</sub> · ŷ<sub className="text-[10px]">LSTM</sub>
+              </div>
+            </div>
+            {/* Fórmula pesos */}
+            <div className="bg-surface-container rounded-xl px-lg py-sm mb-md font-mono border border-outline-variant/50 text-center text-[12px]">
+              <span className="text-on-surface">
+                w<sub className="text-[10px]">XGB</sub> ={" "}
+                <span className="inline-flex flex-col items-center mx-xs align-middle">
+                  <span className="border-b border-on-surface px-xs text-[11px]">R²<sub className="text-[9px]">XGB</sub></span>
+                  <span className="text-[11px] pt-[2px]">R²<sub className="text-[9px]">XGB</sub> + R²<sub className="text-[9px]">LSTM</sub></span>
+                </span>
+                {" "}= <strong className="text-primary">0.5117</strong>
+                {"  "}·{"  "}
+                w<sub className="text-[10px]">LSTM</sub> = <strong className="text-primary">0.4883</strong>
+              </span>
+            </div>
+            {/* Valores actuales */}
+            <div className="grid grid-cols-3 gap-sm text-center">
+              {[
+                { label: "R² XGBoost", val: "91.49%", color: "text-orange-600 dark:text-orange-400" },
+                { label: "R² LSTM", val: "90.35%", color: "text-purple-600 dark:text-purple-400" },
+                { label: "R² Ensemble", val: "91.47%", color: "text-emerald-600 dark:text-emerald-400" },
+              ].map((m) => (
+                <div key={m.label} className="bg-surface-container-low rounded-lg p-xs">
+                  <p className={`text-[14px] font-bold tabular ${m.color}`}>{m.val}</p>
+                  <p className="text-[10px] text-on-surface-variant">{m.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Fórmula 3: Rezagos (Lags) */}
+          <div className="custom-card rounded-xl p-lg animate-fade-in-up" style={{ animationDelay: "160ms" }}>
+            <div className="flex items-center gap-sm mb-md">
+              <div className="w-9 h-9 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-orange-600 dark:text-orange-400 text-[20px]">history</span>
+              </div>
+              <h4 className="text-[14px] font-bold text-primary">Variables de Rezago Temporal (Lags)</h4>
+            </div>
+            <p className="text-[12px] text-on-surface-variant mb-md leading-relaxed">
+              Codifican la dependencia temporal: el valor de una variable climática o epidemiológica k meses antes del mes de predicción.
+            </p>
+            <div className="bg-surface-container rounded-xl px-lg py-md mb-md font-mono border border-outline-variant/50 text-center">
+              <div className="text-[14px] text-primary font-bold">
+                X<sub className="text-[10px]">lag-k</sub>(t) = X(t − k)
+              </div>
+              <div className="text-[11px] text-on-surface-variant mt-xs">
+                k ∈ &#123;1, 2, 3, 4, 5, 6&#125; meses para variables climáticas
+              </div>
+              <div className="text-[11px] text-on-surface-variant">
+                k ∈ &#123;1, ..., 12&#125; meses para incidencia autorregresiva
+              </div>
+            </div>
+            <div className="space-y-xs text-[11px]">
+              {[
+                ["tmax_lag3", "Temperatura máxima de hace 3 meses → período de incubación extrínseca del virus en el vector"],
+                ["incidencia_lag1", "Casos del mes anterior → componente autorregresiva más predictiva del modelo"],
+              ].map(([ex, desc]) => (
+                <div key={ex} className="flex items-start gap-sm p-xs bg-surface-container-low rounded-lg">
+                  <code className="font-mono font-bold text-orange-600 dark:text-orange-400 text-[11px] flex-shrink-0">{ex}</code>
+                  <span className="text-on-surface-variant">{desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Fórmula 4: Codificación Cíclica */}
+          <div className="custom-card rounded-xl p-lg animate-fade-in-up" style={{ animationDelay: "240ms" }}>
+            <div className="flex items-center gap-sm mb-md">
+              <div className="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[20px]">calendar_month</span>
+              </div>
+              <h4 className="text-[14px] font-bold text-primary">Codificación Cíclica Estacional</h4>
+            </div>
+            <p className="text-[12px] text-on-surface-variant mb-md leading-relaxed">
+              Transforma el mes (1–12) en dos coordenadas continuas sobre el círculo unitario, preservando la distancia temporal correcta entre diciembre y enero.
+            </p>
+            <div className="bg-surface-container rounded-xl px-lg py-md mb-md font-mono border border-outline-variant/50 text-center space-y-xs">
+              <div className="text-[14px] text-primary font-bold">
+                mes_sin = sin<span className="font-normal">(</span>
+                <span className="inline-flex flex-col items-center mx-[2px] align-middle">
+                  <span className="border-b border-on-surface px-xs text-[12px]">2π · mes</span>
+                  <span className="text-[12px] pt-[2px]">12</span>
+                </span>
+                <span className="font-normal">)</span>
+              </div>
+              <div className="text-[14px] text-primary font-bold">
+                mes_cos = cos<span className="font-normal">(</span>
+                <span className="inline-flex flex-col items-center mx-[2px] align-middle">
+                  <span className="border-b border-on-surface px-xs text-[12px]">2π · mes</span>
+                  <span className="text-[12px] pt-[2px]">12</span>
+                </span>
+                <span className="font-normal">)</span>
+              </div>
+            </div>
+            <div className="text-[11px] text-on-surface-variant leading-relaxed">
+              Sin esta codificación, el modelo trataría diciembre (mes 12) como muy lejano de enero (mes 1), distorsionando la estacionalidad anual del dengue.
+            </div>
+          </div>
+
+        </div>
+      </div>
+
       {/* Architecture Flow */}
       <div className="custom-card rounded-xl p-lg">
         <h3 className="text-label-md font-bold text-primary uppercase tracking-wider mb-lg flex items-center gap-sm">

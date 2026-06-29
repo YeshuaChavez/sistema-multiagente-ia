@@ -4,6 +4,153 @@ import autoTable from "jspdf-autotable";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+// ─── Diccionario de explicaciones biológicas por variable SHAP ───
+const SHAP_BIO = {
+  // Incidencia autorregresiva
+  incidencia_lag1: { icon: "🦟", title: "Incidencia hace 1 mes", bio: "El predictor más potente. Si hay muchos casos este mes, el virus ya circula activamente: reservorio humano infectado, mosquitos vectores picando, condiciones propicias. Captura el momentum epidémico." },
+  incidencia_lag2: { icon: "🦟", title: "Incidencia hace 2 meses", bio: "Refleja el ciclo generacional del vector. Aedes aegypti tarda ~10–14 días en completar su ciclo larva→adulto. Dos meses atrás captura la 'ola anterior' del brote." },
+  incidencia_lag3: { icon: "🦟", title: "Incidencia hace 3 meses", bio: "Patrón estacional trimestral. Tres meses atrás coincide con el inicio de la temporada de lluvias previa, que creó los criaderos que ahora alimentan el brote actual." },
+  incidencia_lag4: { icon: "📅", title: "Incidencia hace 4 meses", bio: "Captura la inercia epidémica de mediano plazo. Útil para detectar si la región experimentó un brote temprano en el año que agotó la inmunidad de rebaño transitoria." },
+  incidencia_lag5: { icon: "📅", title: "Incidencia hace 5 meses", bio: "Componente de memoria epidemiológica. Relacionado con la circulación de serotipos: un pico 5 meses atrás puede indicar qué serotipo viral dominó y la inmunidad residual actual." },
+  incidencia_lag6: { icon: "📅", title: "Incidencia hace 6 meses", bio: "Semestre anterior. Permite al modelo distinguir entre un año hiperendémico (alta carga sostenida) y uno con brotes puntuales, influyendo en el pronóstico basal." },
+  incidencia_lag7: { icon: "📅", title: "Incidencia hace 7 meses", bio: "Memoria epidémica de largo plazo. Ayuda a capturar el patrón bimodal del dengue (dos picos anuales) en regiones con dos temporadas de lluvias." },
+  incidencia_lag8: { icon: "📅", title: "Incidencia hace 8 meses", bio: "Correlaciona con las condiciones climáticas del mismo mes del año anterior, capturando efectos estacionales recurrentes en el patrón de transmisión." },
+  incidencia_lag9: { icon: "📅", title: "Incidencia hace 9 meses", bio: "Permite detectar ciclos interanuales: un brote intenso 9 meses atrás puede preceder un período de baja transmisión por agotamiento del huésped susceptible." },
+  incidencia_lag10: { icon: "📅", title: "Incidencia hace 10 meses", bio: "Rezago de casi un año: captura el efecto de la estación equivalente del año anterior sobre la población susceptible actual." },
+  incidencia_lag11: { icon: "📅", title: "Incidencia hace 11 meses", bio: "Comparación casi-anual. Permite al modelo comparar el mes actual con el mes equivalente del año pasado, detectando si la incidencia va al alza o a la baja interanualmente." },
+  incidencia_lag12: { icon: "📅", title: "Incidencia hace 12 meses", bio: "El mismo mes del año anterior. Componente estacional pura: captura si esta época del año históricamente es de alto o bajo riesgo en este departamento específico." },
+
+  // Variables climáticas base
+  tmax_promedio: { icon: "🌡️", title: "Temperatura máxima mensual", bio: "Determina la tasa de replicación viral dentro del mosquito (período de incubación extrínseca). Entre 26–32°C el virus dengue se replica en ≈8–10 días; por debajo de 18°C la replicación se detiene." },
+  tmin_promedio: { icon: "🌡️", title: "Temperatura mínima mensual", bio: "Regula la supervivencia nocturna del mosquito adulto. Noches cálidas (>20°C) permiten alimentación hematófaga continua y mayor oviposición, acelerando el ciclo reproductivo." },
+  precipitacion: { icon: "🌧️", title: "Precipitación mensual acumulada", bio: "La lluvia crea contenedores de agua estancada (floreros, llantas, recipientes) que son los principales criaderos de Aedes aegypti. Una lluvia intensa pero con drenaje insuficiente genera condiciones óptimas para la oviposición." },
+  humedad_promedio: { icon: "💧", title: "Humedad relativa mensual", bio: "Humedad >60% extiende la vida media del mosquito adulto de ~2 semanas a más de 3 semanas. Además, facilita la búsqueda del huésped y aumenta la frecuencia de picadura." },
+  agua_basica: { icon: "🚰", title: "Acceso a agua potable básica (%)", bio: "Un acceso deficiente (<80%) obliga a almacenar agua en contenedores descubiertos en el hogar, que se convierten en criaderos primarios intradomiciliarios. SHAP negativo: mayor cobertura → menor riesgo de dengue." },
+  densidad_poblacion: { icon: "👥", title: "Densidad de población (hab/km²)", bio: "A mayor densidad, la distancia entre huésped y mosquito se reduce, aumentando la probabilidad de contacto. Las urbes densas amplifican los brotes por mayor disponibilidad de huéspedes susceptibles por unidad de área." },
+  poblacion: { icon: "👥", title: "Población total del departamento", bio: "Controla el efecto de escala. Departamentos muy poblados tienen mayor número absoluto de casos incluso con la misma tasa de incidencia, lo que puede amplificar señales autoregresivas." },
+
+  // Lags climáticos — temperatura máxima
+  tmax_lag1: { icon: "🌡️", title: "Temperatura máxima hace 1 mes", bio: "Período de incubación extrínseca: el virus tarda 8–14 días en replicarse dentro del mosquito a 28°C. Un mes cálido antes implica que los vectores infectados ya están disponibles para transmitir ahora." },
+  tmax_lag2: { icon: "🌡️", title: "Temperatura máxima hace 2 meses", bio: "Captura el efecto sobre la eclosión de huevos y desarrollo larval. A 28°C el ciclo larva→adulto es de ~7–10 días; con lag de 2 meses refleja la cohorte de adultos emergentes del mes anterior." },
+  tmax_lag3: { icon: "🌡️", title: "Temperatura máxima hace 3 meses", bio: "Lag de mayor impacto entomológico: 3 meses atrás refleja la temperatura cuando comenzó el ciclo generacional completo (huevo→larva→pupa→adulto→infección→transmisión)." },
+  tmax_lag4: { icon: "🌡️", title: "Temperatura máxima hace 4 meses", bio: "Efecto acumulado sobre la densidad vectorial. Cuatro meses de calor sostenido pueden producir múltiples generaciones de mosquitos, escalando la presión de transmisión." },
+  tmax_lag5: { icon: "🌡️", title: "Temperatura máxima hace 5 meses", bio: "Refleja el inicio de una temporada calurosa extendida. Útil para detectar veranos largos donde el vector mantuvo alta densidad por muchos meses consecutivos." },
+  tmax_lag6: { icon: "🌡️", title: "Temperatura máxima hace 6 meses", bio: "Correlación de medio año: captura si la región estuvo en verano/época seca vs. lluvias, condicionando el tipo de criaderos (artificiales vs. naturales) que predominan ahora." },
+
+  // Lags climáticos — temperatura mínima
+  tmin_lag1: { icon: "🌡️", title: "Temperatura mínima hace 1 mes", bio: "Indica si el mes pasado tuvo noches cálidas que permitieron alta actividad vectorial nocturna. Noches >18°C aceleran la oviposición y alimentación sanguínea del vector adulto." },
+  tmin_lag2: { icon: "🌡️", title: "Temperatura mínima hace 2 meses", bio: "Meses con mínimas altas producen mayor supervivencia larval nocturna. Este lag captura la cohorte de mosquitos que emergió la semana pasada a partir de huevos depositados hace 2 meses." },
+  tmin_lag3: { icon: "🌡️", title: "Temperatura mínima hace 3 meses", bio: "Temperatura nocturna trimestral: refleja si la región atravesó un período de noches frías que limitara la reproducción del vector, o si las noches se mantuvieron cálidas estimulando el ciclo." },
+  tmin_lag4: { icon: "🌡️", title: "Temperatura mínima hace 4 meses", bio: "Largo plazo térmico nocturno. Cuatro meses de mínimas altas son un indicador de que el vector mantuvo alta densidad poblacional sostenida en ese período." },
+  tmin_lag5: { icon: "🌡️", title: "Temperatura mínima hace 5 meses", bio: "Captura el perfil de temperatura nocturna de la temporada anterior. Relevante para regiones con marcada estacionalidad donde la temperatura nocturna define el inicio/fin de la temporada vectorial." },
+  tmin_lag6: { icon: "🌡️", title: "Temperatura mínima hace 6 meses", bio: "Temperatura nocturna de hace 6 meses: marca si la región estaba en verano o invierno, condicionando la densidad vectorial basal de la temporada actual." },
+
+  // Lags climáticos — precipitación
+  precipitacion_lag1: { icon: "🌧️", title: "Precipitación hace 1 mes", bio: "La lluvia del mes pasado creó los criaderos que produjeron los adultos que están picando ahora. Lluvia intensa → más criaderos → más larvas → más adultos infectantes este mes." },
+  precipitacion_lag2: { icon: "🌧️", title: "Precipitación hace 2 meses", bio: "Refleja los criaderos formados hace 2 meses. El ciclo larva→adulto es de ~7–14 días, por lo que la lluvia de hace 2 meses alimentó la cohorte de vectores que emergió el mes pasado." },
+  precipitacion_lag3: { icon: "🌧️", title: "Precipitación hace 3 meses", bio: "Lag trimestral: captura si el inicio de la temporada de lluvias (3 meses atrás) fue intenso. El primer pulso de lluvia crea criaderos masivos que generan la primera ola de adultos 2–4 semanas después." },
+  precipitacion_lag4: { icon: "🌧️", title: "Precipitación hace 4 meses", bio: "Precipitación de la temporada anterior. Relevante para regiones con estación lluviosa bien definida: permite al modelo saber si la carga vectorial acumulada fue alta o baja en este año." },
+  precipitacion_lag5: { icon: "🌧️", title: "Precipitación hace 5 meses", bio: "Efecto de largo plazo: en regiones tropicales, lluvia abundante 5 meses atrás puede haber saturado el suelo y creado cuerpos de agua semi-permanentes que aún persisten como criaderos." },
+  precipitacion_lag6: { icon: "🌧️", title: "Precipitación hace 6 meses", bio: "Precipitación del semestre anterior. Permite comparar si la región está en un año más lluvioso o seco que el promedio histórico, condicionando la disponibilidad de criaderos actuales." },
+
+  // Lags climáticos — humedad
+  humedad_lag1: { icon: "💧", title: "Humedad relativa hace 1 mes", bio: "Alta humedad el mes pasado extendió la vida del vector adulto, aumentando la probabilidad de que mosquitos infectados vivieran lo suficiente para transmitir el virus." },
+  humedad_lag2: { icon: "💧", title: "Humedad relativa hace 2 meses", bio: "Captura el efecto de la humedad sobre la evaporación de criaderos: baja humedad hace 2 meses pudo haber secado recipientes con larvas, reduciendo la cohorte de adultos actuales." },
+  humedad_lag3: { icon: "💧", title: "Humedad relativa hace 3 meses", bio: "Lag trimestral de humedad: identifica si la región atravesó una estación seca o húmeda que condicionó la disponibilidad de criaderos y la supervivencia del vector en ese período." },
+  humedad_lag4: { icon: "💧", title: "Humedad relativa hace 4 meses", bio: "Indica el contexto climático de la temporada anterior. Alta humedad sostenida favorece la actividad crepuscular/nocturna del mosquito y la maduración de huevos de Aedes." },
+  humedad_lag5: { icon: "💧", title: "Humedad relativa hace 5 meses", bio: "Efecto de largo plazo sobre la diapausa: huevos de Aedes pueden sobrevivir en ambientes secos hasta 12 meses. Alta humedad ahora puede activar huevos que la sequía de 5 meses atrás indujo a diapausa." },
+  humedad_lag6: { icon: "💧", title: "Humedad relativa hace 6 meses", bio: "Perfil semestral de humedad: fundamental para regiones con dos estaciones marcadas. Permite al modelo detectar si la transición seco→húmedo ocurrió hace 6 meses, desencadenando el ciclo vectorial actual." },
+
+  // Vecinos espaciales
+  incidencia_vecinos_lag1: { icon: "🗺️", title: "Incidencia vecinos (hace 1 mes)", bio: "Promedio de casos de los 3 departamentos geográficamente más cercanos el mes pasado. El dengue se difunde por contigüidad: viajeros, movilidad laboral y transporte terrestre entre departamentos vecinos." },
+  incidencia_vecinos_lag2: { icon: "🗺️", title: "Incidencia vecinos (hace 2 meses)", bio: "Difusión espacial retardada 2 meses: captura el 'frente de onda' epidémico que avanza desde focos vecinos. Un departamento puede prever su propio brote al observar el de sus vecinos." },
+  incidencia_vecinos_lag3: { icon: "🗺️", title: "Incidencia vecinos (hace 3 meses)", bio: "Onda epidémica trimestral: cuando los departamentos vecinos tuvieron un pico 3 meses atrás, la presión migratoria de casos importados llega ahora al departamento objetivo." },
+  incidencia_vecinos_lag4: { icon: "🗺️", title: "Incidencia vecinos (hace 4 meses)", bio: "Difusión regional de mediano plazo. Relevante para cuencas amazónicas o corredores viales donde el virus viaja lentamente entre poblaciones rurales dispersas." },
+  incidencia_vecinos_lag5: { icon: "🗺️", title: "Incidencia vecinos (hace 5 meses)", bio: "Captura la propagación desde focos endémicos lejanos. Departamentos con alta endemia vecina hace 5 meses pueden estar exportando casos con serotipos específicos." },
+  incidencia_vecinos_lag6: { icon: "🗺️", title: "Incidencia vecinos (hace 6 meses)", bio: "Presión vectorial regional de hace 6 meses: cuando los vecinos tuvieron un semestre de alta incidencia, el pool de mosquitos infectados en la región geográfica ampliada es mayor." },
+
+  // Medias móviles
+  incidencia_roll3: { icon: "📊", title: "Media móvil 3 meses", bio: "Promedio de incidencia de los últimos 3 meses: suaviza picos puntuales y revela la tendencia de corto plazo. Un roll3 alto indica que el brote no fue un evento aislado sino una tendencia sostenida." },
+  incidencia_roll6: { icon: "📊", title: "Media móvil 6 meses", bio: "Tendencia semestral de incidencia: permite al modelo distinguir entre departamentos crónicamente endémicos (roll6 alto permanente) y los que experimentan brotes esporádicos." },
+  incidencia_roll12: { icon: "📊", title: "Media móvil 12 meses", bio: "Carga anual de dengue: el promedio de los últimos 12 meses es el indicador de endemicidad más robusto. Departamentos con roll12 alto tienen vectores bien establecidos y población con inmunidad heterogénea." },
+
+  // Variables derivadas epidemiológicas
+  amplitud_termica: { icon: "🌡️", title: "Amplitud térmica (tmax − tmin)", bio: "La diferencia entre temperatura máxima y mínima diaria. Rangos amplios (>10°C) reducen la actividad vectorial porque las noches frías matan los adultos. Rangos estrechos en climas húmedos favorecen al mosquito." },
+  temperatura_media: { icon: "🌡️", title: "Temperatura media mensual", bio: "Promedio de tmax y tmin. En el rango 25–30°C, la temperatura media óptima para Aedes aegypti maximiza la tasa de picadura, la oviposición y la replicación viral dentro del vector." },
+  precipitacion_anomalia: { icon: "🌧️", title: "Anomalía de precipitación", bio: "Desviación de la lluvia mensual respecto a la media histórica del mismo mes. Lluvias anómalas (positivas) crean criaderos inusuales; anomalías negativas (sequías) pueden concentrar larvas en contenedores residuales." },
+  aceleracion_incidencia: { icon: "📈", title: "Aceleración de incidencia", bio: "Segunda derivada temporal: mide si la incidencia está acelerando (segunda derivada positiva) o desacelerando. Una aceleración positiva alerta de un brote en fase exponencial temprana." },
+  cambio_interanual: { icon: "📈", title: "Cambio interanual de incidencia", bio: "Diferencia entre la incidencia actual y la del mismo mes del año anterior. Permite detectar si 2022 está siendo más intenso que 2021, incluso si ambos tienen incidencia moderada en términos absolutos." },
+  tendencia_1m: { icon: "📈", title: "Tendencia de 1 mes", bio: "Diferencia entre incidencia del mes actual y el anterior (primera derivada). Pendiente positiva indica brote en crecimiento; negativa indica descenso. El Agente 6 usa esto para detectar el régimen epidémico." },
+  tendencia_3m: { icon: "📈", title: "Tendencia de 3 meses", bio: "Diferencia entre incidencia actual y la de hace 3 meses. Captura tendencias de mediano plazo, filtrando variaciones mensuales ruidosas para revelar si el departamento está en ciclo ascendente o descendente." },
+  fase_ascendente: { icon: "📈", title: "Fase ascendente (binario)", bio: "Vale 1 si la incidencia actual es mayor a la de los 3 meses previos (tendencia al alza). Señal de alerta temprana de brote: el modelo XGBoost le da más peso a las variables autorregresivas cuando esta señal está activa." },
+  indicador_brote: { icon: "🚨", title: "Indicador de brote activo (binario)", bio: "Vale 1 si la incidencia supera el percentil 90 histórico del departamento (umbral de epidemia local). Activa el modo de alta alerta en el Agente 6 y redirige los pesos del ensemble hacia el LSTM." },
+
+  // Indicadores de contexto
+  indicador_covid: { icon: "🦠", title: "Período COVID-19 (2020-2021)", bio: "Las medidas de confinamiento redujeron la movilidad humana pero también la vigilancia epidemiológica. Controla el sub-reporte de casos en 2020-2021 y los efectos indirectos sobre los patrones de transmisión." },
+  indicador_nino: { icon: "🌊", title: "Evento El Niño", bio: "El Niño causa calentamiento y sequías en regiones andinas latinoamericanas, pero lluvias intensas en el Pacífico. En algunas regiones amplifica el dengue (más criaderos); en otras lo reduce (sequía elimina larvas)." },
+  indicador_nina: { icon: "🌊", title: "Evento La Niña", bio: "La Niña genera lluvias intensas en regiones andinas y amazónicas, creando condiciones óptimas para Aedes aegypti. Históricamente los brotes de dengue más severos en Perú, Colombia y Ecuador coinciden con La Niña." },
+
+  // Codificación cíclica
+  mes_sin: { icon: "📅", title: "Codificación cíclica del mes (seno)", bio: "sin(2π·mes/12) — componente sinusoidal que representa la posición del mes en el ciclo anual. Permite al modelo aprender que diciembre y enero están temporalmente cercanos (no separados por 11 meses)." },
+  mes_cos: { icon: "📅", title: "Codificación cíclica del mes (coseno)", bio: "cos(2π·mes/12) — componente coseno complementaria. Junto con mes_sin forma un vector unitario en el círculo trigonométrico que representa unívocamente cada mes sin discontinuidades en el año." },
+
+  // Dummies de país
+  pais_ARG: { icon: "🇦🇷", title: "Dummy: Argentina", bio: "Controla el patrón epidemiológico específico de Argentina: dengue estacional concentrado en verano austral (nov–mar), principalmente en el norte. Los umbrales climáticos del vector difieren de países tropicales." },
+  pais_BOL: { icon: "🇧🇴", title: "Dummy: Bolivia", bio: "Ajusta por el contexto epidemiológico boliviano: regiones bajas (Beni, Santa Cruz) con transmisión endémica vs. altiplano sin transmisión. Controla las diferencias en sistema de vigilancia y sub-reporte." },
+  pais_BRA: { icon: "🇧🇷", title: "Dummy: Brasil", bio: "Brasil concentra el 70–80% de los casos de América Latina. Esta dummy ajusta por el mayor volumen de casos, la mayor capacidad de vigilancia y los patrones de circulación de múltiples serotipos simultáneamente." },
+  pais_COL: { icon: "🇨🇴", title: "Dummy: Colombia", bio: "Ajusta por el patrón bimodal de Colombia (dos picos anuales: abril-junio y octubre-noviembre) asociado a dos temporadas de lluvias. Controla también la diversidad altitudinal entre costa, valles y Amazonía." },
+  pais_ECU: { icon: "🇪🇨", title: "Dummy: Ecuador", bio: "Controla el contexto ecuatoriano: la costa del Pacífico es hiperendémica mientras que la Sierra andina tiene transmisión limitada. Ajusta por el sistema de vigilancia del SIVE-Alerta del MSP Ecuador." },
+  pais_MEX: { icon: "🇲🇽", title: "Dummy: México", bio: "Ajusta por la diversidad climática mexicana (Pacífico, Golfo, interior seco). México tiene uno de los sistemas de vigilancia más robustos de la región, con menor sub-reporte relativo." },
+  pais_PAN: { icon: "🇵🇦", title: "Dummy: Panamá", bio: "Ajusta por el contexto de Panamá como corredor de tránsito continental con alta movilidad y climas tropicales uniformes. La circulación de los cuatro serotipos DENV 1-4 es simultánea." },
+  pais_PER: { icon: "🇵🇪", title: "Dummy: Perú", bio: "Ajusta por el patrón peruano: la selva amazónica concentra la mayoría de casos con brotes asociados a El Niño Costero. La región amazónica mantiene alta endemia mientras Lima y la sierra permanecen libres." },
+};
+
+function getShapBio(featureName) {
+  if (SHAP_BIO[featureName]) return SHAP_BIO[featureName];
+  // Coincidencias por prefijo para variantes no listadas
+  const prefixMap = [
+    ["incidencia_lag", "🦟", "Incidencia de dengue con rezago", "Casos de dengue reportados k meses antes del período de predicción. Las series autorregresivas capturan el momentum epidémico: si hay casos ahora, habrá casos próximamente."],
+    ["tmax_lag", "🌡️", "Temperatura máxima con rezago", "Temperatura máxima mensual k meses antes. Determina la velocidad de replicación viral dentro del vector y el tiempo de incubación extrínseca del dengue."],
+    ["tmin_lag", "🌡️", "Temperatura mínima con rezago", "Temperatura mínima mensual k meses antes. Controla la supervivencia nocturna del mosquito Aedes aegypti y la viabilidad de las larvas."],
+    ["precipitacion_lag", "🌧️", "Precipitación con rezago", "Lluvia acumulada k meses antes. Genera los criaderos de agua estancada donde se reproducen las larvas del vector Aedes aegypti."],
+    ["humedad_lag", "💧", "Humedad relativa con rezago", "Humedad relativa k meses antes. La humedad elevada extiende la vida del mosquito adulto y su radio de vuelo efectivo."],
+    ["incidencia_vecinos_lag", "🗺️", "Incidencia vecinal con rezago", "Promedio de incidencia de los 3 departamentos geográficamente más cercanos, k meses antes. Captura la difusión espacial del dengue a través de la movilidad humana regional."],
+    ["pais_", "🌎", "Variable indicadora de país", "Variable binaria que identifica el país. Controla diferencias estructurales entre sistemas de vigilancia epidemiológica, densidad vectorial endémica y contexto sociosanitario."],
+  ];
+  for (const [prefix, icon, title, bio] of prefixMap) {
+    if (featureName.startsWith(prefix)) return { icon, title, bio };
+  }
+  return null;
+}
+
+function ShapTooltip({ feature, children }) {
+  const [show, setShow] = React.useState(false);
+  const info = getShapBio(feature);
+  if (!info) return <>{children}</>;
+  return (
+    <div
+      className="relative inline-flex items-center gap-xs cursor-help"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      <span className="text-[11px] text-on-surface-variant/40 hover:text-primary transition-colors">ⓘ</span>
+      {show && (
+        <div
+          className="absolute z-50 bottom-full left-0 mb-2 w-72 rounded-xl shadow-2xl border border-outline-variant animate-fade-in pointer-events-none"
+          style={{ background: "rgb(var(--color-surface-container-high))" }}
+        >
+          <div className="flex items-center gap-xs px-md pt-md pb-xs border-b border-outline-variant/40">
+            <span className="text-[16px]">{info.icon}</span>
+            <span className="text-[12px] font-bold text-primary leading-snug">{info.title}</span>
+          </div>
+          <p className="px-md py-sm text-[11px] text-on-surface-variant leading-relaxed">{info.bio}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const MOCK_SHAP_GLOBAL = [
   { feature: "incidencia_lag1", importance: 0.285 },
   { feature: "tmax_promedio", importance: 0.182 },
@@ -288,7 +435,9 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
                         <div className="flex justify-between items-center" style={{ fontVariantNumeric: "tabular-nums" }}>
                           <div className="flex items-center gap-sm">
                             <span className="text-[10px] font-bold text-on-surface-variant/50 w-5 text-right flex-shrink-0">#{globalRank}</span>
-                            <span className="text-label-md text-on-surface font-medium group-hover/bar:text-primary transition-colors">{feature.feature}</span>
+                            <ShapTooltip feature={feature.feature}>
+                              <span className="text-label-md text-on-surface font-medium group-hover/bar:text-primary transition-colors">{feature.feature}</span>
+                            </ShapTooltip>
                           </div>
                           <div className="flex items-center gap-sm">
                             <span className={`text-[10px] font-bold px-xs py-0.5 rounded ${isNegative ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"}`}>
@@ -507,7 +656,9 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
                           return (
                             <div key={feat.feature} className="space-y-xs">
                               <div className="flex justify-between items-center" style={{ fontVariantNumeric: "tabular-nums" }}>
-                                <span className="text-label-md text-on-surface font-medium">{feat.feature}</span>
+                                <ShapTooltip feature={feat.feature}>
+                                  <span className="text-label-md text-on-surface font-medium">{feat.feature}</span>
+                                </ShapTooltip>
                                 <span className={`text-label-md font-bold ${isNeg ? "text-blue-600" : "text-orange-500"}`}>
                                   {feat.value > 0 ? "+" : ""}{feat.value.toFixed(4)}
                                 </span>
