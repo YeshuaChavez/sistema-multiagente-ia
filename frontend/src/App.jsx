@@ -458,12 +458,6 @@ export default function App() {
                   <li><strong>MAE (Error Absoluto Medio):</strong> Promedio de las desviaciones absolutas entre la predicción y el caso real (5.83 casos/100k hab. para el Ensemble).</li>
                 </ul>
               </div>
-              <div className="border-t border-outline-variant pt-md">
-                <p className="font-bold text-primary text-label-md">Contacto del Investigador</p>
-                <p className="text-body-md text-on-surface-variant mt-xs">
-                  Desarrollado como Proyecto Final en la Facultad de Ingeniería de Sistemas e Informática (FISI) - UNMSM. Autor: <strong>Yeshua Chavez</strong> (yeshua.chavez@unmsm.edu.pe).
-                </p>
-              </div>
             </div>
 
             <button 
