@@ -210,7 +210,7 @@ class AgentePrediccionML:
         shap_vals = explainer.shap_values(X_test_sc)
         if isinstance(shap_vals, list):
             shap_vals = shap_vals[0]
-        mean_shap = shap_vals.mean(axis=0)
+        mean_shap = np.abs(shap_vals).mean(axis=0)  # mean(|SHAP|): importancia sin cancelación de signo
         shap_dict = dict(sorted(
             {f: float(v) for f, v in zip(COLS_FEAT, mean_shap)}.items(),
             key=lambda x: abs(x[1]), reverse=True

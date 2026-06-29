@@ -156,7 +156,7 @@ const MOCK_SHAP_GLOBAL = [
   { feature: "tmax_promedio", importance: 0.182 },
   { feature: "precipitacion", importance: 0.144 },
   { feature: "humedad_promedio", importance: 0.095 },
-  { feature: "agua_basica", importance: -0.078 },
+  { feature: "agua_basica", importance: 0.078 },
   { feature: "incidencia_vecinos_lag1", importance: 0.065 },
   { feature: "densidad_poblacion", importance: 0.042 },
   { feature: "tmin_promedio", importance: 0.038 },
@@ -429,7 +429,6 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
                   {pageData.map((feature, i) => {
                     const globalRank = shapPage * SHAP_PAGE_SIZE + i + 1;
                     const pct = (Math.abs(feature.importance) / maxVal) * 100;
-                    const isNegative = feature.importance < 0;
                     return (
                       <div key={feature.feature} className="space-y-xs group/bar">
                         <div className="flex justify-between items-center" style={{ fontVariantNumeric: "tabular-nums" }}>
@@ -439,16 +438,11 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
                               <span className="text-label-md text-on-surface font-medium group-hover/bar:text-primary transition-colors">{feature.feature}</span>
                             </ShapTooltip>
                           </div>
-                          <div className="flex items-center gap-sm">
-                            <span className={`text-[10px] font-bold px-xs py-0.5 rounded ${isNegative ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"}`}>
-                              {isNegative ? "↓ reduce" : "↑ aumenta"}
-                            </span>
-                            <span className="text-label-md text-on-surface-variant font-mono">{feature.importance.toFixed(4)}</span>
-                          </div>
+                          <span className="text-label-md text-on-surface-variant font-mono">{Math.abs(feature.importance).toFixed(4)}</span>
                         </div>
                         <div className="w-full bg-surface-container-low dark:bg-zinc-800 h-3 rounded-full overflow-hidden">
                           <div
-                            className={`chart-bar h-full bg-gradient-to-r ${isNegative ? "from-blue-600 to-blue-400" : "from-orange-400 to-orange-600"} rounded-full transition-all duration-300 group-hover/bar:brightness-110`}
+                            className="chart-bar h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-300 group-hover/bar:brightness-110"
                             style={{ width: `${Math.max(pct, 2)}%` }}
                           />
                         </div>
