@@ -435,7 +435,7 @@ Para el workflow de GitHub Actions, `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY
 
 ---
 
-## Decisiones de diseno
+## Decisiones de diseño
 
 **Split dinamico train/test** — `split_ano = max_ano - 2` garantiza que siempre los ultimos 2 anos del dataset sean el conjunto de prueba, independientemente del ano maximo. Esto hace el pipeline de reentrenamiento automatico consistente: cuando lleguen datos nuevos de OpenDengue, el split se ajusta solo.
 
