@@ -8,6 +8,7 @@ import DashboardView from "./components/DashboardView";
 import PredictorView from "./components/PredictorView";
 import ExplainabilityView from "./components/ExplainabilityView";
 import InfoView from "./components/InfoView";
+import MosquitoIcon from "./components/MosquitoIcon";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -23,9 +24,11 @@ export default function App() {
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [simulationHistory, setSimulationHistory] = useState([]);
+  const [isAppLoading, setIsAppLoading] = useState(true);
 
   // Cargar metadatos y coordenadas al montar
   useEffect(() => {
+    const startTime = Date.now();
     const loadInitialData = async () => {
       try {
         const statusRes = await fetch(`${API_URL}/api/status`);
@@ -49,6 +52,13 @@ export default function App() {
       } catch (err) {
         console.warn("Backend no disponible:", err.message);
         setBackendStatus("offline");
+      } finally {
+        const elapsedTime = Date.now() - startTime;
+        const minDuration = 2200; // 2.2 segundos para mostrar la animación
+        const remainingTime = Math.max(0, minDuration - elapsedTime);
+        setTimeout(() => {
+          setIsAppLoading(false);
+        }, remainingTime);
       }
     };
 
@@ -270,6 +280,55 @@ export default function App() {
 
   return (
     <>
+      {/* PANTALLA DE CARGA IMPERIAL (SPLASH SCREEN) */}
+      <div
+        className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background text-on-background transition-all duration-700 ease-in-out ${
+          !isAppLoading ? "opacity-0 pointer-events-none translate-y-[-20px]" : "opacity-100"
+        }`}
+      >
+        {/* Halo de brillo de fondo */}
+        <div className="absolute w-[300px] h-[300px] rounded-full bg-primary/10 dark:bg-primary/20 blur-[100px] animate-pulse pointer-events-none" />
+
+        <div className="relative flex flex-col items-center gap-md text-center max-w-sm px-lg z-10">
+          {/* Mosquito Grande Animado */}
+          <div className="relative p-xl rounded-full bg-surface-container-low/80 dark:bg-zinc-900/60 border border-outline-variant shadow-2xl animate-float">
+            <MosquitoIcon size={76} className="text-primary animate-pulse" />
+            <span className="absolute top-2 right-2 flex h-3.5 w-3.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-primary"></span>
+            </span>
+          </div>
+
+          {/* Nombre del Sistema */}
+          <div className="space-y-xs animate-fade-in-up mt-sm">
+            <h1 className="text-[32px] font-black tracking-tight text-on-background flex items-center justify-center gap-xs">
+              Dengue<span className="text-primary">Predict</span>
+            </h1>
+            <p className="text-[12px] text-on-surface-variant font-semibold tracking-wider uppercase">
+              Sistema Multi-Agente SMA-ML/DL
+            </p>
+            <p className="text-[11px] text-on-surface-variant italic max-w-[280px] mx-auto">
+              Vigilancia Epidemiológica y Alerta Temprana a Nivel Subnacional
+            </p>
+          </div>
+
+          {/* Barra de progreso y carga */}
+          <div className="w-48 mt-lg space-y-xs animate-fade-in-up delay-150">
+            <div className="h-[3px] w-full bg-surface-container-high rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full animate-shimmer" style={{
+                width: '100%',
+                backgroundImage: 'linear-gradient(90deg, rgb(var(--color-primary)) 0%, #3b82f6 50%, rgb(var(--color-primary)) 100%)',
+                backgroundSize: '200% 100%'
+              }} />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-semibold uppercase px-0.5">
+              <span>Inicializando agentes</span>
+              <span className="animate-pulse">Conectando...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Sidebar — fixed, hidden on mobile */}
       <Sidebar
         currentView={currentView}
