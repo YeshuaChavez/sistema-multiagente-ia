@@ -493,11 +493,22 @@ export default function PredictorView({
                     const val = sliderValues[key] ?? (def.min + def.max) / 2;
                     return (
                       <div key={key} className="space-y-xs">
-                        <div className="flex justify-between items-center">
-                          <label className="text-body-md text-on-surface-variant">{def.label}</label>
-                          <span className="font-bold text-primary bg-surface-container-high px-sm py-0.5 rounded-lg text-label-md" style={{ fontVariantNumeric: "tabular-nums" }}>
-                            {val.toFixed(key === "humedad_promedio" ? 0 : 1)}{def.unit}
-                          </span>
+                        <div className="flex justify-between items-center gap-sm">
+                          <label className="text-body-md text-on-surface-variant flex-1 min-w-0">{def.label}</label>
+                          <div className="flex items-center gap-xs flex-shrink-0">
+                            <input
+                              type="number"
+                              min={def.min}
+                              max={def.max}
+                              step={def.step}
+                              value={val}
+                              onChange={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) handleSliderChange(key, n); }}
+                              onBlur={(e) => { const n = parseFloat(e.target.value); handleSliderChange(key, isNaN(n) ? def.min : Math.min(def.max, Math.max(def.min, n))); }}
+                              className="w-20 text-right font-bold text-primary bg-surface-container-high px-xs py-0.5 rounded-lg text-label-md border border-outline-variant/40 focus:outline-none focus:ring-1 focus:ring-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              style={{ fontVariantNumeric: "tabular-nums" }}
+                            />
+                            {def.unit && <span className="text-label-md text-on-surface-variant/60 w-6">{def.unit}</span>}
+                          </div>
                         </div>
                         <input
                           type="range"
@@ -541,11 +552,22 @@ export default function PredictorView({
                           const val = sliderValues[key] ?? (def.min + def.max) / 2;
                           return (
                             <div key={key} className="space-y-xs">
-                              <div className="flex justify-between items-center">
-                                <label className="text-[12px] text-on-surface-variant leading-tight">{def.label}</label>
-                                <span className="font-bold text-primary/80 bg-surface-container px-xs py-0.5 rounded text-[11px]" style={{ fontVariantNumeric: "tabular-nums" }}>
-                                  {val.toFixed(key.includes("humedad") || key === "densidad_poblacion" ? 0 : 1)}{def.unit}
-                                </span>
+                              <div className="flex justify-between items-center gap-xs">
+                                <label className="text-[12px] text-on-surface-variant leading-tight flex-1 min-w-0">{def.label}</label>
+                                <div className="flex items-center gap-xs flex-shrink-0">
+                                  <input
+                                    type="number"
+                                    min={def.min}
+                                    max={def.max}
+                                    step={def.step}
+                                    value={val}
+                                    onChange={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) handleSliderChange(key, n); }}
+                                    onBlur={(e) => { const n = parseFloat(e.target.value); handleSliderChange(key, isNaN(n) ? def.min : Math.min(def.max, Math.max(def.min, n))); }}
+                                    className="w-16 text-right font-bold text-primary/80 bg-surface-container px-xs py-0.5 rounded text-[11px] border border-outline-variant/30 focus:outline-none focus:ring-1 focus:ring-primary/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    style={{ fontVariantNumeric: "tabular-nums" }}
+                                  />
+                                  {def.unit && <span className="text-[11px] text-on-surface-variant/50 w-5">{def.unit}</span>}
+                                </div>
                               </div>
                               <input
                                 type="range"
