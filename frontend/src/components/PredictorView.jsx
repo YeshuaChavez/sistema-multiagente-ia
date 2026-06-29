@@ -141,6 +141,7 @@ export default function PredictorView({
   onSimulationComplete,
 }) {
   const [sliderValues, setSliderValues] = useState({});
+  const [enso, setEnso] = useState("neutral"); // "neutral" | "nino" | "nina"
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [advancedPage, setAdvancedPage] = useState(0);
   const ADV_PAGE_SIZE = 7;
@@ -305,7 +306,11 @@ export default function PredictorView({
             iso_a0: isoCode,
             adm_1_name: selectedDept,
             mes: targetMes,
-            clima_overrides: cleanOverrides,
+            clima_overrides: {
+              ...cleanOverrides,
+              indicador_nino: enso === "nino" ? 1 : 0,
+              indicador_nina: enso === "nina" ? 1 : 0,
+            },
           };
           const res = await fetch(`${API_URL}/api/predict/simulate`, {
             method: "POST",
@@ -489,6 +494,40 @@ export default function PredictorView({
                 <div className="flex items-center gap-sm border-b border-outline-variant pb-xs">
                   <span className="material-symbols-outlined text-primary-fixed-dim">tune</span>
                   <h4 className="text-label-md font-bold text-on-surface uppercase tracking-wider">VARIABLES PRINCIPALES</h4>
+                </div>
+
+                {/* ENSO toggle */}
+                <div className="space-y-xs">
+                  <div className="flex items-center justify-between">
+                    <label className="text-body-md text-on-surface-variant">Fenómeno ENSO</label>
+                    <span className="text-[10px] text-on-surface-variant/50 font-mono">
+                      {enso === "nino" ? "+10–14% casos" : enso === "nina" ? "−4–8% casos" : "base"}
+                    </span>
+                  </div>
+                  <div className="flex rounded-xl overflow-hidden border border-outline-variant">
+                    {[
+                      { key: "neutral", label: "Neutro",   icon: "water",       color: "text-on-surface-variant" },
+                      { key: "nino",    label: "El Niño",  icon: "wb_sunny",    color: "text-orange-500" },
+                      { key: "nina",    label: "La Niña",  icon: "water_drop",  color: "text-sky-500" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setEnso(opt.key)}
+                        className={`flex-1 flex items-center justify-center gap-xs py-sm text-label-md font-bold transition-colors cursor-pointer
+                          ${enso === opt.key
+                            ? "bg-primary text-on-primary"
+                            : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                          }`}
+                      >
+                        <span className={`material-symbols-outlined text-[15px] ${enso === opt.key ? "text-on-primary" : opt.color}`}
+                          style={{ fontVariationSettings: "'FILL' 1" }}>
+                          {opt.icon}
+                        </span>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-lg pt-xs">
