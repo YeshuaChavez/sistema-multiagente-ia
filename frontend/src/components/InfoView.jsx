@@ -398,6 +398,14 @@ export default function InfoView() {
             13% { top: calc(100% - 10px); opacity: 1; }
             15% { top: calc(100% - 10px); opacity: 0; }
           }
+          .flow-dot {
+            background: rgb(var(--color-primary));
+            box-shadow: 0 0 10px 3px rgba(var(--color-primary), 0.4);
+          }
+          .dark .flow-dot {
+            background: white;
+            box-shadow: 0 0 10px 3px rgba(255,255,255,0.6);
+          }
         `}</style>
 
         <h3 className="text-label-md font-bold text-primary uppercase tracking-wider mb-lg flex items-center gap-sm">
@@ -424,7 +432,7 @@ export default function InfoView() {
                   <div className="relative flex flex-col items-center" style={{ height: "28px", width: "2px" }}>
                     <div className="w-px h-full bg-outline/30" />
                     <div
-                      className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_8px_3px_rgba(255,255,255,0.5)]"
+                      className="absolute flow-dot w-2.5 h-2.5 rounded-full"
                       style={{
                         left: "50%", transform: "translateX(-50%)",
                         animation: "dotV 8s ease-in-out infinite",
@@ -464,7 +472,7 @@ export default function InfoView() {
                           <div className="absolute top-1/2 left-0 right-3 h-px bg-outline/25 -translate-y-1/2" />
                           <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/40 text-[16px]">chevron_right</span>
                           <div
-                            className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_10px_3px_rgba(255,255,255,0.6)]"
+                            className="absolute top-1/2 -translate-y-1/2 flow-dot w-2.5 h-2.5 rounded-full"
                             style={{ animation: "dotH 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33 + 0.75).toFixed(2)}s` }}
                           />
                         </div>
@@ -479,7 +487,7 @@ export default function InfoView() {
                   <div className="relative flex flex-col items-center" style={{ height: "32px", width: "2px" }}>
                     <div className="w-px h-full bg-outline/25" />
                     <div
-                      className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_10px_3px_rgba(255,255,255,0.6)]"
+                      className="absolute flow-dot w-2.5 h-2.5 rounded-full"
                       style={{
                         left: "50%", transform: "translateX(-50%)",
                         animation: "dotV 8s ease-in-out infinite",
@@ -523,22 +531,23 @@ export default function InfoView() {
       </div>
 
       {/* Footer Credits */}
-      <div className="rounded-xl p-lg bg-primary-container text-on-primary border border-outline-variant shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
+      <div className="rounded-xl p-lg bg-primary-container border border-outline-variant shadow-[0px_4px_20px_rgba(30,58,95,0.04)]"
+        style={{ color: "rgb(var(--color-on-primary-container))" }}>
         <div className="flex items-center gap-md mb-md">
-          <span className="material-symbols-outlined text-secondary-fixed text-[24px]">copyright</span>
+          <span className="material-symbols-outlined text-[24px]" style={{ color: "rgb(var(--color-secondary-fixed))" }}>copyright</span>
           <h4 className="text-label-md font-bold uppercase tracking-wider">Créditos y Fuentes de Datos</h4>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-lg text-[13px] opacity-90">
           <div>
-            <p className="font-bold text-secondary-fixed mb-xs">Datos Epidemiológicos</p>
+            <p className="font-bold mb-xs" style={{ color: "rgb(var(--color-secondary-fixed))" }}>Datos Epidemiológicos</p>
             <p>OpenDengue Project — Datos abiertos de vigilancia de dengue a escala subnacional en América Latina.</p>
           </div>
           <div>
-            <p className="font-bold text-secondary-fixed mb-xs">Datos Climáticos</p>
+            <p className="font-bold mb-xs" style={{ color: "rgb(var(--color-secondary-fixed))" }}>Datos Climáticos</p>
             <p>NASA POWER API (NASA Langley Research Center) — Temperatura máxima/mínima, precipitación y humedad relativa histórica a nivel subnacional.</p>
           </div>
           <div>
-            <p className="font-bold text-secondary-fixed mb-xs">Datos Demográficos</p>
+            <p className="font-bold mb-xs" style={{ color: "rgb(var(--color-secondary-fixed))" }}>Datos Demográficos</p>
             <p>World Bank Open Data — Estimaciones poblacionales anuales por país y subregión.</p>
           </div>
         </div>
