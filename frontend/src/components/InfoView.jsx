@@ -82,10 +82,6 @@ const techStack = [
   { category: "Frontend", items: ["React 19", "Vite", "TailwindCSS", "Leaflet.js"] },
 ];
 
-const getAgentDelay = (id) => {
-  const mapping = { 1: 0, 2: 0.9, 3: 1.8, 4: 2.7, 5: 3.6, 6: 4.5 };
-  return `${mapping[id] || 0}s`;
-};
 
 
 export default function InfoView() {
@@ -388,35 +384,29 @@ export default function InfoView() {
       <div className="custom-card rounded-xl p-lg overflow-hidden">
         <style>{`
           @keyframes agentGlow {
-            0%, 100% { transform: scale(1) translateY(0); filter: brightness(1); box-shadow: none; }
-            7%  { transform: scale(1.05) translateY(-3px); filter: brightness(1.1); box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 10px 24px rgba(0,0,0,0.22); }
-            14% { transform: scale(1.01) translateY(-1px); filter: brightness(1.03); box-shadow: 0 0 0 1.5px rgba(255,255,255,0.35), 0 4px 10px rgba(0,0,0,0.1); }
+            0%, 14%, 100% { box-shadow: none; transform: scale(1); filter: brightness(1); }
+            4%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 28px rgba(255,255,255,0.3); transform: scale(1.04); filter: brightness(1.08); }
+            10% { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.35); transform: scale(1.01); filter: brightness(1.02); }
           }
           @keyframes dotH {
-            0%, 100% { left: -6px; opacity: 0; }
-            3%  { left: 0px; opacity: 1; }
-            88% { left: calc(100% - 6px); opacity: 1; }
-            96% { left: calc(100% - 6px); opacity: 0; }
+            0%, 15%, 100% { left: 0px; opacity: 0; }
+            2%  { left: 0px; opacity: 1; }
+            13% { left: calc(100% - 10px); opacity: 1; }
+            15% { left: calc(100% - 10px); opacity: 0; }
           }
           @keyframes dotV {
-            0%, 100% { top: -6px; opacity: 0; }
-            3%  { top: 0px; opacity: 1; }
-            88% { top: calc(100% - 6px); opacity: 1; }
-            96% { top: calc(100% - 6px); opacity: 0; }
-          }
-          @keyframes lineFlash {
-            0%, 100% { opacity: 0.2; }
-            10% { opacity: 0.75; }
-            20% { opacity: 0.2; }
+            0%, 15%, 100% { top: 0px; opacity: 0; }
+            2%  { top: 0px; opacity: 1; }
+            13% { top: calc(100% - 10px); opacity: 1; }
+            15% { top: calc(100% - 10px); opacity: 0; }
           }
           .flow-dot {
-            width: 10px; height: 10px;
             background: rgb(var(--color-primary));
-            box-shadow: 0 0 0 2px rgba(var(--color-primary), 0.2), 0 0 10px 4px rgba(var(--color-primary), 0.5);
+            box-shadow: 0 0 10px 3px rgba(var(--color-primary), 0.5);
           }
           .dark .flow-dot {
             background: white;
-            box-shadow: 0 0 0 2px rgba(255,255,255,0.15), 0 0 10px 4px rgba(255,255,255,0.65);
+            box-shadow: 0 0 10px 3px rgba(255,255,255,0.6);
           }
         `}</style>
 
@@ -431,7 +421,7 @@ export default function InfoView() {
             <React.Fragment key={agent.id}>
               <div
                 className={`flex items-center gap-sm px-4 py-3 rounded-xl ${agent.color} text-white shadow-md`}
-                style={{ animation: "agentGlow 5s ease-in-out infinite", animationDelay: getAgentDelay(agent.id) }}
+                style={{ animation: "agentGlow 8s ease-in-out infinite", animationDelay: `${(idx * 1.33).toFixed(2)}s` }}
               >
                 <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
                 <div>
@@ -441,11 +431,12 @@ export default function InfoView() {
               </div>
               {idx < agents.length - 1 && (
                 <div className="flex justify-center">
-                  <div className="relative flex flex-col items-center" style={{ height: "30px", width: "10px" }}>
-                    <div className="absolute left-1/2 -translate-x-1/2 w-px h-full bg-outline"
-                      style={{ animation: "lineFlash 5s ease-in-out infinite", animationDelay: `${(idx * 0.9 + 0.45).toFixed(2)}s` }} />
-                    <div className="absolute flow-dot rounded-full"
-                      style={{ left: "50%", transform: "translateX(-50%)", animation: "dotV 5s ease-in-out infinite", animationDelay: `${(idx * 0.9 + 0.45).toFixed(2)}s` }} />
+                  <div className="relative flex flex-col items-center" style={{ height: "28px", width: "2px" }}>
+                    <div className="w-px h-full bg-outline/30" />
+                    <div
+                      className="absolute flow-dot w-2.5 h-2.5 rounded-full"
+                      style={{ left: "50%", transform: "translateX(-50%)", animation: "dotV 8s ease-in-out infinite", animationDelay: `${(idx * 1.33 + 0.75).toFixed(2)}s` }}
+                    />
                   </div>
                 </div>
               )}
@@ -454,18 +445,17 @@ export default function InfoView() {
         </div>
 
         {/* Desktop: 2 filas × 3 columnas */}
-        <div className="hidden sm:flex flex-col items-center gap-sm">
+        <div className="hidden sm:flex flex-col items-center">
           {[agents.slice(0, 3), agents.slice(3, 6)].map((row, rowIdx) => (
             <React.Fragment key={rowIdx}>
               <div className="flex items-center">
                 {row.map((agent, colIdx) => {
                   const flowIdx = rowIdx * 3 + colIdx;
-                  const connDelay = `${(flowIdx * 0.9 + 0.45).toFixed(2)}s`;
                   return (
                     <React.Fragment key={agent.id}>
                       <div
-                        className={`group/box flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[140px] cursor-default transition-shadow duration-200 hover:shadow-xl`}
-                        style={{ animation: "agentGlow 5s ease-in-out infinite", animationDelay: getAgentDelay(agent.id) }}
+                        className={`group/box flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[140px] cursor-default transition-all duration-200 hover:-translate-y-1 hover:shadow-xl`}
+                        style={{ animation: "agentGlow 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33).toFixed(2)}s` }}
                       >
                         <span className="material-symbols-outlined text-[24px] transition-transform duration-200 group-hover/box:scale-110" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
                         <div>
@@ -474,12 +464,13 @@ export default function InfoView() {
                         </div>
                       </div>
                       {colIdx < 2 && (
-                        <div className="relative flex items-center" style={{ width: "56px", height: "44px" }}>
-                          <div className="absolute top-1/2 left-0 right-4 h-px bg-outline -translate-y-1/2"
-                            style={{ animation: "lineFlash 5s ease-in-out infinite", animationDelay: connDelay }} />
-                          <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/60 text-[18px]">chevron_right</span>
-                          <div className="absolute top-1/2 -translate-y-1/2 flow-dot rounded-full"
-                            style={{ animation: "dotH 5s ease-in-out infinite", animationDelay: connDelay }} />
+                        <div className="relative flex items-center" style={{ width: "52px", height: "44px" }}>
+                          <div className="absolute top-1/2 left-0 right-3 h-px bg-outline/25 -translate-y-1/2" />
+                          <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/40 text-[16px]">chevron_right</span>
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 flow-dot w-2.5 h-2.5 rounded-full"
+                            style={{ animation: "dotH 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33 + 0.75).toFixed(2)}s` }}
+                          />
                         </div>
                       )}
                     </React.Fragment>
@@ -488,12 +479,13 @@ export default function InfoView() {
               </div>
               {rowIdx === 0 && (
                 <div className="flex justify-center w-full">
-                  <div className="relative flex flex-col items-center" style={{ height: "32px", width: "10px" }}>
-                    <div className="absolute left-1/2 -translate-x-1/2 w-px h-full bg-outline"
-                      style={{ animation: "lineFlash 5s ease-in-out infinite", animationDelay: "2.25s" }} />
-                    <div className="absolute flow-dot rounded-full"
-                      style={{ left: "50%", transform: "translateX(-50%)", animation: "dotV 5s ease-in-out infinite", animationDelay: "2.25s" }} />
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 material-symbols-outlined text-outline/60 text-[14px]">expand_more</span>
+                  <div className="relative flex flex-col items-center" style={{ height: "32px", width: "2px" }}>
+                    <div className="w-px h-full bg-outline/25" />
+                    <div
+                      className="absolute flow-dot w-2.5 h-2.5 rounded-full"
+                      style={{ left: "50%", transform: "translateX(-50%)", animation: "dotV 8s ease-in-out infinite", animationDelay: `${(2 * 1.33 + 0.75).toFixed(2)}s` }}
+                    />
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 material-symbols-outlined text-outline/40 text-[14px]">expand_more</span>
                   </div>
                 </div>
               )}
