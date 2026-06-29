@@ -352,9 +352,6 @@ export default function ExplainabilityView({ activeSubtab, simulationHistory = [
             Módulo de Explicabilidad Local y Global (SHAP)
           </h1>
           <div className="flex items-center gap-sm flex-wrap">
-            <span className="px-md py-xs bg-secondary/10 text-secondary text-label-md font-medium rounded-full flex items-center gap-xs">
-              <span className="h-2 w-2 rounded-full bg-secondary text-primary"></span> Agente 3 — TreeSHAP
-            </span>
             <span className="text-on-surface-variant text-label-md">Última actualización: {timeStr}</span>
           </div>
         </div>
