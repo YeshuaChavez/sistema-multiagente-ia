@@ -204,13 +204,13 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           >
             <div className={`h-1 w-full ${kpi.topBar}`} />
             {/* Mobile: columna centrada · sm+: fila */}
-            <div className="p-md sm:p-lg flex flex-col sm:flex-row items-center sm:items-center gap-sm sm:gap-md">
-              <div className={`w-11 h-11 sm:w-14 sm:h-14 bg-gradient-to-br ${kpi.iconGrad} rounded-xl flex items-center justify-center ${kpi.iconColor} flex-shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}>
-                <span className="material-symbols-outlined text-[22px] sm:text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{kpi.icon}</span>
+            <div className="p-sm sm:p-lg flex flex-col sm:flex-row items-center sm:items-center gap-sm sm:gap-md">
+              <div className={`w-7 h-7 sm:w-14 sm:h-14 bg-gradient-to-br ${kpi.iconGrad} rounded-lg sm:rounded-xl flex items-center justify-center ${kpi.iconColor} flex-shrink-0 shadow-md transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg`}>
+                <span className="material-symbols-outlined text-[14px] sm:text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>{kpi.icon}</span>
               </div>
               <div className="flex-1 min-w-0 text-center sm:text-left">
                 <p className="text-[10px] sm:text-[11px] font-semibold text-on-surface-variant uppercase tracking-wide">{kpi.label}</p>
-                <h3 className="text-[20px] sm:text-[26px] font-black text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>{kpi.value}</h3>
+                <h3 className="text-[18px] sm:text-[26px] font-black text-primary leading-tight" style={{ fontVariantNumeric: "tabular-nums" }}>{kpi.value}</h3>
                 <p className="text-[9px] sm:text-[10px] text-on-surface-variant truncate">{kpi.sub}</p>
               </div>
               <span className="absolute top-3 right-2 text-[9px] font-bold uppercase tracking-wider text-on-surface-variant/40 hidden group-hover:block">
