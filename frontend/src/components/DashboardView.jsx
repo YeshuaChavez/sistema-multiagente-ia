@@ -181,7 +181,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
           },
           {
             icon: "calendar_today", iconGrad: "from-emerald-500 to-secondary", iconColor: "text-white",
-            label: "Rango temporal", value: "2014–2022", sub: "Train 2014–20 · Test 2021–22",
+            label: "Rango temporal", value: "2014–2022", sub: "9 años · test 2021–22",
             topBar: "bg-gradient-to-r from-secondary/60 to-secondary/20",
             badge: "9 años", delay: "delay-75",
           },
