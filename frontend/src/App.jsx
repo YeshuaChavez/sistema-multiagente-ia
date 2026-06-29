@@ -363,7 +363,7 @@ export default function App() {
 
         {/* Scrollable Content */}
         <section className="flex-1 overflow-y-auto px-sm sm:px-lg pt-md sm:pt-lg pb-24 md:pb-xl">
-          <div className="max-w-[1440px] mx-auto">
+          <div key={currentView} className="max-w-[1440px] mx-auto animate-fade-in-up">
             {renderView()}
           </div>
         </section>

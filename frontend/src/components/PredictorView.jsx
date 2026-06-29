@@ -150,6 +150,7 @@ export default function PredictorView({
   
   // Predictor States
   const [loading, setLoading] = useState(false);
+  const [agentPhase, setAgentPhase] = useState(0);
   const [loadingBaseline, setLoadingBaseline] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -269,55 +270,74 @@ export default function PredictorView({
       return;
     }
     setLoading(true);
+    setAgentPhase(1);
     setError(null);
+
+    const startTime = Date.now();
+    let apiResult = null;
+    let apiError = null;
+
+    // Iniciar temporizadores para las fases visuales de los agentes
+    setTimeout(() => setAgentPhase(2), 450);
+    setTimeout(() => setAgentPhase(3), 900);
+    setTimeout(() => setAgentPhase(4), 1350);
 
     const isoCode = metadata[selectedCountry]?.iso_a0 || selectedCountry;
 
-    if (backendStatus === "offline") {
-      // Offline fallback: Run client-side mathematical projection model
-      setTimeout(() => {
-        const mockResult = runMockPrediction(sliderValues, selectedCountry, selectedDept);
-        setResult(mockResult);
-        setLoading(false);
-      }, 500);
-      return;
-    }
-
-    // Excluir features que siempre se recalculan en el backend
-    const { mes_sin, mes_cos, incidencia_roll3, incidencia_roll6, ...cleanOverrides } = sliderValues;
-    const body = {
-      iso_a0: isoCode,
-      adm_1_name: selectedDept,
-      mes: targetMes,
-      clima_overrides: cleanOverrides,
+    const runPrediction = async () => {
+      try {
+        if (backendStatus === "offline") {
+          // Fallback offline: Modelo matemático de simulación local
+          apiResult = runMockPrediction(sliderValues, selectedCountry, selectedDept);
+        } else {
+          // Excluir features que siempre se recalculan en el backend
+          const { mes_sin, mes_cos, incidencia_roll3, incidencia_roll6, ...cleanOverrides } = sliderValues;
+          const body = {
+            iso_a0: isoCode,
+            adm_1_name: selectedDept,
+            mes: targetMes,
+            clima_overrides: cleanOverrides,
+          };
+          const res = await fetch(`${API_URL}/api/predict/simulate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const d = await res.json();
+            throw new Error(d.detail || "Error en simulación");
+          }
+          apiResult = await res.json();
+        }
+      } catch (err) {
+        apiError = err.message;
+      } finally {
+        const elapsedTime = Date.now() - startTime;
+        const minDuration = 1800; // 1.8 segundos de animación para la consola de consenso
+        const remainingTime = Math.max(0, minDuration - elapsedTime);
+        
+        setTimeout(() => {
+          if (apiError) {
+            setError(apiError);
+          } else {
+            setResult(apiResult);
+            if (onSimulationComplete && apiResult) {
+              onSimulationComplete({
+                iso_a0: isoCode,
+                adm_1_name: selectedDept,
+                country: selectedCountry,
+                mes: targetMes,
+                clima_overrides: sliderValues,
+              });
+            }
+          }
+          setLoading(false);
+          setAgentPhase(0);
+        }, remainingTime);
+      }
     };
 
-    try {
-      const res = await fetch(`${API_URL}/api/predict/simulate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.detail || "Error en simulación");
-      }
-      const data = await res.json();
-      setResult(data);
-      if (onSimulationComplete) {
-        onSimulationComplete({
-          iso_a0: isoCode,
-          adm_1_name: selectedDept,
-          country: selectedCountry,
-          mes: targetMes,
-          clima_overrides: sliderValues,
-        });
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    runPrediction();
   }, [selectedCountry, selectedDept, sliderValues, targetMes, backendStatus, metadata, onSimulationComplete]);
 
   const handleSliderChange = (key, val) => {
@@ -621,6 +641,118 @@ export default function PredictorView({
                   </div>
                   <p className="text-label-md text-on-surface-variant uppercase tracking-widest font-bold">Consenso de Fusión</p>
                   <p className="text-headline-md text-on-surface-variant mt-sm">Configure variables geoclimáticas a la izquierda y presione ejecutar</p>
+                </div>
+              </div>
+            )}
+
+            {/* CONSOLA NEURAL DE CONSENSO DE AGENTES */}
+            {loading && (
+              <div className="bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-xl flex flex-col justify-center shadow-lg animate-fade-in" style={{ minHeight: "450px" }}>
+                <div className="text-center mb-lg">
+                  <div className="flex items-center justify-center gap-xs text-secondary mb-xs">
+                    <span className="material-symbols-outlined animate-spin-slow text-[22px]">hub</span>
+                    <span className="text-[12px] font-bold uppercase tracking-wider">Consenso Neural Activo</span>
+                  </div>
+                  <h4 className="text-headline-md text-primary font-bold">Procesando Inferencia Multi-Agente</h4>
+                  <p className="text-body-md text-on-surface-variant max-w-md mx-auto mt-xs">
+                    Coordinando agentes cognitivos de aprendizaje automático y deep learning en tiempo real.
+                  </p>
+                </div>
+
+                {/* Agent Flow Timeline */}
+                <div className="max-w-md mx-auto w-full space-y-md relative">
+                  {/* Vertical connecting line */}
+                  <div className="absolute left-[23px] top-6 bottom-6 w-[2px] bg-outline-variant/40 z-0" />
+
+                  {[
+                    {
+                      phase: 1,
+                      name: "Agente 1: Ingestor de Datos",
+                      desc: "Recuperando datos históricos y clima de satélites NASA POWER",
+                      icon: "cloud_download",
+                    },
+                    {
+                      phase: 2,
+                      name: "Agente 2: Procesador de Características",
+                      desc: "Normalizando variables geográficas y estructurando desfases (Lags)",
+                      icon: "tune",
+                    },
+                    {
+                      phase: 3,
+                      name: "Agente 3 & 4: Inferencia ML / DL",
+                      desc: "Computación de XGBoost (Árboles) y LSTM PyTorch (Memoria Recurrente)",
+                      icon: "memory",
+                    },
+                    {
+                      phase: 4,
+                      name: "Agente 5: Agente Consenso (Fusion)",
+                      desc: "Fusión ponderada de predicciones y calibración de alerta local",
+                      icon: "hub",
+                    },
+                  ].map((agent) => {
+                    const isCompleted = agentPhase > agent.phase;
+                    const isProcessing = agentPhase === agent.phase;
+                    const isWaiting = agentPhase < agent.phase;
+
+                    return (
+                      <div
+                        key={agent.phase}
+                        className={`flex gap-md items-start p-sm rounded-xl transition-all duration-300 relative z-10 ${
+                          isProcessing
+                            ? "bg-primary/5 border border-primary/20 scale-[1.02] shadow-sm"
+                            : "border border-transparent"
+                        }`}
+                      >
+                        {/* Status Icon */}
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                            isCompleted
+                              ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
+                              : isProcessing
+                              ? "bg-primary text-on-primary shadow-lg animate-pulse"
+                              : "bg-surface-container text-on-surface-variant/40"
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                          ) : isProcessing ? (
+                            <span className="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+                          ) : (
+                            <span className="material-symbols-outlined text-[20px]">{agent.icon}</span>
+                          )}
+                        </div>
+
+                        {/* Text description */}
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`font-bold text-label-md transition-colors ${
+                              isCompleted
+                                ? "text-emerald-700 dark:text-emerald-400"
+                                : isProcessing
+                                ? "text-primary"
+                                : "text-on-surface-variant/60"
+                            }`}
+                          >
+                            {agent.name}
+                          </p>
+                          <p
+                            className={`text-body-md truncate mt-0.5 ${
+                              isProcessing ? "text-on-background font-medium" : "text-on-surface-variant/60"
+                            }`}
+                          >
+                            {isProcessing ? (
+                              <span className="flex items-center gap-xs">
+                                <span className="w-1.5 h-1.5 bg-primary rounded-full animate-ping" />
+                                {agent.desc}
+                              </span>
+                            ) : (
+                              agent.desc
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
