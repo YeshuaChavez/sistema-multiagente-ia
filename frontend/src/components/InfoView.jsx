@@ -379,16 +379,40 @@ export default function InfoView() {
       </div>
 
       {/* Architecture Flow */}
-      <div className="custom-card rounded-xl p-lg">
+      <div className="custom-card rounded-xl p-lg overflow-hidden">
+        <style>{`
+          @keyframes agentGlow {
+            0%, 14%, 100% { box-shadow: none; }
+            4%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.9), 0 0 28px rgba(255,255,255,0.3); }
+            10% { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.35); }
+          }
+          @keyframes dotH {
+            0%, 15%, 100% { left: 0px; opacity: 0; }
+            2%  { left: 0px; opacity: 1; }
+            13% { left: calc(100% - 10px); opacity: 1; }
+            15% { left: calc(100% - 10px); opacity: 0; }
+          }
+          @keyframes dotV {
+            0%, 15%, 100% { top: 0px; opacity: 0; }
+            2%  { top: 0px; opacity: 1; }
+            13% { top: calc(100% - 10px); opacity: 1; }
+            15% { top: calc(100% - 10px); opacity: 0; }
+          }
+        `}</style>
+
         <h3 className="text-label-md font-bold text-primary uppercase tracking-wider mb-lg flex items-center gap-sm">
           <span className="material-symbols-outlined text-[18px]">account_tree</span>
           Flujo de la Arquitectura
         </h3>
-        {/* Mobile: lista vertical con flechas hacia abajo */}
-        <div className="flex flex-col items-stretch gap-xs sm:hidden">
+
+        {/* Mobile: columna vertical animada */}
+        <div className="flex flex-col items-stretch sm:hidden">
           {agents.map((agent, idx) => (
             <React.Fragment key={agent.id}>
-              <div className={`flex items-center gap-sm px-4 py-3 rounded-xl ${agent.color} text-white shadow-md`}>
+              <div
+                className={`flex items-center gap-sm px-4 py-3 rounded-xl ${agent.color} text-white shadow-md`}
+                style={{ animation: "agentGlow 8s ease-in-out infinite", animationDelay: `${(idx * 1.33).toFixed(2)}s` }}
+              >
                 <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
                 <div>
                   <p className="text-[9px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
@@ -397,37 +421,74 @@ export default function InfoView() {
               </div>
               {idx < agents.length - 1 && (
                 <div className="flex justify-center">
-                  <span className="material-symbols-outlined text-outline text-[20px]">arrow_downward</span>
+                  <div className="relative flex flex-col items-center" style={{ height: "28px", width: "2px" }}>
+                    <div className="w-px h-full bg-outline/30" />
+                    <div
+                      className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_8px_3px_rgba(255,255,255,0.5)]"
+                      style={{
+                        left: "50%", transform: "translateX(-50%)",
+                        animation: "dotV 8s ease-in-out infinite",
+                        animationDelay: `${(idx * 1.33 + 0.75).toFixed(2)}s`,
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </React.Fragment>
           ))}
         </div>
 
-        {/* Desktop: grid 2 filas × 3 columnas */}
-        <div className="hidden sm:flex flex-col items-center gap-md">
+        {/* Desktop: 2 filas × 3 columnas animadas */}
+        <div className="hidden sm:flex flex-col items-center">
           {[agents.slice(0, 3), agents.slice(3, 6)].map((row, rowIdx) => (
             <React.Fragment key={rowIdx}>
-              <div className="flex items-center gap-sm">
-                {row.map((agent, idx) => (
-                  <React.Fragment key={agent.id}>
-                    <div className={`group/box flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[130px] cursor-default
-                      transition-all duration-200 hover:-translate-y-1 hover:shadow-xl`}>
-                      <span className="material-symbols-outlined text-[24px] transition-transform duration-200 group-hover/box:scale-110"
-                        style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
-                        <p className="text-[13px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
+              <div className="flex items-center">
+                {row.map((agent, colIdx) => {
+                  const flowIdx = rowIdx * 3 + colIdx;
+                  return (
+                    <React.Fragment key={agent.id}>
+                      {/* Tarjeta del agente */}
+                      <div
+                        className={`flex items-center gap-sm px-5 py-3 rounded-xl ${agent.color} text-white shadow-md min-w-[140px] cursor-default`}
+                        style={{ animation: "agentGlow 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33).toFixed(2)}s` }}
+                      >
+                        <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>{agent.icon}</span>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider opacity-80">Agente {agent.id}</p>
+                          <p className="text-[13px] font-bold leading-tight">{agent.name.split("(")[0].trim().split("Agente de ").pop()}</p>
+                        </div>
                       </div>
-                    </div>
-                    {idx < 2 && (
-                      <span className="material-symbols-outlined text-outline text-[22px]">arrow_forward</span>
-                    )}
-                  </React.Fragment>
-                ))}
+                      {/* Conector horizontal con partícula */}
+                      {colIdx < 2 && (
+                        <div className="relative flex items-center" style={{ width: "52px", height: "44px" }}>
+                          <div className="absolute top-1/2 left-0 right-3 h-px bg-outline/25 -translate-y-1/2" />
+                          <span className="absolute right-0 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/40 text-[16px]">chevron_right</span>
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_10px_3px_rgba(255,255,255,0.6)]"
+                            style={{ animation: "dotH 8s ease-in-out infinite", animationDelay: `${(flowIdx * 1.33 + 0.75).toFixed(2)}s` }}
+                          />
+                        </div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </div>
+              {/* Conector vertical entre filas con partícula */}
               {rowIdx === 0 && (
-                <span className="material-symbols-outlined text-outline text-[22px]">arrow_downward</span>
+                <div className="flex justify-center w-full">
+                  <div className="relative flex flex-col items-center" style={{ height: "32px", width: "2px" }}>
+                    <div className="w-px h-full bg-outline/25" />
+                    <div
+                      className="absolute w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_10px_3px_rgba(255,255,255,0.6)]"
+                      style={{
+                        left: "50%", transform: "translateX(-50%)",
+                        animation: "dotV 8s ease-in-out infinite",
+                        animationDelay: `${(2 * 1.33 + 0.75).toFixed(2)}s`,
+                      }}
+                    />
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 material-symbols-outlined text-outline/40 text-[14px]">expand_more</span>
+                  </div>
+                </div>
               )}
             </React.Fragment>
           ))}
