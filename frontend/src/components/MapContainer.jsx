@@ -62,7 +62,7 @@ function ChangeView({ coordinates }) {
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export default function Map({ coordinates, onSelectDepartment, backendUrl, darkMode }) {
+export default function Map({ coordinates, onSelectDepartment, backendUrl, darkMode, riskFilter = "Todos" }) {
   const [mapData, setMapData] = useState([]);
 
   const defaultPosition = [-15.0, -65.0];
@@ -115,7 +115,7 @@ export default function Map({ coordinates, onSelectDepartment, backendUrl, darkM
           key={darkMode ? "dark" : "light"}
         />
 
-        {mapData.map((dept, idx) => {
+        {(riskFilter === "Todos" ? mapData : mapData.filter(d => d.nivel === riskFilter)).map((dept, idx) => {
           if (!dept.lat || !dept.lon) return null;
           return (
             <Marker

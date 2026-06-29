@@ -41,6 +41,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
   const [metrics, setMetrics] = useState(null);
   const [scatterData, setScatterData] = useState(undefined); // undefined=loading, null=unavailable
   const [selectedCountryFilter, setSelectedCountryFilter] = useState("ALL");
+  const [selectedRiskFilter, setSelectedRiskFilter] = useState("Todos");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportProgress, setReportProgress] = useState(0);
 
@@ -312,11 +313,19 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
                     ))}
                   </select>
                 </div>
-                <div className="flex items-center gap-sm">
-                  <span className="text-[12px] font-medium text-on-surface-variant hidden sm:inline">
-                    Vigilancia Activa
-                  </span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-secondary animate-pulse"></span>
+                <div className="flex items-center gap-xs">
+                  <span className="text-[12px] font-bold text-primary hidden sm:inline">Perfil Endémico:</span>
+                  <select
+                    value={selectedRiskFilter}
+                    onChange={(e) => setSelectedRiskFilter(e.target.value)}
+                    className="bg-surface-container-high text-primary font-bold text-[11px] px-sm py-1 rounded-lg border border-outline-variant outline-none cursor-pointer hover:bg-surface-container-highest transition-colors"
+                  >
+                    <option value="Todos">Todos</option>
+                    <option value="Bajo">Bajo</option>
+                    <option value="Moderado">Moderado</option>
+                    <option value="Alto">Alto</option>
+                    <option value="Muy Alto">Muy Alto</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -328,6 +337,7 @@ export default function DashboardView({ coordinates, onSelectDepartment, backend
                 onSelectDepartment={onSelectDepartment}
                 backendUrl={backendUrl}
                 darkMode={darkMode}
+                riskFilter={selectedRiskFilter}
               />
 
               {/* Map Legend */}
