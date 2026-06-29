@@ -154,6 +154,8 @@ export default function PredictorView({
   const [loadingBaseline, setLoadingBaseline] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  // Mobile-only: alterna entre panel de configuración y panel de resultado
+  const [mobileView, setMobileView] = useState("config");
 
   // History States
   const [historicalData, setHistoricalData] = useState([]);
@@ -168,6 +170,9 @@ export default function PredictorView({
       setSelectedDept(departments[0]);
     }
   }, [selectedCountry, departments, selectedDept, setSelectedDept]);
+
+  // Volver a "config" cuando el usuario cambia de ubicación
+  useEffect(() => { setMobileView("config"); }, [selectedCountry, selectedDept]);
 
   // Load baseline values when selected location changes
   useEffect(() => {
@@ -321,6 +326,7 @@ export default function PredictorView({
             setError(apiError);
           } else {
             setResult(apiResult);
+            if (window.innerWidth < 1024) setMobileView("resultado");
             if (onSimulationComplete && apiResult) {
               onSimulationComplete({
                 iso_a0: isoCode,
@@ -367,7 +373,7 @@ export default function PredictorView({
           <span className="text-secondary font-label-md font-bold uppercase tracking-wider">Inferencia y Alerta Temprana</span>
         </div>
         <h2 className="text-headline-lg text-primary font-bold">Consola Predictiva — DenguePredict</h2>
-        <p className="text-on-surface-variant text-body-md mt-xs max-w-3xl">
+        <p className="hidden sm:block text-on-surface-variant text-body-md mt-xs max-w-3xl">
           Configure las variables geoclimáticas y epidemiológicas del departamento de interés para obtener una estimación de riesgo de brote. Alterne entre simulación de variables, el histórico temporal y pautas científicas de alertas preventivas.
         </p>
       </div>
@@ -375,9 +381,32 @@ export default function PredictorView({
       {/* RENDER ACTIVE SUBTAB CONTENT */}
 
       {activeSubtab === "Simulación" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg animate-fade-in">
+        <div className="flex flex-col gap-lg animate-fade-in">
+
+          {/* ── Tab switcher: solo visible en móvil ── */}
+          <div className="flex lg:hidden rounded-xl overflow-hidden border border-outline-variant">
+            <button
+              onClick={() => setMobileView("config")}
+              className={`flex-1 py-sm text-label-md font-bold transition-colors flex items-center justify-center gap-xs cursor-pointer
+                ${mobileView === "config" ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}
+            >
+              <span className="material-symbols-outlined text-[16px]">tune</span>
+              Configurar
+            </button>
+            <button
+              onClick={() => setMobileView("resultado")}
+              className={`flex-1 py-sm text-label-md font-bold transition-colors flex items-center justify-center gap-xs cursor-pointer
+                ${mobileView === "resultado" ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"}`}
+            >
+              <span className="material-symbols-outlined text-[16px]">hub</span>
+              Resultado
+              {result && <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg">
           {/* ═══════════ LEFT COLUMN: PARAMETERS ═══════════ */}
-          <section className="lg:col-span-5 flex flex-col gap-lg">
+          <section className={`lg:col-span-5 flex flex-col gap-lg ${mobileView === "config" ? "" : "hidden lg:flex"}`}>
             <div className="bg-white dark:bg-zinc-900 border border-outline-variant rounded-xl p-lg flex flex-col gap-lg shadow-[0px_4px_20px_rgba(30,58,95,0.04)]">
               
               {/* Panel Header */}
@@ -588,7 +617,7 @@ export default function PredictorView({
           </section>
 
           {/* ═══════════ RIGHT COLUMN: RESULTS ═══════════ */}
-          <section className="lg:col-span-7 flex flex-col gap-lg">
+          <section className={`lg:col-span-7 flex flex-col gap-lg ${mobileView === "resultado" ? "" : "hidden lg:flex"}`}>
             <div className="flex items-center justify-between">
               <h3 className="text-headline-md text-primary font-bold">Resultados de Proyección <span className="text-on-surface-variant font-normal text-body-md">(Tasas por 100k hab.)</span></h3>
               <div className="flex items-center gap-xs">
@@ -873,6 +902,7 @@ export default function PredictorView({
               </div>
             )}
           </section>
+          </div>{/* end inner grid */}
         </div>
       )}
 
