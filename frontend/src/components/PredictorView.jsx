@@ -12,14 +12,14 @@ const riskStyles = {
 // Configuration of ranges, labels, and steps for model features
 // Ordered by SHAP global importance — principal = top drivers shown by default
 const FEATURE_DEFS = {
-  // ── Principal: ordered by SHAP importance ──
-  incidencia_lag1:  { label: "Incidencia Dengue Mes Anterior (t-1)", min: 0,   max: 500, step: 0.1, unit: " /100k", section: "principal" },
-  tmax_promedio:    { label: "Temperatura Máxima Promedio (°C)",      min: 15,  max: 45,  step: 0.1, unit: "°C",     section: "principal" },
-  precipitacion:    { label: "Precipitación Acumulada (mm)",           min: 0,   max: 500, step: 0.5, unit: " mm",    section: "principal" },
-  tmin_promedio:    { label: "Temperatura Mínima Promedio (°C)",       min: 10,  max: 30,  step: 0.1, unit: "°C",     section: "principal" },
-  humedad_promedio: { label: "Humedad Relativa Promedio (%)",           min: 0,   max: 100, step: 1,   unit: "%",      section: "principal" },
+  // ── Principal: datos conocidos al momento de predecir (mes anterior t-1) ──
+  incidencia_lag1:  { label: "Incidencia Dengue Mes Anterior (t-1)", min: 0,  max: 500, step: 0.1, unit: " /100k", section: "principal" },
+  tmax_lag1:        { label: "Temperatura Máxima Mes Anterior (°C)", min: 15, max: 45,  step: 0.1, unit: "°C",     section: "principal" },
+  precipitacion_lag1: { label: "Precipitación Mes Anterior (mm)",    min: 0,  max: 500, step: 0.5, unit: " mm",    section: "principal" },
+  tmin_lag1:        { label: "Temperatura Mínima Mes Anterior (°C)", min: 10, max: 30,  step: 0.1, unit: "°C",     section: "principal" },
+  humedad_lag1:     { label: "Humedad Relativa Mes Anterior (%)",     min: 0,  max: 100, step: 1,   unit: "%",      section: "principal" },
 
-  // ── Advanced: lags autorregresivos (mayor SHAP primero) ──
+  // ── Advanced: lags autorregresivos ──
   incidencia_lag2:       { label: "Incidencia Dengue Lag 2 (t-2)",    min: 0,  max: 500, step: 0.1, unit: " /100k",   section: "advanced" },
   incidencia_lag3:       { label: "Incidencia Dengue Lag 3 (t-3)",    min: 0,  max: 500, step: 0.1, unit: " /100k",   section: "advanced" },
   incidencia_lag4:       { label: "Incidencia Dengue Lag 4 (t-4)",    min: 0,  max: 500, step: 0.1, unit: " /100k",   section: "advanced" },
@@ -29,20 +29,16 @@ const FEATURE_DEFS = {
   incidencia_vecinos_lag1: { label: "Incidencia Vecina Lag 1 (t-1)", min: 0,  max: 500, step: 0.1, unit: " /100k",   section: "advanced" },
   incidencia_vecinos_lag2: { label: "Incidencia Vecina Lag 2 (t-2)", min: 0,  max: 500, step: 0.1, unit: " /100k",   section: "advanced" },
   incidencia_vecinos_lag3: { label: "Incidencia Vecina Lag 3 (t-3)", min: 0,  max: 500, step: 0.1, unit: " /100k",   section: "advanced" },
-  // Lags climáticos
-  precipitacion_lag1: { label: "Precipitación Lag 1 (t-1)", min: 0,  max: 500, step: 0.5, unit: " mm", section: "advanced" },
+  // Lags climáticos t-2 y t-3
   precipitacion_lag2: { label: "Precipitación Lag 2 (t-2)", min: 0,  max: 500, step: 0.5, unit: " mm", section: "advanced" },
   precipitacion_lag3: { label: "Precipitación Lag 3 (t-3)", min: 0,  max: 500, step: 0.5, unit: " mm", section: "advanced" },
-  tmax_lag1: { label: "Temp. Máxima Lag 1 (t-1)", min: 15, max: 45, step: 0.1, unit: "°C", section: "advanced" },
   tmax_lag2: { label: "Temp. Máxima Lag 2 (t-2)", min: 15, max: 45, step: 0.1, unit: "°C", section: "advanced" },
   tmax_lag3: { label: "Temp. Máxima Lag 3 (t-3)", min: 15, max: 45, step: 0.1, unit: "°C", section: "advanced" },
-  tmin_lag1: { label: "Temp. Mínima Lag 1 (t-1)", min: 10, max: 30, step: 0.1, unit: "°C", section: "advanced" },
   tmin_lag2: { label: "Temp. Mínima Lag 2 (t-2)", min: 10, max: 30, step: 0.1, unit: "°C", section: "advanced" },
   tmin_lag3: { label: "Temp. Mínima Lag 3 (t-3)", min: 10, max: 30, step: 0.1, unit: "°C", section: "advanced" },
-  humedad_lag1: { label: "Humedad Lag 1 (t-1)", min: 0, max: 100, step: 1, unit: "%", section: "advanced" },
   humedad_lag2: { label: "Humedad Lag 2 (t-2)", min: 0, max: 100, step: 1, unit: "%", section: "advanced" },
   humedad_lag3: { label: "Humedad Lag 3 (t-3)", min: 0, max: 100, step: 1, unit: "%", section: "advanced" },
-  // Socioeconómicas — al final por correlación confundida
+  // Socioeconómicas
   densidad_poblacion: { label: "Densidad de Población (hab/km²)",  min: 0, max: 1000, step: 1,   unit: " hab/km²", section: "advanced" },
   agua_basica:        { label: "Acceso Agua Potable Básica (%)",   min: 0, max: 100,  step: 0.1, unit: "%",        section: "advanced" },
 };
