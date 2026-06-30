@@ -40,7 +40,7 @@ const FEATURE_DEFS = {
   humedad_lag3: { label: "Humedad Lag 3 (t-3)", min: 0, max: 100, step: 1, unit: "%", section: "advanced" },
   // Socioeconómicas
   densidad_poblacion: { label: "Densidad de Población (hab/km²)",  min: 0, max: 1000, step: 1,   unit: " hab/km²", section: "advanced" },
-  agua_basica:        { label: "Acceso Agua Potable Básica (%)",   min: 0, max: 100,  step: 0.1, unit: "%",        section: "advanced" },
+  agua_basica:        { label: "Acceso Agua Potable Básica (%)",   min: 85, max: 100,  step: 0.1, unit: "%",        section: "advanced" },
 };
 
 // Generates a mock history array for local demo fallback
