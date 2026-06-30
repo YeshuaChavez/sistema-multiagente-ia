@@ -28,10 +28,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configurar políticas CORS para permitir llamadas desde el Frontend en Vercel o local
+# Configurar políticas CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cambiar a dominios específicos de Vercel en producción
+    allow_origins=[
+        "https://proyecto-ia-eight.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:4173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
