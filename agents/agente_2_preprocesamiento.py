@@ -8,7 +8,11 @@ cálculo de tasas de incidencia, y generación de todas las variables predictora
 (lags temporales, rolling means, vecinos espaciales, codificación cíclica).
 Produce dos artefactos en S3:
   - dataset_maestro_mensual_latam.csv  (14 columnas base, para el backend)
-  - dataset_features_latam.csv         (34 features, para entrenamiento de Agentes 3 y 4)
+  - dataset_features_latam.csv         (73 features, para entrenamiento de Agentes 3 y 4)
+
+Ciclo de vida ML/DL — Fase 3 (Preparación de datos): recibe la salida cruda
+del Agente 1 (Fase 2) y entrega el dataset de features consumido en la
+Fase 4 (División del conjunto) por los Agentes 3 y 4.
 """
 
 import os
@@ -130,7 +134,7 @@ class AgentePreprocesamiento:
 
     def generar_features(self, df_base):
         """
-        Genera las 34 variables predictoras a partir del dataset base de 14 columnas:
+        Genera las 73 variables predictoras a partir del dataset base de 14 columnas:
           - Lags climáticos 1-3 (tmax, tmin, precipitación, humedad)
           - Lags de incidencia 1-6
           - Rolling means de incidencia (ventanas 3 y 6 meses)
@@ -284,8 +288,14 @@ class AgentePreprocesamiento:
     # ─────────────────────────────────────────────────────────────
 
     def ejecutar_preprocesamiento(self, datos_crudos):
+        """
+        Fase 3 del ciclo de vida ML/DL (Preparación de datos). Ejecuta los
+        4 pasos internos (procesar casos → fusionar fuentes → calcular
+        incidencia → feature engineering) y sube ambos datasets a S3, listos
+        para la Fase 4 (División del conjunto) de los Agentes 3 y 4.
+        """
         print("=" * 70)
-        print("  EJECUTANDO PREPROCESAMIENTO — AGENTE 2")
+        print("  EJECUTANDO PREPROCESAMIENTO — AGENTE 2 (Fase 3)")
         print("=" * 70)
 
         os.makedirs(self.procesados_dir, exist_ok=True)

@@ -6,6 +6,10 @@ Agente 1: Recolección
 Responsabilidad: Ingesta automatizada, asíncrona y masiva del corpus histórico 2014-2024.
 Realiza consultas a las APIs oficiales de NASA POWER y JMP (vía World Bank API),
 utilizando caché local si los archivos crudos ya existen en el entorno.
+
+Ciclo de vida ML/DL — Fase 2 (Recolección de datos): este agente es el punto
+de entrada del pipeline completo. Su salida (casos, clima, agua, población)
+alimenta directamente la Fase 3 (Preparación de datos) del Agente 2.
 """
 
 import os
@@ -435,9 +439,13 @@ class AgenteRecoleccion:
     def ejecutar_ingesta(self):
         """
         Ejecuta el flujo secuencial de ingesta de datos.
+
+        Fase 2 del ciclo de vida ML/DL (Recolección de datos). Cada fuente se
+        cachea localmente tras la primera descarga, para no re-consultar las
+        APIs externas (NASA POWER, World Bank/JMP, OpenDengue) en cada corrida.
         """
         print("="*70)
-        print("  EJECUTANDO INGESTA DE DATOS — AGENTE 1: RECOLECCIÓN")
+        print("  EJECUTANDO INGESTA DE DATOS — AGENTE 1: RECOLECCIÓN (Fase 2)")
         print("="*70)
         
         # 1. Cargar poblaciones para saber qué departamentos y años existen

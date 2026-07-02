@@ -8,6 +8,14 @@ por el Agente 2, evaluarlo (R², MAE, RMSE) y serializar artefactos a S3.
 Retorna sus métricas y las predicciones del test set para que el Agente 5
 (orquestador) las combine con las del Agente 3 y arme el ensemble.
 En modo inferencia, carga el modelo serializado para predicción online.
+
+Ciclo de vida ML/DL — cubre las Fases 1, 4-9 en solitario, en paralelo e
+independiente del Agente 3 (definición, división, selección de modelo,
+baseline, optimización, evaluación e implementación), y participa en la
+Fase 10 (mantenimiento) durante el reentrenamiento automático mensual.
+El detalle fase por fase está documentado en el docstring de
+entrenar_modelo(). No conoce al Agente 3 ni al ensemble — esa combinación
+es responsabilidad exclusiva del Agente 5.
 """
 
 import os
@@ -120,22 +128,34 @@ class AgentePrediccionDL:
 
     def entrenar_modelo(self):
         """
-        Ciclo de vida completo del modelo DL (Agente 4 — LSTM PyTorch).
-        Entrena de forma independiente del Agente 3 — no recibe ni depende de
-        métricas de XGBoost; la combinación de ambos modelos (ensemble +
-        clasificación de riesgo) es responsabilidad exclusiva del Agente 5.
+        Ciclo de vida completo del modelo DL (Agente 4 — LSTM PyTorch), siguiendo
+        las 10 fases del ciclo de vida de un modelo supervisado (documento del
+        curso). Fase 6 (Entrenamiento) y Fase 7 (Evaluacion) se ejecutan dos
+        veces cada una -a/b- para mostrar la mejora del baseline tras el
+        tuning; siguen siendo las mismas Fase 6 y Fase 7 del documento, no
+        fases adicionales. Entrena de forma independiente del Agente 3 — no
+        recibe ni depende de métricas de XGBoost; la combinación de ambos
+        modelos (ensemble + clasificación de riesgo) es responsabilidad
+        exclusiva del Agente 5.
 
           Fase 1  — Definicion del problema: prediccion de tasa de incidencia de dengue
                     a escala subnacional mensual (ver documentacion del SMA)
           Fase 2  — Recoleccion de datos: ejecutada por Agente 1 (agente_1_recoleccion.py)
           Fase 3  — Preparacion de datos: ejecutada por Agente 2 (agente_2_preprocesamiento.py)
-          Fase 4  — Division del conjunto: particion cronologica dinamica (ultimos 2 anos = test,
-                    resto = train); permite reentrenamiento automatico sin cambiar codigo
+          Fase 4  — Division del conjunto: particion CRONOLOGICA dinamica (ultimos 2 anos =
+                    test, resto = train), en vez del train_test_split aleatorio/estratificado
+                    del documento -aqui no aplica porque es una serie temporal: mezclar filas
+                    al azar filtraria informacion del futuro hacia el pasado (data leakage)-.
+                    Split dinamico permite reentrenamiento automatico sin cambiar codigo
           Fase 5  — Seleccion del modelo: red LSTM de dos capas apiladas (PyTorch)
-                    con lookback=12 meses y 6 variables climaticas/epidemiologicas
+                    con lookback=12 meses y 6 variables climaticas/epidemiologicas. Junto con
+                    el XGBoost del Agente 3, satisface la recomendacion del documento de
+                    "probar mas de un modelo y comparar su desempeno" (Fase 5) -ambos se
+                    comparan y combinan en el ensemble del Agente 5-
           Fase 6a — Entrenamiento baseline LSTM simple (1 capa, hidden=32, lr=0.01, 40 epocas)
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
-          Fase 8  — Optimizacion de hiperparametros: Optuna TPE, 20 trials x K=5 folds
+          Fase 8  — Optimizacion de hiperparametros: Optuna TPE (Bayesian Optimization,
+                    la tecnica mas avanzada que menciona el documento), 20 trials x K=5 folds
                     cronologicos; sampler TPESampler(seed=9); espacio: hidden_dim,
                     num_layers, lr, dropout
           Fase 6b — Reentrenamiento con mejores hiperparametros + early stopping (max 300 epocas)

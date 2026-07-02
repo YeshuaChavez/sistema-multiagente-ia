@@ -6,6 +6,14 @@ Agente 3: Predicción Machine Learning (XGBoost)
 Responsabilidad: Entrenar el modelo XGBoost sobre el dataset de features
 generado por el Agente 2, calcular SHAP y serializar todos los artefactos
 en S3. En modo inferencia, cargar el modelo serializado para predicción online.
+
+Ciclo de vida ML/DL — cubre las Fases 1, 4-9 en solitario (definición,
+división, selección de modelo, baseline, optimización, evaluación e
+implementación) y participa en la Fase 10 (mantenimiento) cuando el
+workflow de GitHub Actions dispara un reentrenamiento automático. El
+detalle fase por fase está documentado en el docstring de entrenar_modelo().
+No conoce al Agente 4 ni al ensemble — esa combinación es responsabilidad
+exclusiva del Agente 5.
 """
 
 import os
@@ -49,18 +57,30 @@ class AgentePrediccionML:
 
     def entrenar_modelo(self):
         """
-        Ciclo de vida completo del modelo ML (Agente 3 — XGBoost):
+        Ciclo de vida completo del modelo ML (Agente 3 — XGBoost), siguiendo
+        las 10 fases del ciclo de vida de un modelo supervisado (documento del
+        curso). Fase 6 (Entrenamiento) y Fase 7 (Evaluacion) se ejecutan dos
+        veces cada una -a/b- para mostrar la mejora del baseline tras el
+        tuning; siguen siendo las mismas Fase 6 y Fase 7 del documento, no
+        fases adicionales:
           Fase 1  — Definicion del problema: prediccion de tasa de incidencia de dengue
                     a escala subnacional mensual (ver documentacion del SMA)
           Fase 2  — Recoleccion de datos: ejecutada por Agente 1 (agente_1_recoleccion.py)
           Fase 3  — Preparacion de datos: ejecutada por Agente 2 (agente_2_preprocesamiento.py)
-          Fase 4  — Division del conjunto: particion cronologica dinamica (ultimos 2 anos = test,
-                    resto = train); permite reentrenamiento automatico sin cambiar codigo
+          Fase 4  — Division del conjunto: particion CRONOLOGICA dinamica (ultimos 2 anos =
+                    test, resto = train), en vez del train_test_split aleatorio/estratificado
+                    del documento -aqui no aplica porque es una serie temporal: mezclar filas
+                    al azar filtraria informacion del futuro hacia el pasado (data leakage)-.
+                    Split dinamico permite reentrenamiento automatico sin cambiar codigo
           Fase 5  — Seleccion del modelo: XGBRegressor dentro de Pipeline sklearn
-                    (SimpleImputer + StandardScaler + XGBRegressor)
+                    (SimpleImputer + StandardScaler + XGBRegressor). Junto con el LSTM del
+                    Agente 4, satisface la recomendacion del documento de "probar mas de un
+                    modelo y comparar su desempeno" (Fase 5) -ambos se comparan y combinan
+                    en el ensemble del Agente 5-
           Fase 6a — Entrenamiento baseline con parametros por defecto
           Fase 7a — Evaluacion del baseline (R2, MAE en test set)
-          Fase 8  — Optimizacion de hiperparametros: Optuna TPE, 50 trials x K=5 folds
+          Fase 8  — Optimizacion de hiperparametros: Optuna TPE (Bayesian Optimization,
+                    la tecnica mas avanzada que menciona el documento), 50 trials x K=5 folds
                     cronologicos; sampler TPESampler(seed=42)
           Fase 6b — Reentrenamiento con best_estimator_ (parametros optimos, refit=True)
           Fase 7b — Evaluacion final del modelo optimizado
@@ -109,6 +129,9 @@ class AgentePrediccionML:
         y_train_log = np.log1p(y_train)
 
         # ── Fase 5: Selección del modelo — Pipeline sklearn (imputador + escalador + XGBoost) ──
+        # Mismo patrón Pipeline([('scaler', ...), ('model', ...)]) del documento del curso:
+        # encadena imputación + escalado + modelo en un solo objeto reproducible, evitando
+        # el error clásico de olvidar transformar los datos de test igual que los de train.
         # ── Fase 6a: Baseline con parámetros por defecto de XGBoost ──
         print("\n   [Fase 6a] Entrenando baseline con parametros por defecto...")
         pipeline_base = Pipeline([

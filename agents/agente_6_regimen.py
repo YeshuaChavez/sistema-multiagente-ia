@@ -11,6 +11,12 @@ Fundamento: XGBoost (basado en árboles) no puede extrapolar más allá del
 rango visto en entrenamiento, subestimando brotes extremos. LSTM captura
 mejor el momentum temporal en escenarios de alta incidencia sostenida.
 Este agente detecta el régimen y balancea ambos modelos dinámicamente.
+
+Ciclo de vida ML/DL — opera exclusivamente en Fase 9 (Implementación): no
+participa en el entrenamiento ni en generar_metricas_finales() del Agente 5
+(que usa los pesos base fijos 0.5/0.5 sin ajuste). Es instanciado por el
+Agente 5 en cada request de inferencia online y solo ajusta los pesos que
+ese mismo request va a usar.
 """
 
 import numpy as np

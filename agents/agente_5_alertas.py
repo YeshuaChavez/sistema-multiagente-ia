@@ -11,6 +11,13 @@ final. En inferencia, unifica las predicciones en tiempo real, clasifica el
 nivel de riesgo epidemiológico con percentiles históricos calibrados por
 departamento, y coordina la respuesta final del sistema multi-agente. El
 Agente 6 es quien ajusta los pesos 0.5/0.5 dinámicamente en cada inferencia.
+
+Ciclo de vida ML/DL — este agente es el único que cruza dos fases distintas:
+  - Fase 7b (Evaluación final): generar_metricas_finales() calcula el R²/MAE/
+    RMSE honesto del ensemble sobre las filas comunes del test set, una vez
+    que Agente 3 y Agente 4 ya terminaron su propia Fase 7b por separado.
+  - Fase 9 (Implementación): predecir_departamento() sirve inferencia online
+    en producción, delegando en el Agente 6 el ajuste dinámico de pesos.
 """
 
 import os
@@ -114,7 +121,8 @@ class AgenteOrquestador:
               f"{len(self._neighbor_map)} departamentos.")
 
     # ─────────────────────────────────────────────────────────────
-    # ENTRENAMIENTO — CONSOLIDACIÓN DE MÉTRICAS (post Agente 3 + Agente 4)
+    # FASE 7b — EVALUACIÓN FINAL: CONSOLIDACIÓN DE MÉTRICAS
+    # (post Agente 3 + Agente 4, cada uno ya evaluado por separado)
     # ─────────────────────────────────────────────────────────────
 
     @staticmethod
@@ -277,7 +285,7 @@ class AgenteOrquestador:
         return metrics
 
     # ─────────────────────────────────────────────────────────────
-    # CLASIFICACIÓN DE RIESGO EPIDEMIOLÓGICO
+    # FASE 9 — CLASIFICACIÓN DE RIESGO EPIDEMIOLÓGICO (inferencia online)
     # ─────────────────────────────────────────────────────────────
 
     def calcular_nivel_riesgo(self, pred_val, iso_a0=None, adm_1_name=None):
@@ -301,20 +309,26 @@ class AgenteOrquestador:
             return self._NIVELES["epidemia"]
 
     # ─────────────────────────────────────────────────────────────
-    # PREDICCIÓN ORQUESTADA (AGENTE 3 + AGENTE 4 + ENSEMBLE)
+    # FASE 9 — IMPLEMENTACIÓN: PREDICCIÓN ORQUESTADA
+    # (AGENTE 3 + AGENTE 4 + AGENTE 6 + ENSEMBLE, en tiempo real)
     # ─────────────────────────────────────────────────────────────
 
     def predecir_departamento(self, iso_a0, adm_1_name, ano=None, mes=None, clima_overrides=None, compute_shap=False):
         """
         Orquesta la predicción completa de incidencia de dengue para un departamento.
+        Fase 9 del ciclo de vida ML/DL (Implementación) — corre en cada
+        request online del backend, no durante el entrenamiento.
 
         Pasos:
           1. Recupera el historial del departamento.
-          2. Construye el vector de 34 features para Agente 3 (XGBoost).
+          2. Construye el vector de 73 features para Agente 3 (XGBoost).
           3. Agente 3 → predicción ML + SHAP local.
           4. Agente 4 → predicción LSTM con secuencia de 12 meses.
-          5. Ensemble = (ML + LSTM) / 2.
-          6. Clasifica nivel de riesgo para cada predicción.
+          5. Agente 6 → detecta el régimen epidémico y ajusta w_xgb/w_lstm
+             a partir de los pesos base 0.5/0.5.
+          6. Ensemble = w_xgb_adj × ML + w_lstm_adj × LSTM (pesos del paso 5,
+             no un simple promedio).
+          7. Clasifica nivel de riesgo para cada predicción.
 
         Returns:
             dict con prediccion_ml, prediccion_lstm, prediccion_ensemble,
@@ -554,9 +568,10 @@ class AgenteOrquestador:
 
     def obtener_features_departamento(self, iso_a0, adm_1_name, ano=None, mes=None):
         """
-        Construye el vector de 34 features para un departamento sin correr
-        ningún modelo (ni XGBoost ni LSTM). Usado por el frontend para
-        pre-poblar los sliders al seleccionar un departamento.
+        Fase 9 (Implementación) — variante de solo lectura de
+        predecir_departamento(): construye el vector de 73 features para un
+        departamento sin correr ningún modelo (ni XGBoost ni LSTM). Usado por
+        el frontend para pre-poblar los sliders al seleccionar un departamento.
 
         Returns:
             dict con 'features' (dict feature→valor) y 'percentiles_locales'.
