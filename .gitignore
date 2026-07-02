@@ -5,6 +5,10 @@
 # Datos grandes (descargados desde S3)
 data/raw/Temporal_extract_V1_3.csv
 
+# Artefactos de automatizacion (se regeneran cada mes, visibles en S3)
+data/models/data_version.json
+data/models/drift_report.json
+
 # Notebooks y outputs (solo desarrollo local)
 notebooks/
 output_lstm.txt
