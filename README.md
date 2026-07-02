@@ -162,7 +162,7 @@ SimpleImputer(median) -> StandardScaler -> XGBRegressor
 target: log1p(incidencia) -> salida: expm1(prediccion)
 ```
 
-**Optimizacion de hiperparametros:** Bayesian Optimization (Optuna TPE), 50 trials × K=5 folds cronologicos (2016-2020), ejecutado en Google Colab (`notebooks/colab_bayesian_xgb_lstm.ipynb`). Mejores hiperparametros encontrados:
+**Optimizacion de hiperparametros:** Bayesian Optimization (Optuna TPE), 50 trials × K=5 folds cronologicos (2016-2020), ejecutado en Google Colab (notebook de desarrollo local, no incluido en el repo — ver `.gitignore`). Mejores hiperparametros encontrados:
 
 ```
 n_estimators     = 805     subsample        = 0.656
@@ -181,14 +181,14 @@ Genera **importancias SHAP globales** (TreeSHAP sobre el set de prueba completo)
 
 ### Agente 4 — Prediccion DL (LSTM PyTorch)
 
-Red LSTM de dos capas apiladas con lookback de 12 meses. Usa **6 features** (la memoria interna reemplaza los lags explicitos del Agente 3):
+Red LSTM de tres capas apiladas con lookback de 12 meses. Usa **6 features** (la memoria interna reemplaza los lags explicitos del Agente 3):
 
 ```
 tmax_promedio · tmin_promedio · precipitacion ·
 humedad_promedio · agua_basica · incidencia_dengue
 ```
 
-**Optimizacion de hiperparametros:** Bayesian Optimization (Optuna TPE), 30 trials × K=5 folds cronologicos, GPU T4 en Google Colab. Mejores hiperparametros:
+**Optimizacion de hiperparametros:** Bayesian Optimization (Optuna TPE), 20 trials × K=5 folds cronologicos, GPU T4 en Google Colab. Mejores hiperparametros:
 
 ```
 Input:    12 pasos x 6 features
@@ -411,7 +411,6 @@ s3://epipredict-dengue/
     ├── shap_importance.json             # Importancias TreeSHAP globales
     ├── lstm_model.pth                   # LSTM (hidden=77, layers=3)
     ├── lstm_config.json / lstm_features.pkl / escalador_lstm.pkl
-    ├── thresholds_clasificacion.json    # Percentiles p50/p90 por departamento
     ├── scatter_data.json                # 4,056 puntos test para scatter plot
     ├── metrics.json                     # R², MAE, RMSE, pesos, clasificacion
     ├── data_version.json                # SHA OpenDengue vigente + fecha
@@ -439,7 +438,7 @@ Para el workflow de GitHub Actions, `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY
 
 **Split dinamico train/test** — `split_ano = max_ano - 2` garantiza que siempre los ultimos 2 anos del dataset sean el conjunto de prueba, independientemente del ano maximo. Esto hace el pipeline de reentrenamiento automatico consistente: cuando lleguen datos nuevos de OpenDengue, el split se ajusta solo.
 
-**Pesos base 50/50** — Se eligio sobre el resultado del optimizador (sesgado por la dominancia de XGBoost en validacion) porque produce mejor MAE (5.83 vs 6.07) y RMSE (20.67 vs 22.18) en el test set. Los pesos son ajustados dinamicamente por el Agente 6 en cada inferencia.
+**Pesos base 50/50** — Se probo ponderar proporcional al desempeno individual de cada modelo (via busqueda numerica en un set de validacion separado), pero XGBoost y LSTM rinden casi igual (91.49% vs 90.35% R²) y la ganancia era despreciable frente a la simplicidad de pesos fijos iguales. Los pesos son ajustados dinamicamente por el Agente 6 en cada inferencia, partiendo de esta base 50/50.
 
 **LSTM con 6 features** — El LSTM recibe una ventana de 12 pasos y aprende internamente la estructura temporal; los 73 features del Agente 3 generan ruido que degrada el rendimiento.
 
