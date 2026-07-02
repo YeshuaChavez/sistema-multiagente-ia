@@ -136,7 +136,7 @@ Calcula la tasa de incidencia mensual (`casos / poblacion * 100,000`) y construy
 
 | Grupo | Variables | N |
 |---|---|---|
-| Base climatica y demografica | `tmax`, `tmin`, `precipitacion`, `humedad`, `poblacion`, `densidad_poblacion` | 6 |
+| Base climatica y demografica | `tmax`, `tmin`, `precipitacion`, `humedad`, `agua_basica`, `densidad_poblacion` | 6 |
 | Lags climaticos | `tmax/tmin/precipitacion/humedad` lag 1–6 | 24 |
 | Lags de incidencia | `incidencia_lag1` a `incidencia_lag12` (log1p) | 12 |
 | Rolling means | `incidencia_roll3`, `roll6`, `roll12` (log1p) | 3 |
