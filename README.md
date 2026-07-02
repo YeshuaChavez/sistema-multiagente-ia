@@ -252,9 +252,9 @@ Las 10 fases estan documentadas explicitamente en el codigo fuente de los Agente
 | 5 — Seleccion del modelo | Pipeline XGBoost / LSTM 3 capas PyTorch | Agentes 3 y 4 |
 | 6a — Entrenamiento baseline | Parametros por defecto | Agentes 3 y 4 |
 | 7a — Evaluacion baseline | R², MAE en test set | Agentes 3 y 4 |
-| 8 — Optimizacion | GridSearchCV + TimeSeriesSplit (ML) / Grid manual (DL) | Agentes 3 y 4 |
+| 8 — Optimizacion | Bayesian Optimization (Optuna TPESampler) + K=5 folds cronologicos (ML y DL) | Agentes 3 y 4 |
 | 6b — Reentrenamiento | Con mejores hiperparametros (`refit=True`) | Agentes 3 y 4 |
-| 7b — Evaluacion final | R², MAE, RMSE + pesos optimos del ensamble | Agentes 3 y 4 |
+| 7b — Evaluacion final | R², MAE, RMSE + ensamble con pesos fijos 0.5/0.5 | Agentes 3 y 4 |
 | 9 — Despliegue | Serializacion S3, FastAPI Railway, React Vercel | `s3_client.py`, `backend/`, `frontend/` |
 | **10 — Mantenimiento** | **Drift PSI + version check + reentrenamiento auto** | `verificar_actualizacion.py` + GitHub Actions |
 
@@ -306,7 +306,7 @@ Si hay nueva version: descarga dataset, ejecuta pipeline completo (Agentes 2, 3,
 | Capa | Tecnologias |
 |---|---|
 | Backend | Python 3.11 · FastAPI · Uvicorn · Pydantic v2 |
-| ML | XGBoost 2.x · Scikit-Learn 1.8 · SHAP (TreeSHAP) · GridSearchCV + TimeSeriesSplit |
+| ML | XGBoost 2.x · Scikit-Learn 1.8 · SHAP (TreeSHAP) · Bayesian Optimization (Optuna TPE) |
 | DL | PyTorch 2.x · LSTM 3 capas apiladas (hidden=77, lookback=12 meses) |
 | Datos | Pandas · NumPy · requests · python-dotenv |
 | Frontend | React 19 · Vite · TailwindCSS · Leaflet.js · Material Symbols |
@@ -326,8 +326,8 @@ Si hay nueva version: descarga dataset, ejecuta pipeline completo (Agentes 2, 3,
 ├── agents/
 │   ├── agente_1_recoleccion.py          # Ingesta + fallback ZIP OpenDengue
 │   ├── agente_2_preprocesamiento.py     # Feature engineering (73 variables)
-│   ├── agente_3_prediccion_ml.py        # XGBoost + GridSearchCV + SHAP (Fases 1-10)
-│   ├── agente_4_prediccion_dl.py        # LSTM PyTorch + Grid manual (Fases 1-10)
+│   ├── agente_3_prediccion_ml.py        # XGBoost + Optuna TPE + SHAP (Fases 1-10)
+│   ├── agente_4_prediccion_dl.py        # LSTM PyTorch + Optuna TPE (Fases 1-10)
 │   ├── agente_5_alertas.py              # Ensamble + clasificacion 3 niveles
 │   ├── agente_6_regimen.py              # Regimen epidemico + pesos dinamicos
 │   └── s3_client.py                     # Cliente S3 (upload/download/ensure_local)

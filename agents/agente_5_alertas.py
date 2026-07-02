@@ -1,19 +1,31 @@
 # -*- coding: utf-8 -*-
 """
 SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
-Agente 5: Orquestador de Consenso (Ensemble + Alertas)
+Agente 5: Orquestador de Consenso — "Semáforo" (Ensemble + Alertas)
 --------------------------------------------------
-Responsabilidad: Unifica las predicciones del Agente 3 (XGBoost) y el Agente 4
-(LSTM PyTorch) mediante promedio de ensemble, clasifica el nivel de riesgo
-epidemiológico con percentiles históricos calibrados por departamento, y coordina
-la respuesta final del sistema multi-agente.
+Responsabilidad: Único punto del sistema que combina los resultados del
+Agente 3 (XGBoost, solo ML) y el Agente 4 (LSTM, solo DL), que entrenan de
+forma independiente entre sí. En entrenamiento (generar_metricas_finales),
+arma el ensemble con pesos base fijos 0.5/0.5 y escribe el metrics.json
+final. En inferencia, unifica las predicciones en tiempo real, clasifica el
+nivel de riesgo epidemiológico con percentiles históricos calibrados por
+departamento, y coordina la respuesta final del sistema multi-agente. El
+Agente 6 es quien ajusta los pesos 0.5/0.5 dinámicamente en cada inferencia.
 """
 
 import os
 import sys
+import json
 import importlib.util
 import numpy as np
 import pandas as pd
+from sklearn.metrics import (mean_absolute_error, mean_squared_error, r2_score,
+                              accuracy_score, cohen_kappa_score, classification_report)
+
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _THIS_DIR not in sys.path:
+    sys.path.insert(0, _THIS_DIR)
+import s3_client as s3
 
 
 class AgenteOrquestador:
@@ -100,6 +112,169 @@ class AgenteOrquestador:
               f"p25={self.p25:.2f}, p50={self.p50:.2f}, p90={self.p90:.2f}")
         print(f"   [Agente 5] Vecinos espaciales pre-computados para "
               f"{len(self._neighbor_map)} departamentos.")
+
+    # ─────────────────────────────────────────────────────────────
+    # ENTRENAMIENTO — CONSOLIDACIÓN DE MÉTRICAS (post Agente 3 + Agente 4)
+    # ─────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def generar_metricas_finales(metricas_ml, metricas_dl, base_dir):
+        """
+        "Semáforo" del sistema: se ejecuta una vez que el Agente 3 (XGBoost) y
+        el Agente 4 (LSTM) terminaron de entrenar por separado. Alinea sus
+        predicciones de test por clave común (iso_a0, adm_1_name, ano, mes),
+        arma el ensemble con pesos fijos w_xgb=w_lstm=0.5, clasifica en 3
+        niveles de riesgo (Endémico/Alerta/Epidemia) usando percentiles
+        históricos por departamento, y escribe/sube el metrics.json final
+        consumido por el endpoint /api/metrics.
+
+        Pesos fijos 0.5/0.5: se evaluó ponderar proporcional al R² individual
+        de cada modelo, pero XGBoost y LSTM rinden casi igual (91.49% vs
+        90.35% R²) y la ganancia era despreciable frente a la simplicidad de
+        pesos iguales. El Agente 6 ajusta w_xgb/w_lstm de forma dinámica en
+        inferencia según el régimen epidémico — este método solo fija los
+        pesos *base* que el Agente 6 recibe como punto de partida.
+
+        Args:
+            metricas_ml: dict retornado por AgentePrediccionML.entrenar_modelo()
+                         (r2_xgb, mae_xgb, rmse_xgb, n_train, n_test, xgb_test_lookup).
+            metricas_dl: dict retornado por AgentePrediccionDL.entrenar_modelo()
+                         (r2_lstm, mae_lstm, rmse_lstm, n_test, lstm_test_lookup).
+            base_dir:    directorio base del proyecto.
+
+        Returns:
+            dict con las métricas finales (el mismo contenido escrito en metrics.json).
+        """
+        print("=" * 70)
+        print("  AGENTE 5 — Consolidando métricas finales (ensemble + clasificación)")
+        print("=" * 70)
+
+        model_dir = os.path.join(base_dir, "data", "models")
+        feat_path = os.path.join(base_dir, "data", "processed", "dataset_features_latam.csv")
+
+        df = pd.read_csv(feat_path)
+        yearly = df.groupby(['pais', 'ano'])['casos_dengue'].transform('sum')
+        df = df[yearly > 100].reset_index(drop=True)
+
+        TEST_ANOS = 2
+        split_ano = int(df['ano'].max()) - TEST_ANOS
+
+        # Lookup de incidencia real: (iso_a0, adm_upper, ano, mes) → incidencia_dengue
+        df_l = df.copy()
+        df_l['iso_u'] = df_l['iso_a0'].astype(str).str.strip().str.upper()
+        df_l['adm_u'] = df_l['adm_1_name'].astype(str).str.strip().str.upper()
+        y_lookup = {
+            (r.iso_u, r.adm_u, int(r.ano), int(r.mes)): float(r.incidencia_dengue)
+            for r in df_l.itertuples()
+        }
+
+        xgb_lookup  = metricas_ml.get("xgb_test_lookup", {})
+        lstm_lookup = metricas_dl.get("lstm_test_lookup", {})
+        claves_comunes = sorted(set(xgb_lookup) & set(lstm_lookup) & set(y_lookup))
+
+        W_XGB_FIJO = 0.5
+        w_xgb = W_XGB_FIJO
+        cls_metrics = {}
+
+        if len(claves_comunes) >= 10:
+            xgb_arr  = np.array([xgb_lookup[k]  for k in claves_comunes])
+            lstm_arr = np.array([lstm_lookup[k] for k in claves_comunes])
+            y_arr    = np.array([y_lookup[k]    for k in claves_comunes])
+            lxgb = np.log1p(xgb_arr); llst = np.log1p(lstm_arr); ly = np.log1p(y_arr)
+            ens_log  = w_xgb * lxgb + (1.0 - w_xgb) * llst
+            ens_raw  = np.expm1(ens_log)
+            r2_ens   = r2_score(ly, ens_log)
+            mae_ens  = mean_absolute_error(y_arr, ens_raw)
+            rmse_ens = float(np.sqrt(mean_squared_error(y_arr, ens_raw)))
+            print(f"   [Ensemble] w_xgb={w_xgb:.3f}  w_lstm={1.0 - w_xgb:.3f}  "
+                  f"R²={r2_ens*100:.2f}%  MAE={mae_ens:.4f}  RMSE={rmse_ens:.4f}  "
+                  f"(n={len(claves_comunes)})")
+
+            # ── Clasificación 3 niveles (Endémico/Alerta/Epidemia) sobre el ensemble ──
+            # Percentiles p50/p90 históricos por departamento calculados solo con
+            # train (<=split_ano), con piso mínimo y fallback a percentiles globales
+            # cuando el departamento no tiene historial suficiente (misma lógica que
+            # calcular_nivel_riesgo usa en inferencia).
+            df_hist = df[df['ano'] <= split_ano]
+            dept_pct = {}
+            for (iso, adm), grp in df_hist.groupby(['iso_a0', 'adm_1_name']):
+                inc = grp['incidencia_dengue'].values
+                dept_pct[(str(iso).upper(), str(adm).upper())] = (
+                    max(float(np.percentile(inc, 50)), 0.5),
+                    max(float(np.percentile(inc, 90)), 5.0),
+                )
+            p50_g = max(float(df_hist['incidencia_dengue'].quantile(0.50)), 0.5)
+            p90_g = max(float(df_hist['incidencia_dengue'].quantile(0.90)), 5.0)
+
+            def _clasificar(val, iso, adm):
+                p50, p90 = dept_pct.get((iso, adm), (p50_g, p90_g))
+                if val <= p50:   return 0
+                elif val <= p90: return 1
+                else:            return 2
+
+            y_true_cls = np.array([_clasificar(v, k[0], k[1]) for v, k in zip(y_arr, claves_comunes)])
+            y_pred_cls = np.array([_clasificar(v, k[0], k[1]) for v, k in zip(ens_raw, claves_comunes)])
+
+            acc    = accuracy_score(y_true_cls, y_pred_cls)
+            kappa  = cohen_kappa_score(y_true_cls, y_pred_cls)
+            report = classification_report(
+                y_true_cls, y_pred_cls, labels=[0, 1, 2],
+                target_names=["Endemico", "Alerta", "Epidemia"],
+                output_dict=True, zero_division=0,
+            )
+            dist = np.bincount(y_true_cls, minlength=3)
+            print(f"   [Clasificación] Acc={acc*100:.2f}%  Kappa={kappa:.4f}")
+
+            cls_metrics = {
+                "acc_clasificacion":   round(float(acc), 4),
+                "kappa_clasificacion": round(float(kappa), 4),
+                "f1_endemico":  round(float(report["Endemico"]["f1-score"]), 4),
+                "f1_alerta":    round(float(report["Alerta"]["f1-score"]), 4),
+                "f1_epidemia":  round(float(report["Epidemia"]["f1-score"]), 4),
+                "precision_endemico": round(float(report["Endemico"]["precision"]), 4),
+                "precision_alerta":   round(float(report["Alerta"]["precision"]), 4),
+                "precision_epidemia": round(float(report["Epidemia"]["precision"]), 4),
+                "recall_endemico": round(float(report["Endemico"]["recall"]), 4),
+                "recall_alerta":   round(float(report["Alerta"]["recall"]), 4),
+                "recall_epidemia": round(float(report["Epidemia"]["recall"]), 4),
+                "soporte_endemico": int(dist[0]),
+                "soporte_alerta":   int(dist[1]),
+                "soporte_epidemia": int(dist[2]),
+            }
+        else:
+            r2_ens   = (metricas_ml.get("r2_xgb", 0.0)   + metricas_dl.get("r2_lstm", 0.0))   / 2
+            mae_ens  = (metricas_ml.get("mae_xgb", 0.0)  + metricas_dl.get("mae_lstm", 0.0))  / 2
+            rmse_ens = (metricas_ml.get("rmse_xgb", 0.0) + metricas_dl.get("rmse_lstm", 0.0)) / 2
+            print("   [Ensemble] Fallback: pocas filas comunes, promedio simple (pesos igual 0.5/0.5)")
+
+        metrics = {
+            "records_procesados": int(len(df)),
+            "n_train": int(metricas_ml.get("n_train", 0)),
+            "n_test":  int(metricas_ml.get("n_test", 0)),
+            "n_paises": int(df['pais'].nunique()),
+            "n_departamentos": int(df['adm_1_name'].nunique()),
+            "r2_xgb":   metricas_ml.get("r2_xgb", 0.0),
+            "mae_xgb":  metricas_ml.get("mae_xgb", 0.0),
+            "rmse_xgb": metricas_ml.get("rmse_xgb", 0.0),
+            "r2_lstm":   metricas_dl.get("r2_lstm", 0.0),
+            "mae_lstm":  metricas_dl.get("mae_lstm", 0.0),
+            "rmse_lstm": metricas_dl.get("rmse_lstm", 0.0),
+            "r2_ensemble":     round(float(r2_ens), 4),
+            "mae_ensemble":    round(float(mae_ens), 4),
+            "rmse_ensemble":   round(float(rmse_ens), 4),
+            "ensemble_w_xgb":  round(w_xgb, 4),
+            "ensemble_w_lstm": round(1.0 - w_xgb, 4),
+        }
+        metrics.update(cls_metrics)
+
+        metrics_path = os.path.join(model_dir, "metrics.json")
+        with open(metrics_path, "w") as f:
+            json.dump(metrics, f, indent=4)
+        s3.upload(metrics_path, s3.PREFIX_MODELOS + "metrics.json")
+
+        print("SUCCESS: [Agente 5] metrics.json final generado y subido a S3.")
+        print("=" * 70)
+        return metrics
 
     # ─────────────────────────────────────────────────────────────
     # CLASIFICACIÓN DE RIESGO EPIDEMIOLÓGICO

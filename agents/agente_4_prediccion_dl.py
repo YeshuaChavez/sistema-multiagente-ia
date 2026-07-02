@@ -4,8 +4,9 @@ SMA-ML/DL - Sistema Multi-Agente de Predicción de Dengue
 Agente 4: Predicción Deep Learning (LSTM PyTorch)
 --------------------------------------------------
 Responsabilidad: Entrenar el modelo LSTM sobre el dataset de features generado
-por el Agente 2, serializar artefactos y subirlos a S3. También genera el
-metrics.json combinado (XGBoost + LSTM) para el endpoint /api/metrics.
+por el Agente 2, evaluarlo (R², MAE, RMSE) y serializar artefactos a S3.
+Retorna sus métricas y las predicciones del test set para que el Agente 5
+(orquestador) las combine con las del Agente 3 y arme el ensemble.
 En modo inferencia, carga el modelo serializado para predicción online.
 """
 
@@ -20,7 +21,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
@@ -117,9 +118,13 @@ class AgentePrediccionDL:
             )
         return r2_score(y_real, pred), mean_absolute_error(y_real, pred)
 
-    def entrenar_modelo(self, metricas_ml=None):
+    def entrenar_modelo(self):
         """
-        Ciclo de vida completo del modelo DL (Agente 4 — LSTM PyTorch):
+        Ciclo de vida completo del modelo DL (Agente 4 — LSTM PyTorch).
+        Entrena de forma independiente del Agente 3 — no recibe ni depende de
+        métricas de XGBoost; la combinación de ambos modelos (ensemble +
+        clasificación de riesgo) es responsabilidad exclusiva del Agente 5.
+
           Fase 1  — Definicion del problema: prediccion de tasa de incidencia de dengue
                     a escala subnacional mensual (ver documentacion del SMA)
           Fase 2  — Recoleccion de datos: ejecutada por Agente 1 (agente_1_recoleccion.py)
@@ -135,14 +140,16 @@ class AgentePrediccionDL:
                     num_layers, lr, dropout
           Fase 6b — Reentrenamiento con mejores hiperparametros + early stopping (max 300 epocas)
                     ReduceLROnPlateau(patience=5) + early stopping patience=15 epocas
-          Fase 7b — Evaluacion final + calculo de pesos optimos del ensemble (minimos cuadrados)
+          Fase 7b — Evaluacion final (R², MAE, RMSE) sobre el test set
           Fase 9  — Implementacion: serializacion y subida a AWS S3, carga en FastAPI/Railway
           Fase 10 — Mantenimiento: drift detection (PSI sobre features climaticas NASA POWER)
                     + reentrenamiento automatico via GitHub Actions cuando llega nueva version
                     OpenDengue (verificar_actualizacion.py ejecutado el 1ro de cada mes)
 
-        Args:
-            metricas_ml: dict con r2_xgb, mae_xgb, n_train, xgb_test_lookup del Agente 3.
+        Returns:
+            dict con r2_lstm, mae_lstm, rmse_lstm, n_test y lstm_test_lookup
+            (predicciones del test set indexadas por (iso_a0, adm_1_name, ano, mes),
+            para que el Agente 5 arme el ensemble con las del Agente 3).
         """
         print("=" * 70)
         print("  ENTRENANDO — AGENTE 4: LSTM PyTorch")
@@ -337,68 +344,26 @@ class AgentePrediccionDL:
         with open(os.path.join(self.model_dir, "lstm_config.json"), "w") as f:
             json.dump(lstm_config, f, indent=4)
 
-        # Metrics combinadas (XGBoost + LSTM)
-        r2_ml  = metricas_ml.get("r2_xgb",  0.0) if metricas_ml else 0.0
-        mae_ml = metricas_ml.get("mae_xgb", 0.0) if metricas_ml else 0.0
-        n_rec  = metricas_ml.get("n_train", len(df)) if metricas_ml else len(df)
+        rmse_lstm = float(np.sqrt(mean_squared_error(y_test, pred)))
+        print(f"   [Fase 7b] RMSE={rmse_lstm:.4f}")
 
-        # Ensemble R² honesto: peso óptimo calculado analíticamente sobre el test set
-        # Minimiza MSE de: pred_ens = w*xgb + (1-w)*lstm
-        # Solución cerrada: w = Σ[(y-lstm)(xgb-lstm)] / Σ[(xgb-lstm)²]
-        xgb_lookup = metricas_ml.get("xgb_test_lookup", {}) if metricas_ml else {}
-        xgb_preds_common, lstm_preds_common, ens_y = [], [], []
-        for seq_id, lstm_p, y_val in zip(test_ids, pred, y_test):
-            xgb_p = xgb_lookup.get(seq_id)
-            if xgb_p is not None:
-                xgb_preds_common.append(xgb_p)
-                lstm_preds_common.append(lstm_p)
-                ens_y.append(y_val)
+        # Lookup de predicciones LSTM en test: (iso_a0, adm_upper, ano, mes) → pred
+        # Mismo formato que xgb_test_lookup del Agente 3 — el Agente 5 alinea
+        # ambos por clave común para construir el ensemble.
+        lstm_test_lookup = {seq_id: float(p) for seq_id, p in zip(test_ids, pred)}
 
-        if len(ens_y) >= 10:
-            xgb_arr  = np.array(xgb_preds_common)
-            lstm_arr = np.array(lstm_preds_common)
-            y_arr    = np.array(ens_y)
-            lxgb = np.log1p(xgb_arr); llst = np.log1p(lstm_arr); ly = np.log1p(y_arr)
-            # Pesos proporcionales al R² individual de cada modelo
-            # Cada agente contribuye según su desempeño demostrado en CV
-            total_r2 = r2_ml + r2_log_lstm
-            w_xgb   = r2_ml / total_r2
-            w_lstm  = r2_log_lstm / total_r2
-            ens_log = w_xgb * lxgb + w_lstm * llst
-            ens_raw = np.expm1(ens_log)
-            r2_ens  = r2_score(ly, ens_log)
-            mae_ens = mean_absolute_error(y_arr, ens_raw)
-            print(f"   [Ensemble] w_xgb={w_xgb:.3f}  w_lstm={w_lstm:.3f}  "
-                  f"R²={r2_ens*100:.2f}%  MAE={mae_ens:.4f}  (n={len(ens_y)})")
-        else:
-            w_xgb   = 0.5
-            r2_ens  = (r2_ml + r2_log_lstm) / 2
-            mae_ens = (mae_ml + mae) / 2
-            print("   [Ensemble] Fallback: pesos iguales (pocas filas comunes)")
-
-        metrics = {
-            "records_procesados": int(n_rec),
-            "r2_xgb":            round(r2_ml, 4),
-            "mae_xgb":           round(mae_ml, 4),
-            "r2_lstm":           round(r2_log_lstm, 4),
-            "mae_lstm":          round(mae, 4),
-            "r2_ensemble":       round(r2_ens, 4),
-            "mae_ensemble":      round(mae_ens, 4),
-            "ensemble_w_xgb":    round(w_xgb, 4),
-            "ensemble_w_lstm":   round(1.0 - w_xgb, 4),
-        }
-        with open(os.path.join(self.model_dir, "metrics.json"), "w") as f:
-            json.dump(metrics, f, indent=4)
-
-        # Subir todo a S3
+        # Subir artefactos propios a S3 (el metrics.json final lo arma el Agente 5,
+        # combinando este resultado con el del Agente 3)
         for fname in ["lstm_model.pth", "escalador_lstm.pkl", "lstm_features.pkl",
-                      "lstm_config.json", "metrics.json"]:
+                      "lstm_config.json"]:
             s3.upload(os.path.join(self.model_dir, fname), s3.PREFIX_MODELOS + fname)
 
         print("SUCCESS: [Agente 4] LSTM entrenado y subido a S3.")
         print("=" * 70)
 
-        return {"r2_lstm": round(r2_log_lstm, 4), "mae_lstm": round(mae, 4)}
+        return {"r2_lstm": round(r2_log_lstm, 4), "mae_lstm": round(mae, 4),
+                "rmse_lstm": round(rmse_lstm, 4), "n_test": len(y_test),
+                "lstm_test_lookup": lstm_test_lookup}
 
     # ─────────────────────────────────────────────────────────────
     # MODO INFERENCIA
